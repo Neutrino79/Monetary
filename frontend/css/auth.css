@@ -1,0 +1,26 @@
+.auth-shell {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: var(--sp-5); background: var(--paper-sunken);
+}
+.auth-card { width: 100%; max-width: 400px; }
+.auth-brand { display: flex; align-items: center; gap: var(--sp-3); justify-content: center; margin-bottom: var(--sp-6); }
+.auth-brand__mark { width: 40px; height: 40px; border-radius: var(--r-md); background: var(--ink); color: var(--paper); display: flex; align-items: center; justify-content: center; font-family: var(--font-ledger); font-weight: 600; font-size: 19px; }
+.auth-brand__text { font-weight: 600; font-size: 17px; }
+.auth-brand__sub { font-size: 11.5px; color: var(--ink-faint); }
+.auth-panel { background: var(--paper-raised); border: 1px solid var(--line); border-radius: var(--r-lg); padding: var(--sp-7) var(--sp-6); box-shadow: var(--shadow-md); }
+.auth-panel h1 { font-size: 19px; margin-bottom: 4px; }
+.auth-panel__desc { font-size: 12.8px; color: var(--ink-faint); margin-bottom: var(--sp-6); }
+.auth-form-field { margin-bottom: var(--sp-4); }
+.auth-form-field label { display: block; font-size: 12.5px; font-weight: 600; color: var(--ink-soft); margin-bottom: 6px; }
+.auth-error-banner {
+  display: flex; align-items: center; gap: 8px; background: var(--danger-soft); color: var(--danger);
+  border-radius: var(--r-md); padding: var(--sp-3); font-size: 12.8px; margin-bottom: var(--sp-4);
+}
+.auth-demo-hint {
+  background: var(--info-soft); color: var(--info); border-radius: var(--r-md); padding: var(--sp-3);
+  font-size: 12px; margin-bottom: var(--sp-5); line-height: 1.6;
+}
+.auth-footer-link { text-align: center; font-size: 12.8px; color: var(--ink-faint); margin-top: var(--sp-5); }
+.auth-footer-link a, .auth-inline-link { color: var(--ink); font-weight: 600; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; background: none; border: none; padding: 0; font-size: inherit; }
+.auth-back-link { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; color: var(--ink-faint); margin-bottom: var(--sp-4); background: none; border: none; padding: 0; cursor: pointer; }
+.auth-back-link:hover { color: var(--ink); }

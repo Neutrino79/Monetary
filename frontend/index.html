@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Khata — Personal Expense Manager</title>
+<meta name="description" content="A production-quality UI prototype for a personal double-entry expense management application." />
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>₹</text></svg>" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=Spectral:wght@400;500;600&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/tokens.css" />
+<link rel="stylesheet" href="css/base.css" />
+<link rel="stylesheet" href="css/layout.css" />
+<link rel="stylesheet" href="css/components.css" />
+<link rel="stylesheet" href="css/pages.css" />
+<link rel="stylesheet" href="css/auth.css" />
+</head>
+<body>
+<div id="app-root">
+  <!-- Loading shell shown before app.js boots -->
+  <div style="display:flex;align-items:center;justify-content:center;height:100vh;color:#8B93A0;font-family:'IBM Plex Sans',sans-serif;font-size:13px">Loading Khata…</div>
+</div>
+
+<!-- core -->
+<script src="js/core/format.js"></script>
+<script src="js/core/validate.js"></script>
+<script src="js/data/mockData.js"></script>
+<script src="js/core/state.js"></script>
+<script src="js/core/mockApi.js"></script>
+<script src="js/core/auth.js"></script>
+
+<!-- ui primitives -->
+<script src="js/ui/icons.js"></script>
+<script src="js/ui/entityVisuals.js"></script>
+<script src="js/ui/chart.js"></script>
+<script src="js/ui/toast.js"></script>
+<script src="js/ui/modal.js"></script>
+
+<!-- routing + shared feature modules -->
+<script src="js/router.js"></script>
+<script src="js/shared/transactionForm.js"></script>
+<script src="js/shared/txnDetail.js"></script>
+<script src="js/shared/txnList.js"></script>
+
+<!-- pages -->
+<script src="js/pages/login.js"></script>
+<script src="js/pages/signup.js"></script>
+<script src="js/pages/forgotPassword.js"></script>
+<script src="js/pages/dashboard.js"></script>
+<script src="js/pages/transactions.js"></script>
+<script src="js/pages/income.js"></script>
+<script src="js/pages/expenses.js"></script>
+<script src="js/pages/transfers.js"></script>
+<script src="js/pages/splits.js"></script>
+<script src="js/pages/friends.js"></script>
+<script src="js/pages/accounts.js"></script>
+<script src="js/pages/categories.js"></script>
+<script src="js/pages/reports.js"></script>
+<script src="js/pages/settings.js"></script>
+
+<!-- app shell (last: wires everything together) -->
+<script src="js/app.js"></script>
+<script>
+  document.addEventListener("DOMContentLoaded", function () { App.init(); });
+</script>
+</body>
+</html>
