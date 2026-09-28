@@ -1,0 +1,228 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* ============================================================================
+   Raw semantic tokens — plain CSS custom properties, redefined per theme.
+   These are the single source of truth; @theme below just exposes them as
+   Tailwind utilities (bg-accent, text-ink, etc). Switching [data-theme] or
+   the OS preference re-points every utility automatically, with no JS
+   needed beyond toggling the attribute.
+   ========================================================================= */
+:root {
+  color-scheme: light;
+
+  --paper: #fbfaf6;
+  --paper-raised: #ffffff;
+  --paper-sunken: #f3f1ea;
+  --ink: #171b22;
+  --ink-soft: #565f6d;
+  --ink-faint: #8b93a0;
+  --line: #e5e1d6;
+  --line-strong: #d3cdbc;
+
+  --accent: #1f6d4c; /* income / positive */
+  --accent-soft: #e3f0ea;
+  --accent-ink: #ffffff;
+
+  --negative: #7b2e3a; /* expense / outflow */
+  --negative-soft: #f6e7e9;
+
+  --warn: #8a6a20; /* transfers / neutral movement / budget caution */
+  --warn-soft: #f4edd7;
+
+  --info: #2c6683; /* splits / friends / receivables */
+  --info-soft: #e4eef3;
+
+  --danger: #b23a3a;
+  --danger-soft: #fbeaea;
+
+  --focus-ring: #2c6683;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #12151c;
+  --paper-raised: #191d26;
+  --paper-sunken: #0d1016;
+  --ink: #ebedf1;
+  --ink-soft: #a6aebc;
+  --ink-faint: #6c7684;
+  --line: #262b36;
+  --line-strong: #333a47;
+
+  --accent: #49b98b;
+  --accent-soft: #16342a;
+  --accent-ink: #0a1f17;
+
+  --negative: #e28b96;
+  --negative-soft: #35181c;
+
+  --warn: #d9b24c;
+  --warn-soft: #332a11;
+
+  --info: #6fb4d6;
+  --info-soft: #102733;
+
+  --danger: #e27070;
+  --danger-soft: #331414;
+
+  --focus-ring: #6fb4d6;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #12151c;
+    --paper-raised: #191d26;
+    --paper-sunken: #0d1016;
+    --ink: #ebedf1;
+    --ink-soft: #a6aebc;
+    --ink-faint: #6c7684;
+    --line: #262b36;
+    --line-strong: #333a47;
+    --accent: #49b98b;
+    --accent-soft: #16342a;
+    --accent-ink: #0a1f17;
+    --negative: #e28b96;
+    --negative-soft: #35181c;
+    --warn: #d9b24c;
+    --warn-soft: #332a11;
+    --info: #6fb4d6;
+    --info-soft: #102733;
+    --danger: #e27070;
+    --danger-soft: #331414;
+    --focus-ring: #6fb4d6;
+  }
+}
+
+/* ============================================================================
+   Tailwind theme mapping — expose the tokens above as utilities:
+   bg-paper, text-ink, border-line, bg-accent-soft, font-ledger, etc.
+   ========================================================================= */
+@theme {
+  --font-ui: "IBM Plex Sans", -apple-system, "Segoe UI", sans-serif;
+  --font-ledger: "Spectral", Georgia, serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-paper-sunken: var(--paper-sunken);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-ink: var(--accent-ink);
+
+  --color-negative: var(--negative);
+  --color-negative-soft: var(--negative-soft);
+
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+
+  --color-info: var(--info);
+  --color-info-soft: var(--info-soft);
+
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --color-focus-ring: var(--focus-ring);
+
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+
+  --sidebar-width: 15.25rem;
+  --sidebar-width-collapsed: 4.75rem;
+  --topbar-height: 4rem;
+}
+
+/* ============================================================================
+   Base element styles
+   ========================================================================= */
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-padding-top: env(safe-area-inset-top, 0px);
+    overflow-x: hidden;
+  }
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    margin: 0;
+    font-family: var(--font-ui);
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 14.5px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    overflow-x: hidden;
+  }
+  button {
+    cursor: pointer;
+  }
+  .num,
+  .ledger-figure {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  .ledger-figure {
+    font-family: var(--font-ledger);
+    font-weight: 500;
+  }
+  :focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  ::selection {
+    background: var(--accent-soft);
+    color: var(--ink);
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 999px;
+    border: 2px solid var(--paper);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  .skeleton {
+    background: linear-gradient(90deg, var(--paper-sunken) 25%, var(--line) 37%, var(--paper-sunken) 63%);
+    background-size: 400% 100%;
+    animation: skeleton-loading 1.4s ease infinite;
+  }
+  @keyframes skeleton-loading {
+    0% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0 50%;
+    }
+  }
+}
