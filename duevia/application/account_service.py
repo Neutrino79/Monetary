@@ -1,7 +1,6 @@
 """Account application service. Real accounts and categories are both `account`
 rows (account_type ASSET/LIABILITY vs EXPENSE/INCOME) -- this service covers
-both, matching how the CLI's `account` and `category` command groups both end
-up here under the hood."""
+both."""
 
 from __future__ import annotations
 
@@ -91,6 +90,11 @@ def create_category(conn, *, name, category_type, parent_id=None, budget_limit_m
                                    "child (only one level of hierarchy is supported).")
         if not parent["is_active"]:
             raise ValidationError(f"Parent category {parent['name']!r} is inactive.")
+        if parent["account_type"] != ctype.value:
+            raise ValidationError(
+                f"Parent category {parent['name']!r} is {parent['account_type']}; "
+                f"a {ctype.value} category cannot be nested under it."
+            )
 
     if repo.account_name_exists(conn, ctype.value, name.strip()):
         raise ValidationError(f"A category named {name.strip()!r} already exists.")
@@ -103,11 +107,11 @@ def create_category(conn, *, name, category_type, parent_id=None, budget_limit_m
         if parent_id is not None:
             raise ValidationError("budget_limit is only allowed on root categories.")
         if not currency:
-            raise ValidationError("--currency is required when setting a budget_limit.")
+            raise ValidationError("currency is required when setting a budget_limit.")
         budget_limit_points = Money.from_major_units(budget_limit_major, currency).points
 
     if currency is None:
-        raise ValidationError("--currency is required when creating a category.")
+        raise ValidationError("currency is required when creating a category.")
 
     return repo.create_account(
         conn, name=name.strip(), account_type=ctype.value, currency_code=currency,

@@ -73,7 +73,7 @@ def record_income(conn, owner, *, account_id, category_id, amount_major, descrip
     if account["account_type"] == AccountType.LIABILITY.value:
         raise ValidationError(
             "A liability account (e.g. a credit card) can't receive genuine income directly. "
-            "Use 'transfer create' to pay it down from an asset account instead."
+            "Use 'POST /transfers' to pay it down from an asset account instead."
         )
     _require_category(conn, category_id, AccountType.INCOME, currency_to_match=account["currency_code"])
     money = Money.from_major_units(amount_major, account["currency_code"])
@@ -177,9 +177,9 @@ def edit_expense_or_income(conn, owner, entry_id, *, account_id=None, category_i
     if entry["status"] == "REVERSED":
         raise ConflictError(f"Entry {entry_id} has already been reversed/replaced.")
     if entry["entry_type"] not in _SIMPLE_TYPES:
-        hint = ("'split edit'" if entry["entry_type"] in ("SPLIT", "FRONTED")
-                else "'transfer edit'" if entry["entry_type"] == "TRANSFER"
-                else "a dedicated command for that type (not yet supported)")
+        hint = ("'PATCH /splits/{id}'" if entry["entry_type"] in ("SPLIT", "FRONTED")
+                else "'PATCH /transfers/{id}'" if entry["entry_type"] == "TRANSFER"
+                else "a dedicated endpoint for that type (not yet supported)")
         raise ValidationError(f"Entry {entry_id} is a {entry['entry_type']} entry; use {hint}.")
 
     legs = ledger_service.legs_for_entry(conn, entry_id)
@@ -256,9 +256,9 @@ def delete_entry(conn, owner, entry_id) -> None:
     if entry["status"] == "REVERSED":
         raise ConflictError(f"Entry {entry_id} is already reversed.")
     if entry["entry_type"] not in _SIMPLE_TYPES:
-        hint = ("'split delete'" if entry["entry_type"] in ("SPLIT", "FRONTED")
-                else "'transfer delete'" if entry["entry_type"] == "TRANSFER"
-                else "a dedicated command for that type (not yet supported)")
+        hint = ("'DELETE /splits/{id}'" if entry["entry_type"] in ("SPLIT", "FRONTED")
+                else "'DELETE /transfers/{id}'" if entry["entry_type"] == "TRANSFER"
+                else "a dedicated endpoint for that type (not yet supported)")
         raise ValidationError(f"Entry {entry_id} is a {entry['entry_type']} entry; use {hint}.")
     policy = get_edit_policy(owner["ledger_mode"])
     policy.delete(conn, entry_id)

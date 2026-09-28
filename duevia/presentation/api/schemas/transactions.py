@@ -36,9 +36,9 @@ class ExpenseCreate(BaseModel):
     account_id: int
     category_id: int
     amount: str = Field(description="Major units, e.g. '249.99'")
-    title: str
+    title: str = Field(min_length=1, max_length=500)
     date: str | None = Field(default=None, description="'YYYY-MM-DD' or 'YYYY-MM-DD HH:MM', local time")
-    note: str | None = None
+    note: str | None = Field(default=None, max_length=2000)
 
 
 class IncomeCreate(ExpenseCreate):
@@ -50,27 +50,27 @@ class RefundCreate(BaseModel):
     amount: str
     account_id: int | None = None
     category_id: int | None = None
-    title: str | None = None
+    title: str | None = Field(default=None, max_length=500)
     date: str | None = None
-    note: str | None = None
+    note: str | None = Field(default=None, max_length=2000)
 
 
 class AdjustmentCreate(BaseModel):
     account_id: int
     amount: str
     side: str = Field(pattern="^(DEBIT|CREDIT)$")
-    title: str
+    title: str = Field(min_length=1, max_length=500)
     date: str | None = None
-    note: str | None = None
+    note: str | None = Field(default=None, max_length=2000)
 
 
 class TransactionEdit(BaseModel):
     account_id: int | None = None
     category_id: int | None = None
     amount: str | None = None
-    title: str | None = None
+    title: str | None = Field(default=None, max_length=500)
     date: str | None = None
-    note: str | None = None
+    note: str | None = Field(default=None, max_length=2000)
 
 
 class ShareIn(BaseModel):
@@ -82,19 +82,19 @@ class SplitCreate(BaseModel):
     account_id: int
     category_id: int
     owner_share: str = Field(description="Your own share, major units -- can be '0'")
-    friend_shares: list[ShareIn]
-    title: str
+    friend_shares: list[ShareIn] = Field(min_length=1)
+    title: str = Field(min_length=1, max_length=500)
     date: str | None = None
-    note: str | None = None
+    note: str | None = Field(default=None, max_length=2000)
 
 
 class FrontedCreate(BaseModel):
     category_id: int
     friend_id: int
     amount: str
-    title: str
+    title: str = Field(min_length=1, max_length=500)
     date: str | None = None
-    note: str | None = None
+    note: str | None = Field(default=None, max_length=2000)
 
 
 class SplitEdit(BaseModel):
@@ -104,9 +104,9 @@ class SplitEdit(BaseModel):
     friend_shares: list[ShareIn] | None = None
     friend_id: int | None = None
     amount: str | None = None
-    title: str | None = None
+    title: str | None = Field(default=None, max_length=500)
     date: str | None = None
-    note: str | None = None
+    note: str | None = Field(default=None, max_length=2000)
     force: bool = False
     remove_settlements: bool = False
 
@@ -132,7 +132,7 @@ class TransferCreate(BaseModel):
     from_account_id: int
     to_account_id: int
     amount: str
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=500)
     date: str | None = None
 
 
@@ -140,7 +140,7 @@ class TransferEdit(BaseModel):
     from_account_id: int | None = None
     to_account_id: int | None = None
     amount: str | None = None
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=500)
     date: str | None = None
 
 
@@ -148,15 +148,15 @@ class SettlementCreate(BaseModel):
     friend_id: int
     account_id: int
     amount: str
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=500)
     date: str | None = None
-    note: str | None = None
+    note: str | None = Field(default=None, max_length=2000)
 
 
 class SettlementEdit(BaseModel):
     friend_id: int | None = None
     account_id: int | None = None
     amount: str | None = None
-    description: str | None = None
+    description: str | None = Field(default=None, max_length=500)
     date: str | None = None
-    note: str | None = None
+    note: str | None = Field(default=None, max_length=2000)

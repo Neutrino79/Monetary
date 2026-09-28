@@ -37,6 +37,8 @@ class LedgerIntent:
                                      # expense-account posting to derive it from
 
     def __post_init__(self):
+        if not self.description or not self.description.strip():
+            raise ValidationError("A journal entry needs a non-empty description.")
         if len(self.legs) < 2:
             raise ValidationError("A journal entry needs at least two legs.")
         assert_balanced(self.legs, self.currency_code)

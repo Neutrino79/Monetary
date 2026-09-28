@@ -8,7 +8,13 @@ from fastapi.security import OAuth2PasswordRequestForm
 from duevia.application import user_service
 from duevia.config import API_PREFIX
 from duevia.domain.security import SECURITY_QUESTIONS
-from duevia.presentation.api.deps import get_current_owner, get_db, oauth2_scheme
+from duevia.presentation.api.deps import (
+    enforce_login_rate_limit,
+    enforce_password_reset_rate_limit,
+    get_current_owner,
+    get_db,
+    oauth2_scheme,
+)
 from duevia.presentation.api.schemas.auth import (
     ChangePasswordRequest,
     ResetPasswordRequest,
@@ -27,14 +33,15 @@ def list_security_questions():
     return [SecurityQuestionOut(id=k, text=v) for k, v in SECURITY_QUESTIONS.items()]
 
 
-@router.post("/login", response_model=TokenOut)
+@router.post("/login", response_model=TokenOut, dependencies=[Depends(enforce_login_rate_limit)])
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),
     conn: sqlite3.Connection = Depends(get_db),
 ):
     """Standard OAuth2 password-flow shape (form-encoded, not JSON) -- this
     specific shape is what Swagger's Authorize dialog knows how to call
-    automatically. `username` is your email."""
+    automatically. `username` is your email. Rate-limited per client IP to
+    slow down credential-stuffing/brute-force attempts."""
     _owner, token = user_service.login(conn, email=form_data.username, password=form_data.password)
     return TokenOut(access_token=token)
 
@@ -61,15 +68,25 @@ def change_password(
     return MessageOut(detail="Password changed. Every session has been invalidated; log in again.")
 
 
-@router.get("/security-question", response_model=SecurityQuestionForEmailOut)
+@router.get(
+    "/security-question",
+    response_model=SecurityQuestionForEmailOut,
+    dependencies=[Depends(enforce_password_reset_rate_limit)],
+)
 def get_security_question(email: str, conn: sqlite3.Connection = Depends(get_db)):
     """Public, part of the forgot-password flow -- step 1: look up which
-    question this account uses (not the answer)."""
+    question this account uses (not the answer). Rate-limited: this endpoint
+    inherently confirms whether an email has an account (needed to ask the
+    right question), so it's throttled per-IP to slow down enumeration."""
     qid, text = user_service.get_security_question(conn, email)
     return SecurityQuestionForEmailOut(security_question_id=qid, question=text)
 
 
-@router.post("/reset-password", response_model=MessageOut)
+@router.post(
+    "/reset-password",
+    response_model=MessageOut,
+    dependencies=[Depends(enforce_password_reset_rate_limit)],
+)
 def reset_password(payload: ResetPasswordRequest, conn: sqlite3.Connection = Depends(get_db)):
     """Public, part of the forgot-password flow -- step 2: answer the question
     to set a new password. No auth required (that's the whole point of a

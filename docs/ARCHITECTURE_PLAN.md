@@ -8,11 +8,14 @@ CLI-only system and an earlier schema.
 
 Duevia 0.5.0 is a pre-release Python application for personal expense tracking,
 double-entry bookkeeping, friend expense splitting, settlements, and reporting.
-It has two presentation interfaces over the same domain and application
-services:
+It is delivered as a single presentation interface:
 
-- **FastAPI REST API** for browser and UI clients
-- **CLI** for direct terminal use
+- **FastAPI REST API** for browser, script, and UI clients
+
+A CLI existed in earlier versions but has been removed; the API is now the
+only supported way to interact with the application. Nothing in the domain
+or application layers changed as a result -- they were always presentation-
+agnostic, so dropping one adapter had zero effect on business logic.
 
 The application uses:
 
@@ -29,15 +32,14 @@ The SQLite database is created automatically at:
 ~/.duevia_0.5/expense.db
 ```
 
-The path can be overridden with `DUEVIA_DB_PATH` or the CLI's global
-`--db-path` option.
+The path can be overridden with `DUEVIA_DB_PATH`.
 
 Project-facing metadata and runtime names are centralized in
 `duevia/config.py`. This module defines the display name, Python package name,
-CLI name, version, database environment variable, CORS environment variable,
-and default database path. Future product-name changes should update that
-module first, then rename the Python package directory and update the
-documentation examples.
+version, API prefix, database environment variable, CORS environment
+variable, environment name, docs-exposure toggle, and default database path.
+Future product-name changes should update that module first, then rename the
+Python package directory and update the documentation examples.
 
 ## 2. Runtime entry points
 
@@ -64,40 +66,15 @@ Important endpoints:
 - `POST /api/v0.5/setup/init`
 - `POST /api/v0.5/auth/login`
 
-### CLI application
-
-The CLI entry point is:
-
-```text
-duevia/__main__.py
-```
-
-It delegates to:
-
-```text
-duevia/presentation/cli.py
-```
-
-Run it with:
-
-```bash
-export PYTHONPATH="$PWD"
-python -m duevia --help
-```
-
-The CLI connects directly to SQLite and does not require an API login.
-Complete command documentation is in [`CLI_COMMANDS.md`](CLI_COMMANDS.md).
-
 ## 3. Layered architecture
 
 The code follows a lightweight Ports and Adapters / Hexagonal Architecture
 with four practical layers.
 
 ```text
-FastAPI routers ─┐
-                 ├── application services ─── domain model
-CLI commands ────┘             │
-                               └── repositories ─── SQLite
+FastAPI routers ─── application services ─── domain model
+                                 │
+                                 └── repositories ─── SQLite
 ```
 
 ### 3.1 Domain layer
@@ -212,17 +189,22 @@ Location:
 duevia/presentation/
 ```
 
-The CLI translates command-line arguments into application-service calls.
-The API translates HTTP requests into the same application-service calls.
-Business rules are not duplicated in either presentation adapter.
+The API translates HTTP requests into application-service calls; business
+rules never live in this layer.
 
 The API includes:
 
 - Routers for setup, authentication, owner, accounts, friends, transactions,
   splits, transfers, settlements, and reports
-- Pydantic request/response schemas
-- Domain error handlers with a consistent error response
-- CORS configuration through `DUEVIA_CORS_ORIGINS`
+- Pydantic request/response schemas, with field-level length/format limits
+- Domain error handlers with a consistent error response, plus a catch-all
+  handler so unexpected exceptions never leak internals to a client
+- CORS configuration through `DUEVIA_CORS_ORIGINS` (default: no origins
+  allowed; `*` disables credentialed requests automatically)
+- Per-IP rate limiting on login and password-reset endpoints
+  (`duevia/infrastructure/rate_limiter.py`)
+- Baseline security headers and environment-gated API docs
+  (`DUEVIA_ENV`, `DUEVIA_ENABLE_DOCS`)
 
 ## 4. Domain and ledger model
 
@@ -476,7 +458,7 @@ CREATE INDEX idx_session_owner ON session(owner_id);
 
 ### Ordinary expense
 
-1. The CLI or API validates the account, category, amount, and currency.
+1. The API validates the account, category, amount, and currency.
 2. `transaction_service` creates a simple posting strategy intent.
 3. The category receives a debit.
 4. The asset/liability account receives the balancing credit.
@@ -550,8 +532,9 @@ Both modes preserve the debit-credit balance invariant. Mode changes affect
 future operations; they do not rewrite old entries.
 
 Split edit/delete operations additionally protect against changing a
-participant relationship after settlement history exists. The CLI provides
-`--force` and `--remove-settlements` for explicit override behavior.
+participant relationship after settlement history exists. The API accepts
+`force` and `remove_settlements` query/body parameters for explicit override
+behavior.
 
 ## 9. Validation and error handling
 
@@ -577,8 +560,9 @@ The API maps domain exceptions to structured responses:
 }
 ```
 
-The CLI rolls back the current SQLite transaction and prints an error to
-stderr when a domain, money, value, or SQLite constraint error occurs.
+The per-request database connection (`presentation/api/deps.py::get_db`)
+rolls back automatically whenever a domain, money, value, or SQLite
+constraint error is raised while handling a request.
 
 ## 10. API authentication
 
@@ -590,8 +574,7 @@ logins use the owner's email and password. Sessions:
 - Expire after seven days
 - Can be invalidated by logout or password change
 
-Passwords and security answers are stored as bcrypt hashes. The CLI itself
-does not authenticate because it runs against the local database.
+Passwords and security answers are stored as bcrypt hashes.
 
 ## 11. Configuration
 
@@ -607,8 +590,21 @@ export DUEVIA_DB_PATH="$PWD/data/expense.db"
 export DUEVIA_CORS_ORIGINS="http://localhost:8501,http://localhost:3000"
 ```
 
-The default is `*` for local development. It should be restricted before
-non-local deployment.
+The default is no allowed origins at all (server-to-server calls are
+unaffected; only browser-based clients are subject to CORS). `*` is accepted
+for a public API, but credentialed requests are then disabled automatically,
+since wildcard origin + credentials is invalid per the CORS spec.
+
+### Environment / docs exposure
+
+```bash
+export DUEVIA_ENV=development       # or "production" (default)
+export DUEVIA_ENABLE_DOCS=true      # force /docs, /redoc, /openapi.json on or off
+```
+
+`/docs`, `/redoc`, and `/openapi.json` are served by default only in
+`development`; `production` (the default) disables them unless
+`DUEVIA_ENABLE_DOCS=true` is set explicitly.
 
 ## 12. Project naming and future renames
 
@@ -618,7 +614,6 @@ The current product name is **Duevia**:
 |---|---|
 | Display name | `Duevia` |
 | Python package | `duevia` |
-| CLI module command | `python -m duevia` |
 | API import path | `duevia.presentation.api.app:app` |
 | Application version | `0.5.0` |
 | API route prefix | `/api/v0.5` |
@@ -647,7 +642,6 @@ configuration names have one source of truth.
 ├── docs/
 │   ├── ARCHITECTURE_PLAN.md
 │   ├── API_README.md
-│   ├── CLI_COMMANDS.md
 │   └── LIVE_SCHEMA.sql
 ├── README.md
 └── requirements.txt
@@ -656,6 +650,5 @@ configuration names have one source of truth.
 ## 14. Related documentation
 
 - [`README.md`](../README.md): installation and application startup
-- [`CLI_COMMANDS.md`](CLI_COMMANDS.md): complete CLI command reference
 - [`API_README.md`](API_README.md): API endpoints and authentication
 - [`LIVE_SCHEMA.sql`](LIVE_SCHEMA.sql): complete generated SQLite schema

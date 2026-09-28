@@ -19,3 +19,7 @@ class OwnershipError(DomainError):
 
 class ConflictError(DomainError):
     """The requested operation conflicts with current state."""
+
+
+class RateLimitError(DomainError):
+    """Too many requests for a rate-limited operation (e.g. login attempts)."""

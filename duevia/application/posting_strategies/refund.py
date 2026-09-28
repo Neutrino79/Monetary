@@ -1,8 +1,8 @@
 """Posting strategy for refunds. Always linked to the original expense entry via
-refund_of_id — the CLI requires this by default (§6 of the architecture plan).
-The same two-leg shape works whether real_account_id is an ASSET (refund adds
-cash) or a LIABILITY (refund reduces what you owe) — the per-account-type
-normal_side convention makes that automatic, no special-casing needed.
+refund_of_id (required). The same two-leg shape works whether real_account_id is
+an ASSET (refund adds cash) or a LIABILITY (refund reduces what you owe) — the
+per-account-type normal_side convention makes that automatic, no special-casing
+needed.
 """
 
 from __future__ import annotations

@@ -85,12 +85,14 @@ CREATE INDEX IF NOT EXISTS idx_account_parent         ON account(parent_account_
 CREATE INDEX IF NOT EXISTS idx_account_counterparty   ON account(counterparty_user_id);
 CREATE INDEX IF NOT EXISTS idx_entry_date             ON journal_entry(entry_date);
 CREATE INDEX IF NOT EXISTS idx_entry_status           ON journal_entry(status);
+CREATE INDEX IF NOT EXISTS idx_entry_type             ON journal_entry(entry_type);
 CREATE INDEX IF NOT EXISTS idx_entry_refund_of        ON journal_entry(refund_of_id);
 CREATE INDEX IF NOT EXISTS idx_entry_category         ON journal_entry(category_id);
 CREATE INDEX IF NOT EXISTS idx_posting_entry          ON posting(journal_entry_id);
 CREATE INDEX IF NOT EXISTS idx_posting_account        ON posting(account_id);
 CREATE INDEX IF NOT EXISTS idx_session_owner          ON session(owner_id);
 CREATE INDEX IF NOT EXISTS idx_session_expires        ON session(expires_at);
+CREATE INDEX IF NOT EXISTS idx_session_token_hash     ON session(token_hash);
 """
 
 
@@ -100,6 +102,11 @@ def connect(db_path: str | Path | None = None) -> sqlite3.Connection:
     conn = sqlite3.connect(str(path))
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
+    # WAL lets concurrent readers proceed while a request holds a write
+    # transaction -- important once this is the only interface (API traffic
+    # is concurrent by nature, unlike the old single-shot CLI process).
+    conn.execute("PRAGMA journal_mode = WAL;")
+    conn.execute("PRAGMA busy_timeout = 5000;")
     conn.executescript(SCHEMA)
     conn.commit()
     return conn

@@ -429,7 +429,10 @@ def hard_delete_account(conn, account_id) -> None:
 
 
 def friend_open_balance_accounts(conn) -> list[dict]:
-    """Every friend's DUE account with a non-zero balance, joined with their name."""
+    """Every friend's DUE account, joined with their name -- despite the name,
+    this does NOT filter by balance (callers, e.g. statement_service.friend_balances,
+    get every friend including ones currently settled at zero; the zero-balance
+    row is meaningful to a UI, e.g. "Rahul: 0.00 (settled up)")."""
     return _rows(conn.execute(
         """SELECT a.*, u.name AS friend_name, u.email AS friend_email
            FROM account a JOIN user u ON u.id = a.counterparty_user_id

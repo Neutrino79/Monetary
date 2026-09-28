@@ -8,7 +8,7 @@ class InitRequest(BaseModel):
     email: EmailStr
     currency: str = Field(min_length=3, max_length=3)
     timezone: str | None = None
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=8, max_length=128)
     security_question_id: int = Field(ge=1, le=5)
     security_answer: str
 

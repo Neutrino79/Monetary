@@ -142,8 +142,8 @@ def _require_split_entry(conn, entry_id) -> dict:
 def split_composition(conn, entry_id) -> dict:
     """Derives the full picture directly from postings: owner's share (from the
     expense-account leg, 0 if there wasn't one) and every friend's share (from
-    each DUE-account leg) -- this is what makes `split show` able to display
-    the owner's own share, unlike the old split_participant-backed version.
+    each DUE-account leg) -- this is what makes 'GET /splits/{id}' able to
+    display the owner's own share.
 
     Note: for a FRONTED entry, the category leg represents the *total* spend,
     all of it covered by the friend's payment -- the owner's own share is
@@ -219,8 +219,8 @@ def _check_settlement_conflicts(conn, owner, due_account_ids, *, force, remove_s
     )
     raise ConflictError(
         f"This split involves friends with existing settlement history: {names}. "
-        "Pass force=True to edit/delete anyway (their balance will simply reflect the new "
-        "numbers), or remove_settlements=True to also remove those settlements first."
+        "Pass force=true to edit/delete anyway (their balance will simply reflect the new "
+        "numbers), or remove_settlements=true to also remove those settlements first."
     )
 
 
@@ -237,8 +237,8 @@ def edit_split(conn, owner, entry_id, *, account_id=None, category_id=None,
     existing entry (STRICT mode: via reversal; DIRECT mode: in place)."""
     entry = _require_split_entry(conn, entry_id)
     if entry["entry_type"] != EntryType.SPLIT.value:
-        raise ValidationError(f"Entry {entry_id} is FRONTED, not SPLIT; use the same command -- "
-                               f"it auto-detects the type, but this branch shouldn't be reached.")
+        raise ValidationError(f"Entry {entry_id} is FRONTED, not SPLIT; edit it via the fronted "
+                               f"fields instead.")
     if entry["status"] == "REVERSED":
         raise ConflictError(f"Entry {entry_id} has already been reversed/replaced.")
 
@@ -287,8 +287,8 @@ def edit_fronted_expense(conn, owner, entry_id, *, category_id=None, friend_id=N
     and/or the amount."""
     entry = _require_split_entry(conn, entry_id)
     if entry["entry_type"] != EntryType.FRONTED.value:
-        raise ValidationError(f"Entry {entry_id} is SPLIT, not FRONTED; use split edit's account/"
-                               f"owner-share/friend-shares parameters instead.")
+        raise ValidationError(f"Entry {entry_id} is SPLIT, not FRONTED; edit it via the split "
+                               f"account/owner-share/friend-shares fields instead.")
     if entry["status"] == "REVERSED":
         raise ConflictError(f"Entry {entry_id} has already been reversed/replaced.")
 
@@ -322,7 +322,7 @@ def edit_fronted_expense(conn, owner, entry_id, *, category_id=None, friend_id=N
 
 def edit(conn, owner, entry_id, **kwargs) -> dict:
     """Dispatches to edit_split or edit_fronted_expense based on the entry's
-    actual type, so the CLI can expose one `split edit` command for both."""
+    actual type, so a single API endpoint can accept either shape."""
     entry = _require_split_entry(conn, entry_id)
     if entry["entry_type"] == EntryType.SPLIT.value:
         return edit_split(conn, owner, entry_id, **kwargs)

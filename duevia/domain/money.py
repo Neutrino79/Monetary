@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+_MAX_AMOUNT_STR_LEN = 32  # guards against absurdly long input before int() parsing
+
 
 class MoneyError(ValueError):
     pass
@@ -37,6 +39,8 @@ class Money:
         s = str(amount_str).strip()
         if not s:
             raise MoneyError("Amount is required.")
+        if len(s) > _MAX_AMOUNT_STR_LEN:
+            raise MoneyError("Amount is too long to be a valid monetary value.")
         if s.startswith("-"):
             raise MoneyError("Amount must be positive.")
         if s.startswith("+"):

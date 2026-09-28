@@ -1,7 +1,8 @@
 """User application service: bootstrapping the single owner, managing friends
 (each of whom gets an auto-created DUE account), and owner-only settings
 (timezone, ledger_mode). No layer here commits/rolls back the connection --
-that's owned once, at the very end, by presentation/cli.py::main()."""
+that's owned once, at the very end, by the API's per-request dependency
+(presentation/api/deps.py::get_db)."""
 
 from __future__ import annotations
 
@@ -10,6 +11,7 @@ from datetime import datetime, timedelta, timezone as dt_timezone
 from duevia.domain.enums import AccountType, LedgerMode, as_enum
 from duevia.domain.exceptions import ConflictError, NotFoundError, ValidationError
 from duevia.domain.security import (
+    MAX_PASSWORD_LENGTH,
     MIN_PASSWORD_LENGTH,
     SECURITY_QUESTIONS,
     SESSION_TTL_HOURS,
@@ -34,6 +36,8 @@ def _validate_email(email: str) -> str:
 def _validate_password(password: str) -> str:
     if not password or len(password) < MIN_PASSWORD_LENGTH:
         raise ValidationError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.")
+    if len(password) > MAX_PASSWORD_LENGTH:
+        raise ValidationError(f"Password must be at most {MAX_PASSWORD_LENGTH} characters.")
     return password
 
 
@@ -69,7 +73,8 @@ def bootstrap_owner(conn, *, name: str, email: str, timezone: str | None, home_c
         password_hash=hash_password(password), security_question_id=security_question_id,
         security_answer_hash=hash_security_answer(security_answer), now=now,
     )
-    # system Equity:Adjustments account, one-time, used automatically by `transaction adjustment`
+    # system Equity:Adjustments account, one-time, used automatically by the
+    # "adjustment" transaction type
     repo.create_account(
         conn, name="Adjustments", account_type=AccountType.EQUITY.value, currency_code=None,
         is_system=True, now=now,
@@ -81,7 +86,7 @@ def bootstrap_owner(conn, *, name: str, email: str, timezone: str | None, home_c
 def require_owner(conn) -> dict:
     owner = repo.get_superuser(conn)
     if owner is None:
-        raise NotFoundError("No owner found. Run 'init' first to bootstrap the application owner.")
+        raise NotFoundError("No owner found. Call POST /setup/init first to bootstrap the application owner.")
     return owner
 
 
@@ -139,7 +144,7 @@ def get_user_or_raise(conn, user_id: int) -> dict:
 def rename_friend(conn, user_id: int, new_name: str) -> dict:
     friend = get_user_or_raise(conn, user_id)
     if friend["is_superuser"]:
-        raise ConflictError("Use 'owner rename' to rename the application owner.")
+        raise ConflictError("Use 'PATCH /owner' to rename the application owner.")
     if not new_name or not new_name.strip():
         raise ValidationError("New name is required.")
     now = utc_now_iso()

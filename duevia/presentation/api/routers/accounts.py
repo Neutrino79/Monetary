@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, Query
 from duevia.config import API_PREFIX
 
 from duevia.application import account_service
-from duevia.domain.money import format_signed
 from duevia.presentation.api.deps import get_current_owner, get_db
 from duevia.presentation.api.schemas.accounts import (
     AccountBalanceOut,
@@ -16,7 +15,6 @@ from duevia.presentation.api.schemas.accounts import (
     CategoryCreate,
     CategoryOut,
 )
-from duevia.presentation.api.schemas.common import MessageOut
 from duevia.presentation.api.schemas.converters import money_out
 
 router = APIRouter(prefix=API_PREFIX, tags=["accounts"])

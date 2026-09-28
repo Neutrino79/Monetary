@@ -24,6 +24,9 @@ SECURITY_QUESTIONS: dict[int, str] = {
 }
 
 MIN_PASSWORD_LENGTH = 8
+MAX_PASSWORD_LENGTH = 128  # bcrypt silently truncates at 72 bytes; cap input so
+                           # callers get a clear error instead of a confusing
+                           # "your password changed but only the first 72 bytes mattered"
 
 
 def hash_password(password: str) -> str:

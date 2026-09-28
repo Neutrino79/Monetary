@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 
 from duevia.application import statement_service, user_service
 from duevia.config import API_PREFIX
-from duevia.domain.enums import AccountType
+from duevia.domain.exceptions import ConflictError
 from duevia.infrastructure import repositories as repo
 from duevia.presentation.api.deps import get_current_owner, get_db
 from duevia.presentation.api.schemas.common import MessageOut
@@ -24,8 +24,15 @@ router = APIRouter(prefix=f"{API_PREFIX}/friends", tags=["friends"])
 
 def _friend_out(conn, friend: dict) -> FriendOut:
     due = repo.get_due_account_for_friend(conn, friend["id"])
-    return FriendOut(id=friend["id"], name=friend["name"], email=friend["email"],
-                      due_account_id=due["id"] if due else None)
+    if due is None:
+        # Every friend gets a DUE account atomically at creation time (see
+        # user_service.add_friend) -- reaching this means data has drifted
+        # from that invariant. Surface it as a clear 409 instead of letting
+        # response-model validation fail with an opaque 500.
+        raise ConflictError(
+            f"Friend {friend['id']} ({friend['name']}) has no DUE account; data integrity issue."
+        )
+    return FriendOut(id=friend["id"], name=friend["name"], email=friend["email"], due_account_id=due["id"])
 
 
 @router.post("", response_model=FriendOut, status_code=201)
