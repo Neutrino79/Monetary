@@ -12,6 +12,7 @@ line with the real exception for whoever is operating the service.
 from __future__ import annotations
 
 import logging
+import sqlite3
 
 from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
@@ -53,6 +54,23 @@ def register_exception_handlers(app: FastAPI) -> None:
         return JSONResponse(
             status_code=422,
             content=_error_body(exc, "MoneyError"),
+        )
+
+    @app.exception_handler(sqlite3.IntegrityError)
+    async def integrity_error_handler(request: Request, exc: sqlite3.IntegrityError) -> JSONResponse:
+        logger.warning("Integrity error on %s %s: %s", request.method, request.url.path, exc)
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={"detail": "The operation conflicts with existing data (constraint violation).",
+                     "error_type": "ConflictError"},
+        )
+
+    @app.exception_handler(OverflowError)
+    async def overflow_error_handler(request: Request, exc: OverflowError) -> JSONResponse:
+        return JSONResponse(
+            status_code=422,
+            content={"detail": "A numeric value is out of the supported range.",
+                     "error_type": "ValidationError"},
         )
 
     @app.exception_handler(Exception)

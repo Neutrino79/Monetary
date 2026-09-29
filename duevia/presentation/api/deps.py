@@ -18,20 +18,17 @@ from fastapi.security import OAuth2PasswordBearer
 
 from duevia.application import user_service
 from duevia.config import API_PREFIX, database_path_from_environment
-from duevia.domain.exceptions import RateLimitError
 from duevia.infrastructure import db
 from duevia.infrastructure.rate_limiter import (
     login_rate_limiter,
     password_reset_rate_limiter,
 )
 
-DB_PATH = database_path_from_environment()
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{API_PREFIX}/auth/login")
 
 
 def get_db() -> Iterator[sqlite3.Connection]:
-    conn = db.connect(DB_PATH)
+    conn = db.connect(database_path_from_environment())
     try:
         yield conn
         conn.commit()
@@ -51,6 +48,9 @@ def get_current_owner(
     any application/domain code runs."""
     owner = user_service.verify_session(conn, token)
     if owner is None:
+        # verify_session may have purged an expired session; persist that before
+        # the 401 below makes get_db roll the transaction back.
+        conn.commit()
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=f"Invalid or expired session token; log in again via {API_PREFIX}/auth/login.",
@@ -67,14 +67,10 @@ def _client_key(request: Request) -> str:
 
 
 def enforce_login_rate_limit(request: Request) -> None:
-    try:
-        login_rate_limiter.check(_client_key(request))
-    except RateLimitError as exc:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+    # RateLimitError is a DomainError: the shared handler renders it as
+    # 429 {"detail": ..., "error_type": "RateLimitError"}.
+    login_rate_limiter.check(_client_key(request))
 
 
 def enforce_password_reset_rate_limit(request: Request) -> None:
-    try:
-        password_reset_rate_limiter.check(_client_key(request))
-    except RateLimitError as exc:
-        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(exc)) from exc
+    password_reset_rate_limiter.check(_client_key(request))

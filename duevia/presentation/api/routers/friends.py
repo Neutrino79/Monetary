@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 
 from duevia.application import statement_service, user_service
 from duevia.config import API_PREFIX
-from duevia.domain.exceptions import ConflictError
+from duevia.domain.exceptions import ConflictError, NotFoundError
 from duevia.infrastructure import repositories as repo
 from duevia.presentation.api.deps import get_current_owner, get_db
 from duevia.presentation.api.schemas.common import MessageOut
@@ -81,6 +81,9 @@ def friend_statement(
     friend_id: int,
     conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
 ):
+    friend = repo.get_user(conn, friend_id)
+    if friend is None or friend["is_superuser"]:
+        raise NotFoundError(f"Friend {friend_id} not found.")
     due = repo.get_due_account_for_friend(conn, friend_id)
     if due is None:
         return []

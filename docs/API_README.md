@@ -143,6 +143,13 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
 - **Unhandled errors** never leak exception text or stack traces to the client; they're logged
   server-side and returned as a generic `500 InternalError`.
 
+## Testing
+
+`./scripts/check.sh` runs the full test suite (unit + service + API-level,
+~395 tests) plus coverage. See
+[`ROADMAP_AND_KNOWN_ISSUES.md`](ROADMAP_AND_KNOWN_ISSUES.md) for the
+testing guide, the shared sample dataset, known issues, and remaining work.
+
 ## What stayed identical
 
 Every validation rule, every posting strategy, the `STRICT`/`DIRECT` edit-policy dispatch, the

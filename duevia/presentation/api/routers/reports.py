@@ -40,6 +40,8 @@ def _year_month(month: str | None) -> tuple[int | None, int | None]:
     year, m = int(parts[0]), int(parts[1])
     if not (1 <= m <= 12):
         raise ValidationError(f"Invalid month {month!r}: month must be between 01 and 12.")
+    if not (1900 <= year <= 2200):
+        raise ValidationError(f"Invalid month {month!r}: year must be between 1900 and 2200.")
     return year, m
 
 

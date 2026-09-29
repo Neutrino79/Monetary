@@ -224,6 +224,13 @@ def edit_expense_or_income(conn, owner, entry_id, *, account_id=None, category_i
             refund_of_id=entry["refund_of_id"], memo=new_note,
         )
     else:
+        if is_expense:
+            already = repo.refunded_total_points(conn, entry_id)
+            if money.points < already:
+                raise ConflictError(
+                    f"Can't lower entry {entry_id} to {money}: {Money(already, account['currency_code'])} "
+                    "has already been refunded against it. Edit or delete the refund(s) first."
+                )
         build = simple_strategy.build_expense if is_expense else simple_strategy.build_income
         kwargs = dict(real_account_id=resolved_account_id, amount=money,
                       description=new_description, entry_date=entry_date, memo=new_note)
@@ -260,5 +267,10 @@ def delete_entry(conn, owner, entry_id) -> None:
                 else "'DELETE /transfers/{id}'" if entry["entry_type"] == "TRANSFER"
                 else "a dedicated endpoint for that type (not yet supported)")
         raise ValidationError(f"Entry {entry_id} is a {entry['entry_type']} entry; use {hint}.")
+    refunds = repo.posted_refund_count(conn, entry_id)
+    if refunds:
+        raise ConflictError(
+            f"Entry {entry_id} has {refunds} refund(s) linked to it; delete those refund(s) first."
+        )
     policy = get_edit_policy(owner["ledger_mode"])
     policy.delete(conn, entry_id)

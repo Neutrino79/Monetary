@@ -16,7 +16,7 @@ def _tz(tz_name: str | None):
         return timezone.utc
     try:
         return ZoneInfo(tz_name)
-    except ZoneInfoNotFoundError as exc:
+    except (ZoneInfoNotFoundError, ValueError, OSError) as exc:
         raise ValidationError(f"Unknown timezone: {tz_name!r}") from exc
 
 

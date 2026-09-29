@@ -110,6 +110,19 @@ authentication flow, and error contract, and
 [`docs/ARCHITECTURE_PLAN.md`](docs/ARCHITECTURE_PLAN.md) for the system
 design.
 
+## Testing
+
+```bash
+./scripts/check.sh          # full suite + coverage (~20-30s)
+./scripts/check.sh fast     # skip the slower deployment-config subprocess tests
+./scripts/check.sh live     # also boots a real server and curls it
+```
+
+Run this after any change. See [`docs/ROADMAP_AND_KNOWN_ISSUES.md`](docs/ROADMAP_AND_KNOWN_ISSUES.md)
+for the full testing guide, the shared sample dataset every test layer uses,
+known issues that were deliberately left as-is (with reasoning), and the
+prioritized list of remaining work.
+
 ## Production readiness notes
 
 - **CORS**: set `DUEVIA_CORS_ORIGINS` explicitly to the origins that should be

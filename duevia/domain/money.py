@@ -56,7 +56,9 @@ class Money:
         else:
             whole, frac = s, "00"
         whole = whole or "0"
-        if not whole.isdigit() or not frac.isdigit():
+        # ASCII digits only: str.isdigit() also accepts e.g. '²' (which int() then
+        # rejects with a raw ValueError) and non-ASCII digit scripts.
+        if not (whole.isascii() and frac.isascii() and whole.isdigit() and frac.isdigit()):
             raise MoneyError(f"Invalid amount: {amount_str!r}")
         points = int(whole) * 100 + int(frac)
         if points == 0 and not allow_zero:

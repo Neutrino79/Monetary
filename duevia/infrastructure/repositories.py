@@ -200,7 +200,8 @@ def account_balance_points_as_of(conn, account_id, normal_side, as_of_iso) -> in
     row = conn.execute(
         """SELECT COALESCE(SUM(p.debit_amount),0) AS d, COALESCE(SUM(p.credit_amount),0) AS c
            FROM posting p JOIN journal_entry je ON je.id = p.journal_entry_id
-           WHERE p.account_id = ? AND je.status = 'POSTED' AND je.entry_date < ?""",
+           WHERE p.account_id = ? AND je.status = 'POSTED' AND je.entry_type != 'REVERSAL'
+             AND je.entry_date < ?""",
         (account_id, as_of_iso),
     ).fetchone()
     return (row["d"] - row["c"]) if normal_side == "DEBIT" else (row["c"] - row["d"])
@@ -215,7 +216,7 @@ def total_debit_credit_for_account_type(conn, account_type, start_iso, end_iso) 
            FROM posting p
            JOIN journal_entry je ON je.id = p.journal_entry_id
            JOIN account a ON a.id = p.account_id
-           WHERE a.account_type = ? AND je.status = 'POSTED'
+           WHERE a.account_type = ? AND je.status = 'POSTED' AND je.entry_type != 'REVERSAL'
              AND je.entry_date >= ? AND je.entry_date < ?""",
         (account_type, start_iso, end_iso),
     ).fetchone()
@@ -239,7 +240,7 @@ def account_period_debit_credit(conn, account_ids, start_iso, end_iso) -> tuple[
             FROM posting p
             JOIN journal_entry je ON je.id = p.journal_entry_id
             WHERE p.account_id IN ({placeholders})
-              AND je.status = 'POSTED'
+              AND je.status = 'POSTED' AND je.entry_type != 'REVERSAL'
               AND je.entry_date >= ? AND je.entry_date < ?""",
         list(account_ids) + [start_iso, end_iso],
     ).fetchone()
@@ -286,7 +287,8 @@ def list_journal_entries(conn, *, account_id=None, category_id=None, entry_types
         where.append(f"je.entry_type IN ({placeholders})")
         params.extend(entry_types)
     if not include_reversed:
-        where.append("je.status = 'POSTED'")
+        # hide both halves of a reversed pair: the REVERSED original and its REVERSAL entry
+        where.append("je.status = 'POSTED' AND je.entry_type != 'REVERSAL'")
     if date_from is not None:
         where.append("je.entry_date >= ?")
         params.append(date_from)
@@ -325,7 +327,8 @@ def count_journal_entries(conn, *, account_id=None, category_id=None, entry_type
         where.append(f"je.entry_type IN ({placeholders})")
         params.extend(entry_types)
     if not include_reversed:
-        where.append("je.status = 'POSTED'")
+        # hide both halves of a reversed pair: the REVERSED original and its REVERSAL entry
+        where.append("je.status = 'POSTED' AND je.entry_type != 'REVERSAL'")
     if date_from is not None:
         where.append("je.entry_date >= ?")
         params.append(date_from)
@@ -419,6 +422,14 @@ def refunded_total_points(conn, original_entry_id) -> int:
     return row["total"]
 
 
+def posted_refund_count(conn, original_entry_id) -> int:
+    row = conn.execute(
+        "SELECT COUNT(*) AS c FROM journal_entry WHERE refund_of_id = ? AND status = 'POSTED'",
+        (original_entry_id,),
+    ).fetchone()
+    return row["c"]
+
+
 def posting_count_for_account(conn, account_id) -> int:
     row = conn.execute("SELECT COUNT(*) AS c FROM posting WHERE account_id = ?", (account_id,)).fetchone()
     return row["c"]
@@ -450,6 +461,7 @@ def due_account_increase_entries(conn, due_account_id, increase_column: str) -> 
         f"""SELECT je.id, je.description, je.entry_date, p.{increase_column} AS amount
             FROM posting p JOIN journal_entry je ON je.id = p.journal_entry_id
             WHERE p.account_id = ? AND p.{increase_column} > 0 AND je.status = 'POSTED'
+              AND je.entry_type != 'REVERSAL'
             ORDER BY je.entry_date, je.id""",
         (due_account_id,),
     ).fetchall())
@@ -459,7 +471,7 @@ def due_account_decrease_total(conn, due_account_id, decrease_column: str) -> in
     row = conn.execute(
         f"""SELECT COALESCE(SUM(p.{decrease_column}), 0) AS total
             FROM posting p JOIN journal_entry je ON je.id = p.journal_entry_id
-            WHERE p.account_id = ? AND je.status = 'POSTED'""",
+            WHERE p.account_id = ? AND je.status = 'POSTED' AND je.entry_type != 'REVERSAL'""",
         (due_account_id,),
     ).fetchone()
     return row["total"]

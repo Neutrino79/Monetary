@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, Query
 
 from duevia.application import split_service
 from duevia.config import API_PREFIX
+from duevia.domain.exceptions import NotFoundError
 from duevia.infrastructure import repositories as repo
 from duevia.presentation.api.deps import get_current_owner, get_db
 from duevia.presentation.api.routers.transactions import _entry_out
@@ -80,6 +81,8 @@ def edit_split(
     conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
 ):
     entry = repo.get_journal_entry(conn, entry_id)
+    if entry is None:
+        raise NotFoundError(f"Journal entry {entry_id} not found.")
     friend_shares = ([(s.friend_id, s.amount) for s in payload.friend_shares]
                       if payload.friend_shares is not None else None)
     if entry["entry_type"] == "SPLIT":

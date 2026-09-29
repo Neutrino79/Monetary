@@ -50,7 +50,8 @@ def net_worth_trend(conn, owner, *, months: int = 12) -> list[dict]:
 def category_spending_trend(conn, owner, category_id: int, *, months: int = 12) -> dict:
     """Monthly spend for one root EXPENSE category (rolled up with children) over time."""
     tz = owner["timezone"]
-    category = repo.get_account(conn, category_id)
+    from duevia.application import account_service
+    category = account_service.get_category_or_raise(conn, category_id)
     child_ids = repo.child_account_ids(conn, category_id)
     account_ids = [category_id] + child_ids
 

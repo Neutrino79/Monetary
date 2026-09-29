@@ -51,7 +51,9 @@ def friend_statement(conn, due_account_id) -> list[dict]:
         postings = [p for p in repo.postings_for_entry(conn, e["id"]) if p["account_id"] == due_account_id]
         for p in postings:
             delta = p["debit_amount"] - p["credit_amount"]  # DUE normal side = DEBIT
-            if e["status"] == "POSTED":
+            # a reversed original and its REVERSAL entry cancel out, so neither
+            # contributes to the running balance (both rows are still listed)
+            if e["status"] == "POSTED" and e["entry_type"] != "REVERSAL":
                 running += delta
             rows.append({
                 "entry_id": e["id"], "description": e["description"], "entry_type": e["entry_type"],

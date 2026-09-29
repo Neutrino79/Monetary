@@ -56,3 +56,8 @@ data/
 .vscode/
 *.swp
 *.swo
+
+# Test/coverage artifacts
+.coverage
+htmlcov/
+.pytest_cache/
