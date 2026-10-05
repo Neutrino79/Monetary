@@ -1,5 +1,5 @@
 import { appConfig } from "@/config/app";
-import { MOCK_TODAY } from "@/lib/db/store";
+import { today } from "@/lib/utils/clock";
 
 const currencyFormatter = new Intl.NumberFormat(appConfig.locale, {
   style: "currency",
@@ -38,8 +38,8 @@ export function formatDate(dateStr: string, style?: DateStyle): string {
 
 export function relativeDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
-  const today = new Date(MOCK_TODAY + "T00:00:00");
-  const diffDays = Math.round((today.getTime() - d.getTime()) / 86400000);
+  const todayDate = new Date(today() + "T00:00:00");
+  const diffDays = Math.round((todayDate.getTime() - d.getTime()) / 86400000);
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Yesterday";
   if (diffDays > 1 && diffDays < 7) return `${diffDays} days ago`;

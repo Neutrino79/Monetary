@@ -1,5 +1,9 @@
 import { useQuery } from "@tanstack/react-query";
-import { mockApi } from "@/lib/api/mockApi";
+import { accountsService } from "@/lib/api/services/accountsService";
+import { categoriesService } from "@/lib/api/services/categoriesService";
+import { incomeSourcesService } from "@/lib/api/services/incomeSourcesService";
+import { friendsService } from "@/lib/api/services/friendsService";
+import { transactionsService } from "@/lib/api/services/transactionsService";
 
 export const queryKeys = {
   accounts: ["accounts"] as const,
@@ -10,19 +14,19 @@ export const queryKeys = {
 };
 
 export function useAccounts() {
-  return useQuery({ queryKey: queryKeys.accounts, queryFn: mockApi.getAccounts });
+  return useQuery({ queryKey: queryKeys.accounts, queryFn: accountsService.list });
 }
 export function useCategories() {
-  return useQuery({ queryKey: queryKeys.categories, queryFn: mockApi.getCategories });
+  return useQuery({ queryKey: queryKeys.categories, queryFn: categoriesService.list });
 }
 export function useIncomeSources() {
-  return useQuery({ queryKey: queryKeys.incomeSources, queryFn: mockApi.getIncomeSources });
+  return useQuery({ queryKey: queryKeys.incomeSources, queryFn: incomeSourcesService.list });
 }
 export function useFriends() {
-  return useQuery({ queryKey: queryKeys.friends, queryFn: mockApi.getFriends });
+  return useQuery({ queryKey: queryKeys.friends, queryFn: friendsService.list });
 }
 export function useTransactions() {
-  return useQuery({ queryKey: queryKeys.transactions, queryFn: mockApi.getTransactions });
+  return useQuery({ queryKey: queryKeys.transactions, queryFn: transactionsService.list });
 }
 
 /** Convenience: fetch everything the app shell needs before first paint. */

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, TriangleAlert } from "lucide-react";
-import * as authApi from "@/lib/api/auth";
+import { authService } from "@/lib/api/services/authService";
 import { SECURITY_QUESTIONS } from "@/config/security-questions";
 import { Button } from "@/components/ui/Button";
 import { Input, FormField } from "@/components/ui/form";
@@ -18,30 +18,37 @@ export function ForgotPasswordPage() {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const question = SECURITY_QUESTIONS.find((q) => q.id === questionId);
 
-  function submitEmail() {
+  async function submitEmail() {
     setError("");
+    setLoading(true);
     try {
-      const result = authApi.requestReset(email.trim());
+      const result = await authService.requestPasswordReset(email.trim());
       setEmail(result.email);
       setQuestionId(result.questionId);
       setStep("question");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setLoading(false);
     }
   }
 
-  function submitReset() {
+  async function submitReset() {
     setError("");
     if (password.length < 8) return setError("Password must be at least 8 characters.");
     if (password !== confirm) return setError("Passwords don't match.");
+    setLoading(true);
     try {
-      authApi.resetPassword(email, answer.trim(), password);
+      await authService.resetPassword(email, answer.trim(), password);
       setStep("done");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -67,8 +74,8 @@ export function ForgotPasswordPage() {
               <Input id="fp-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" onKeyDown={(e) => e.key === "Enter" && submitEmail()} />
             </FormField>
           </div>
-          <Button block onClick={submitEmail}>
-            Continue
+          <Button block onClick={submitEmail} disabled={loading}>
+            {loading ? "Checking…" : "Continue"}
           </Button>
         </>
       )}
@@ -92,8 +99,8 @@ export function ForgotPasswordPage() {
               <Input id="fp-pass2" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Re-enter" />
             </FormField>
           </div>
-          <Button block onClick={submitReset}>
-            Reset password
+          <Button block onClick={submitReset} disabled={loading}>
+            {loading ? "Resetting…" : "Reset password"}
           </Button>
         </>
       )}

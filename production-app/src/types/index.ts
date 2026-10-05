@@ -103,6 +103,12 @@ export interface UserSettings {
   homeCurrencyCode: string;
 }
 
+/**
+ * Public-facing user profile — what the frontend ever sees or sends over
+ * the wire. Credential material (password hash, security-answer hash,
+ * session tokens) stays server-side; the mock backend keeps its own
+ * internal "stored user" shape private to `lib/api/mock`.
+ */
 export interface User {
   id: number;
   name: string;
@@ -111,18 +117,9 @@ export interface User {
   timezone: string;
   homeCurrencyCode: string;
   ledgerMode: LedgerMode;
-  passwordHash: string;
   securityQuestionId: number;
-  securityAnswerHash: string;
   createdAt: string;
   updatedAt: string;
-}
-
-export interface Session {
-  tokenHash: string;
-  userId: number;
-  createdAt: string;
-  expiresAt: string;
 }
 
 export interface DateRange {

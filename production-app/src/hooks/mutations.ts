@@ -1,6 +1,10 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Account, Category, Friend, Transaction } from "@/types";
-import { mockApi } from "@/lib/api/mockApi";
+import type { NewAccountInput, NewCategoryInput, NewFriendInput, NewTransactionInput, SettlementInput } from "@/types/api";
+import { accountsService } from "@/lib/api/services/accountsService";
+import { categoriesService } from "@/lib/api/services/categoriesService";
+import { friendsService } from "@/lib/api/services/friendsService";
+import { transactionsService } from "@/lib/api/services/transactionsService";
 import { queryKeys } from "./queries";
 import { useAuthStore } from "@/store/authStore";
 
@@ -12,7 +16,7 @@ function useLedgerMode() {
 export function useCreateTransaction() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Partial<Transaction> & Pick<Transaction, "type" | "description" | "date" | "amount" | "currency">) => mockApi.createTransaction(payload),
+    mutationFn: (payload: NewTransactionInput) => transactionsService.create(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.transactions }),
   });
 }
@@ -21,7 +25,7 @@ export function useUpdateTransaction() {
   const qc = useQueryClient();
   const ledgerMode = useLedgerMode();
   return useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: Partial<Transaction> }) => mockApi.updateTransaction(id, patch, ledgerMode),
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<Transaction> }) => transactionsService.update(id, patch, ledgerMode),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.transactions }),
   });
 }
@@ -30,7 +34,7 @@ export function useDeleteTransaction() {
   const qc = useQueryClient();
   const ledgerMode = useLedgerMode();
   return useMutation({
-    mutationFn: (id: string) => mockApi.deleteTransaction(id, ledgerMode),
+    mutationFn: (id: string) => transactionsService.remove(id, ledgerMode),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.transactions }),
   });
 }
@@ -38,7 +42,7 @@ export function useDeleteTransaction() {
 export function useSettleFriend() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (args: { friendId: string; accountId: string; amount: number; direction: "receive" | "pay"; memo?: string | null; date?: string }) => mockApi.settleFriend(args),
+    mutationFn: (args: SettlementInput) => transactionsService.settleFriend(args),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.transactions }),
   });
 }
@@ -46,28 +50,28 @@ export function useSettleFriend() {
 export function useCreateAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Partial<Account> & Pick<Account, "name" | "accountType" | "subtype">) => mockApi.createAccount(payload),
+    mutationFn: (payload: NewAccountInput) => accountsService.create(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.accounts }),
   });
 }
 export function useUpdateAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: Partial<Account> }) => mockApi.updateAccount(id, patch),
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<Account> }) => accountsService.update(id, patch),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.accounts }),
   });
 }
 export function useArchiveAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => mockApi.archiveAccount(id),
+    mutationFn: (id: string) => accountsService.archive(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.accounts }),
   });
 }
 export function useRestoreAccount() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => mockApi.restoreAccount(id),
+    mutationFn: (id: string) => accountsService.restore(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.accounts }),
   });
 }
@@ -75,21 +79,21 @@ export function useRestoreAccount() {
 export function useCreateCategory() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Partial<Category> & Pick<Category, "name">) => mockApi.createCategory(payload),
+    mutationFn: (payload: NewCategoryInput) => categoriesService.create(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.categories }),
   });
 }
 export function useUpdateCategory() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: Partial<Category> }) => mockApi.updateCategory(id, patch),
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<Category> }) => categoriesService.update(id, patch),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.categories }),
   });
 }
 export function useDeleteCategory() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => mockApi.deleteCategory(id),
+    mutationFn: (id: string) => categoriesService.remove(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.categories }),
   });
 }
@@ -97,21 +101,21 @@ export function useDeleteCategory() {
 export function useCreateFriend() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (payload: Partial<Friend> & Pick<Friend, "name" | "email">) => mockApi.createFriend(payload),
+    mutationFn: (payload: NewFriendInput) => friendsService.create(payload),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.friends }),
   });
 }
 export function useUpdateFriend() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, patch }: { id: string; patch: Partial<Friend> }) => mockApi.updateFriend(id, patch),
+    mutationFn: ({ id, patch }: { id: string; patch: Partial<Friend> }) => friendsService.update(id, patch),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.friends }),
   });
 }
 export function useDeleteFriend() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => mockApi.deleteFriend(id),
+    mutationFn: (id: string) => friendsService.remove(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.friends }),
   });
 }

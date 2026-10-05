@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { Plus, Search, X } from "lucide-react";
 import type { Transaction, TransactionType } from "@/types";
 import { useAccounts, useCategories, useFriends } from "@/hooks/queries";
-import * as calc from "@/lib/db/store";
+import { useLedgerCalc } from "@/hooks/useLedgerCalc";
+import { today } from "@/lib/utils/clock";
 import { formatDate, clamp } from "@/lib/utils/format";
 import { TXN_TYPE_META } from "@/lib/utils/entityVisuals";
 import { Button } from "@/components/ui/Button";
@@ -52,6 +53,8 @@ export function TransactionTable({
   const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
   const { data: friends = [] } = useFriends();
+  const calc = useLedgerCalc();
+  const todayStr = today();
 
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
   const [sortKey, setSortKey] = useState<SortKey>("date");
@@ -173,8 +176,8 @@ export function TransactionTable({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <input type="date" value={filters.from} max={calc.MOCK_TODAY} onChange={(e) => updateFilter("from", e.target.value)} title="From date" className="min-w-30 max-w-42.5 flex-1 basis-32.5 rounded-[10px] border border-line-strong bg-paper-raised px-3 py-2 text-[13.3px]" />
-            <input type="date" value={filters.to} max={calc.MOCK_TODAY} onChange={(e) => updateFilter("to", e.target.value)} title="To date" className="min-w-30 max-w-42.5 flex-1 basis-32.5 rounded-[10px] border border-line-strong bg-paper-raised px-3 py-2 text-[13.3px]" />
+            <input type="date" value={filters.from} max={todayStr} onChange={(e) => updateFilter("from", e.target.value)} title="From date" className="min-w-30 max-w-42.5 flex-1 basis-32.5 rounded-[10px] border border-line-strong bg-paper-raised px-3 py-2 text-[13.3px]" />
+            <input type="date" value={filters.to} max={todayStr} onChange={(e) => updateFilter("to", e.target.value)} title="To date" className="min-w-30 max-w-42.5 flex-1 basis-32.5 rounded-[10px] border border-line-strong bg-paper-raised px-3 py-2 text-[13.3px]" />
             {showAccountFilter && (
               <select value={filters.accountId} onChange={(e) => updateFilter("accountId", e.target.value)} className="min-w-32.5 max-w-60 flex-1 basis-37.5 rounded-[10px] border border-line-strong bg-paper-raised px-3 py-2 text-[13.3px]">
                 <option value="">All accounts</option>

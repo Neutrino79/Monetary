@@ -8,8 +8,8 @@ import { useAccounts, useIncomeSources, useFriends } from "@/hooks/queries";
 import { useCreateTransaction, useUpdateTransaction } from "@/hooks/mutations";
 import { useToast } from "@/components/ui/Toast";
 import { formatCurrency } from "@/lib/utils/format";
-import { MOCK_TODAY } from "@/lib/db/store";
-import { categoryChildren, categoryRoots } from "@/lib/db/store";
+import { today } from "@/lib/utils/clock";
+import { useLedgerCalc } from "@/hooks/useLedgerCalc";
 import { cn } from "@/lib/utils/cn";
 
 const TYPE_TABS: { value: TransactionType; label: string }[] = [
@@ -37,10 +37,12 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
   const createTxn = useCreateTransaction();
   const updateTxn = useUpdateTransaction();
   const toast = useToast();
+  const { categoryRoots, categoryChildren } = useLedgerCalc();
+  const todayStr = today();
 
   const [type, setType] = useState<TransactionType>(editingTxn?.type ?? initialType);
   const [description, setDescription] = useState("");
-  const [date, setDate] = useState(MOCK_TODAY);
+  const [date, setDate] = useState(todayStr);
   const [amount, setAmount] = useState("");
   const [accountId, setAccountId] = useState("");
   const [toAccountId, setToAccountId] = useState("");
@@ -58,7 +60,7 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
     const t = editingTxn;
     setType(t?.type ?? initialType);
     setDescription(t?.description ?? "");
-    setDate(t?.date ?? MOCK_TODAY);
+    setDate(t?.date ?? todayStr);
     setAmount(t?.amount != null ? String(t.amount) : "");
     setAccountId(t?.accountId ?? "");
     setToAccountId(t?.toAccountId ?? "");
@@ -122,7 +124,7 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
     const newErrors: Record<string, string> = {};
     if (!description.trim()) newErrors.description = "Description is required.";
     if (!date) newErrors.date = "Pick a date.";
-    else if (date > MOCK_TODAY) newErrors.date = "Date can't be in the future.";
+    else if (date > todayStr) newErrors.date = "Date can't be in the future.";
     if (!(amountNum > 0)) newErrors.amount = "Enter an amount greater than 0.";
 
     let payload: Partial<Transaction> & Pick<Transaction, "type" | "description" | "date" | "amount" | "currency"> = {
@@ -240,7 +242,7 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
           <Input id="f-desc" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="e.g. Dinner at Truffles" />
         </FormField>
         <FormField label="Date" htmlFor="f-date" error={errors.date}>
-          <Input id="f-date" type="date" max={MOCK_TODAY} value={date} onChange={(e) => setDate(e.target.value)} />
+          <Input id="f-date" type="date" max={todayStr} value={date} onChange={(e) => setDate(e.target.value)} />
         </FormField>
 
         {type === "income" && (

@@ -27,6 +27,37 @@ export const appConfig = {
   defaultTimezone: env("VITE_DEFAULT_TIMEZONE", "Asia/Kolkata"),
   /** Contact/support line shown in a few places (e.g. error states). */
   supportEmail: env("VITE_SUPPORT_EMAIL", "support@example.com"),
+
+  /**
+   * Base URL of the real backend API, e.g. "https://api.example.com/v1".
+   * This is the ONE place to point the app at a real backend — every
+   * service in `lib/api/services` builds its request URLs from this value.
+   * Leave empty to keep using the in-browser mock backend.
+   */
+  apiBaseUrl: env("VITE_API_BASE_URL", "").replace(/\/+$/, ""),
+
+  /**
+   * Whether to serve data from the in-memory mock backend instead of the
+   * real API. Defaults to `true` whenever no `apiBaseUrl` is configured, so
+   * the app "just works" out of the box; once a backend is ready, either
+   * set VITE_API_BASE_URL (which flips this automatically) or set
+   * VITE_USE_MOCK_API=false explicitly.
+   */
+  useMockApi: (() => {
+    const flag = env("VITE_USE_MOCK_API", "").toLowerCase();
+    if (flag === "true") return true;
+    if (flag === "false") return false;
+    return env("VITE_API_BASE_URL", "") === "";
+  })(),
+
+  /** Request timeout (ms) for the real HTTP client. */
+  apiTimeoutMs: Number(env("VITE_API_TIMEOUT_MS", "15000")) || 15000,
+
+  /** Artificial network delay (ms) the mock backend simulates. */
+  mockLatencyMs: Number(env("VITE_MOCK_LATENCY_MS", "260")) || 0,
+
+  /** Optional fixed "today" (YYYY-MM-DD) for demos/screenshots against the mock backend. */
+  fixedToday: env("VITE_FIXED_TODAY", ""),
 } as const;
 
 export type AppConfig = typeof appConfig;

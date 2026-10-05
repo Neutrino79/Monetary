@@ -1,5 +1,13 @@
 import type { Account, Category, IncomeSource, Friend, Transaction } from "@/types";
 
+/**
+ * The mock dataset is anchored to a fixed date so the generated history is
+ * deterministic and reproducible across runs. A real backend has no
+ * equivalent — `lib/utils/clock.ts` is what every component calls instead
+ * of referencing this directly.
+ */
+export const MOCK_ANCHOR_DATE = "2026-09-23";
+
 // ---- deterministic PRNG (mulberry32) so the mock backend is stable ----
 function mulberry32(seed: number) {
   return function () {

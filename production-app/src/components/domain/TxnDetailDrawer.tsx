@@ -10,7 +10,7 @@ import { useDeleteTransaction, useCreateTransaction } from "@/hooks/mutations";
 import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/components/ui/Toast";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
-import { MOCK_TODAY } from "@/lib/db/store";
+import { today } from "@/lib/utils/clock";
 import { TransactionForm } from "./TransactionForm";
 import { Landmark, Tag, Banknote, HandCoins, TrendingDown, Scale, SlidersHorizontal, Calendar, Edit, Check } from "lucide-react";
 
@@ -299,7 +299,7 @@ function RefundForm({ original, open, onOpenChange, onDone }: { original: Transa
   const createTxn = useCreateTransaction();
   const toast = useToast();
   const [amount, setAmount] = useState(String(original.amount));
-  const [date, setDate] = useState(MOCK_TODAY);
+  const [date, setDate] = useState(today());
   const [memo, setMemo] = useState("");
   const [error, setError] = useState("");
 
@@ -353,7 +353,7 @@ function RefundForm({ original, open, onOpenChange, onDone }: { original: Transa
       </FormField>
       <div className="mt-3">
         <FormField label="Date">
-          <Input type="date" max={MOCK_TODAY} value={date} onChange={(e) => setDate(e.target.value)} />
+          <Input type="date" max={today()} value={date} onChange={(e) => setDate(e.target.value)} />
         </FormField>
       </div>
       <div className="mt-3">

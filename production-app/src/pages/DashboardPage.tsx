@@ -9,13 +9,14 @@ import { TransactionForm } from "@/components/domain/TransactionForm";
 import { TxnDetailDrawer } from "@/components/domain/TxnDetailDrawer";
 import { useCoreData } from "@/hooks/queries";
 import { useAuthStore } from "@/store/authStore";
-import * as calc from "@/lib/db/store";
+import { useLedgerCalc } from "@/hooks/useLedgerCalc";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import type { Transaction } from "@/types";
 
 export function DashboardPage() {
   const { transactions, categories, isLoading } = useCoreData();
   const user = useAuthStore((s) => s.user);
+  const calc = useLedgerCalc();
   const [addOpen, setAddOpen] = useState(false);
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
 
@@ -33,7 +34,7 @@ export function DashboardPage() {
     .calcBudgetUsage(range30)
     .sort((a, b) => b.pct - a.pct)
     .slice(0, 4);
-  const dueFriends = calc.db.friends.map((f) => ({ f, bal: calc.calcFriendOutstanding(f.id) })).filter((x) => Math.abs(x.bal) > 0.5);
+  const dueFriends = calc.friends.map((f) => ({ f, bal: calc.calcFriendOutstanding(f.id) })).filter((x) => Math.abs(x.bal) > 0.5);
   const owedToYou = dueFriends.filter((x) => x.bal > 0).reduce((a, x) => a + x.bal, 0);
   const youOwe = dueFriends.filter((x) => x.bal < 0).reduce((a, x) => a - x.bal, 0);
   const recent = transactions.filter((t) => t.status !== "reversed").slice(0, 6);

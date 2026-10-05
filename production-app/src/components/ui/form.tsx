@@ -1,5 +1,5 @@
-import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, ReactNode } from "react";
-import { forwardRef } from "react";
+import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, ReactElement } from "react";
+import { forwardRef, useId, isValidElement, cloneElement } from "react";
 import { cn } from "@/lib/utils/cn";
 import { appConfig } from "@/config/app";
 
@@ -44,14 +44,22 @@ export function FormField({
   error?: string;
   hint?: string;
   full?: boolean;
-  children: ReactNode;
+  children: ReactElement<{ id?: string }>;
 }) {
+  // Every field gets a stable, unique id so the <label> is always correctly
+  // associated with its control — callers no longer need to hand-thread
+  // htmlFor/id pairs (and tests/screen readers can find fields by label).
+  const generatedId = useId();
+  const childId = isValidElement(children) ? (children.props as { id?: string }).id : undefined;
+  const fieldId = htmlFor ?? childId ?? generatedId;
+  const control = isValidElement(children) && !childId ? cloneElement(children, { id: fieldId }) : children;
+
   return (
     <div className={cn("flex flex-col gap-1.5", full && "col-span-full")}>
-      <label htmlFor={htmlFor} className="text-[12.5px] font-semibold text-ink-soft">
+      <label htmlFor={fieldId} className="text-[12.5px] font-semibold text-ink-soft">
         {label}
       </label>
-      {children}
+      {control}
       {hint && !error && <p className="text-[12px] text-ink-faint">{hint}</p>}
       {error && <span className="text-[12px] text-danger">{error}</span>}
     </div>

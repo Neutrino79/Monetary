@@ -1,41 +1,51 @@
+/**
+ * The mock backend's data endpoints — accounts, categories, income sources,
+ * friends, transactions. Mirrors the shape a real REST API would have
+ * (see the comments in `lib/api/services/*Service.ts` for the endpoints
+ * this stands in for). Nothing outside `lib/api/mock` and the service
+ * layer should import this directly.
+ */
 import type { Account, Category, Friend, Transaction } from "@/types";
-import { db, getFriend, MOCK_TODAY } from "@/lib/db/store";
+import type { NewAccountInput, NewCategoryInput, NewFriendInput, NewTransactionInput, SettlementInput } from "@/types/api";
+import { mockDb, mockGetFriend } from "./mockDb";
+import { MOCK_ANCHOR_DATE } from "./mockSeedData";
+import { appConfig } from "@/config/app";
 import { uid } from "@/lib/utils/format";
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
-const LATENCY = 260;
+const LATENCY = appConfig.mockLatencyMs;
 
 function today() {
-  return MOCK_TODAY;
+  return MOCK_ANCHOR_DATE;
 }
 
-export const mockApi = {
+export const mockDataApi = {
   // ---------------------------------------------------------- read side
   async getAccounts(): Promise<Account[]> {
     await delay(LATENCY);
-    return db.accounts;
+    return mockDb.accounts;
   },
   async getCategories(): Promise<Category[]> {
     await delay(LATENCY);
-    return db.categories;
+    return mockDb.categories;
   },
   async getIncomeSources() {
     await delay(LATENCY);
-    return db.incomeSources;
+    return mockDb.incomeSources;
   },
   async getFriends(): Promise<Friend[]> {
     await delay(LATENCY);
-    return db.friends;
+    return mockDb.friends;
   },
   async getTransactions(): Promise<Transaction[]> {
     await delay(LATENCY);
-    return db.transactions;
+    return mockDb.transactions;
   },
 
   // ------------------------------------------------------- transactions
-  async createTransaction(payload: Partial<Transaction> & Pick<Transaction, "type" | "description" | "date" | "amount" | "currency">): Promise<Transaction> {
+  async createTransaction(payload: NewTransactionInput): Promise<Transaction> {
     await delay(LATENCY);
     const txn: Transaction = {
       id: uid("txn"),
@@ -45,15 +55,15 @@ export const mockApi = {
       memo: null,
       ...payload,
     } as Transaction;
-    db.transactions.unshift(txn);
+    mockDb.transactions.unshift(txn);
     return txn;
   },
   async updateTransaction(id: string, patch: Partial<Transaction>, ledgerMode: "STRICT" | "DIRECT"): Promise<Transaction> {
     await delay(LATENCY);
-    const idx = db.transactions.findIndex((t) => t.id === id);
+    const idx = mockDb.transactions.findIndex((t) => t.id === id);
     if (idx === -1) throw new Error("Transaction not found");
     if (ledgerMode === "STRICT") {
-      const original = db.transactions[idx];
+      const original = mockDb.transactions[idx];
       original.status = "reversed";
       original.updatedAt = today();
       const reposted: Transaction = {
@@ -66,28 +76,28 @@ export const mockApi = {
         reversalOf: undefined,
         correctionOf: original.id,
       };
-      db.transactions.unshift(reposted);
+      mockDb.transactions.unshift(reposted);
       return reposted;
     }
-    const updated = Object.assign(db.transactions[idx], patch, { updatedAt: today() });
+    const updated = Object.assign(mockDb.transactions[idx], patch, { updatedAt: today() });
     return updated;
   },
   async deleteTransaction(id: string, ledgerMode: "STRICT" | "DIRECT"): Promise<true> {
     await delay(LATENCY);
-    const idx = db.transactions.findIndex((t) => t.id === id);
+    const idx = mockDb.transactions.findIndex((t) => t.id === id);
     if (idx === -1) throw new Error("Transaction not found");
     if (ledgerMode === "STRICT") {
-      db.transactions[idx].status = "reversed";
-      db.transactions[idx].updatedAt = today();
+      mockDb.transactions[idx].status = "reversed";
+      mockDb.transactions[idx].updatedAt = today();
     } else {
-      db.transactions.splice(idx, 1);
+      mockDb.transactions.splice(idx, 1);
     }
     return true;
   },
-  async settleFriend(args: { friendId: string; accountId: string; amount: number; direction: "receive" | "pay"; memo?: string | null; date?: string }): Promise<Transaction> {
+  async settleFriend(args: SettlementInput): Promise<Transaction> {
     return this.createTransaction({
       type: "settlement",
-      description: `Settlement — ${getFriend(args.friendId)?.name ?? "Friend"}`,
+      description: `Settlement — ${mockGetFriend(args.friendId)?.name ?? "Friend"}`,
       memo: args.memo || null,
       date: args.date || today(),
       currency: "INR",
@@ -99,22 +109,22 @@ export const mockApi = {
   },
 
   // ------------------------------------------------------------ accounts
-  async createAccount(payload: Partial<Account> & Pick<Account, "name" | "accountType" | "subtype">): Promise<Account> {
+  async createAccount(payload: NewAccountInput): Promise<Account> {
     await delay(LATENCY);
     const acc: Account = { id: uid("acc"), isActive: true, isSystem: false, createdAt: today(), openingBalance: 0, ...payload };
-    db.accounts.push(acc);
+    mockDb.accounts.push(acc);
     return acc;
   },
   async updateAccount(id: string, patch: Partial<Account>): Promise<Account> {
     await delay(LATENCY);
-    const acc = db.accounts.find((a) => a.id === id);
+    const acc = mockDb.accounts.find((a) => a.id === id);
     if (!acc) throw new Error("Account not found");
     Object.assign(acc, patch);
     return acc;
   },
   async archiveAccount(id: string): Promise<Account> {
     await delay(LATENCY);
-    const acc = db.accounts.find((a) => a.id === id);
+    const acc = mockDb.accounts.find((a) => a.id === id);
     if (!acc) throw new Error("Account not found");
     acc.isActive = false;
     acc.archivedAt = today();
@@ -122,49 +132,49 @@ export const mockApi = {
   },
   async restoreAccount(id: string): Promise<Account> {
     await delay(LATENCY);
-    const acc = db.accounts.find((a) => a.id === id)!;
+    const acc = mockDb.accounts.find((a) => a.id === id)!;
     acc.isActive = true;
     delete acc.archivedAt;
     return acc;
   },
 
   // ---------------------------------------------------------- categories
-  async createCategory(payload: Partial<Category> & Pick<Category, "name">): Promise<Category> {
+  async createCategory(payload: NewCategoryInput): Promise<Category> {
     await delay(LATENCY);
     const cat: Category = { id: uid("cat"), parentId: null, budgetLimit: null, color: "#5A5A5A", ...payload };
-    db.categories.push(cat);
+    mockDb.categories.push(cat);
     return cat;
   },
   async updateCategory(id: string, patch: Partial<Category>): Promise<Category> {
     await delay(LATENCY);
-    const cat = db.categories.find((c) => c.id === id)!;
+    const cat = mockDb.categories.find((c) => c.id === id)!;
     Object.assign(cat, patch);
     return cat;
   },
   async deleteCategory(id: string): Promise<true> {
     await delay(LATENCY);
-    db.categories = db.categories.filter((c) => c.id !== id && c.parentId !== id);
+    mockDb.categories = mockDb.categories.filter((c) => c.id !== id && c.parentId !== id);
     return true;
   },
 
   // ------------------------------------------------------------- friends
-  async createFriend(payload: Partial<Friend> & Pick<Friend, "name" | "email">): Promise<Friend> {
+  async createFriend(payload: NewFriendInput): Promise<Friend> {
     await delay(LATENCY);
     const f: Friend = { id: uid("frnd"), createdAt: today(), initials: "", color: "#1F6D4C", ...payload };
-    db.friends.push(f);
+    mockDb.friends.push(f);
     return f;
   },
   async updateFriend(id: string, patch: Partial<Friend>): Promise<Friend> {
     await delay(LATENCY);
-    const f = db.friends.find((x) => x.id === id)!;
+    const f = mockDb.friends.find((x) => x.id === id)!;
     Object.assign(f, patch);
     return f;
   },
   async deleteFriend(id: string): Promise<true> {
     await delay(LATENCY);
-    const hasHistory = db.transactions.some((t) => t.friendId === id || (t.splits ?? []).some((s) => s.friendId === id));
+    const hasHistory = mockDb.transactions.some((t) => t.friendId === id || (t.splits ?? []).some((s) => s.friendId === id));
     if (hasHistory) throw new Error("This friend has ledger history and can't be deleted — archive instead.");
-    db.friends = db.friends.filter((f) => f.id !== id);
+    mockDb.friends = mockDb.friends.filter((f) => f.id !== id);
     return true;
   },
 };
