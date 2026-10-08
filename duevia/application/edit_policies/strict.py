@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from duevia.application import ledger_service
 from duevia.domain.ledger import LedgerIntent
+from duevia.infrastructure import repositories as repo
 
 
 class StrictEditPolicy:
@@ -15,7 +16,9 @@ class StrictEditPolicy:
             conn, entry_id,
             description=f"Correction of #{entry_id} (reversed)",
         )
-        return ledger_service.post(conn, new_intent)
+        replacement = ledger_service.post(conn, new_intent)
+        repo.set_correction_of(conn, replacement["id"], entry_id)
+        return repo.get_journal_entry(conn, replacement["id"])
 
     def delete(self, conn, entry_id: int) -> None:
         ledger_service.reverse(conn, entry_id)
