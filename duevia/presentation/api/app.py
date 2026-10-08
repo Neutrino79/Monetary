@@ -12,8 +12,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from duevia.config import (
     API_PREFIX,
-    PROJECT_NAME,
     VERSION,
+    app_name,
     cors_origins_from_environment,
     docs_enabled_from_environment,
     environment_name,
@@ -23,6 +23,7 @@ from duevia.presentation.api.routers import (
     accounts,
     auth,
     friends,
+    meta,
     owner,
     reports,
     settlements,
@@ -40,7 +41,7 @@ logging.basicConfig(
 _docs_enabled = docs_enabled_from_environment()
 
 app = FastAPI(
-    title=f"{PROJECT_NAME} API",
+    title=f"{app_name()} API",
     version=VERSION,
     description="Double-entry ledger API for personal expense tracking and friend splitting. "
                  f"Single owner, email+password login (see {API_PREFIX}/setup/init to bootstrap, "
@@ -98,6 +99,7 @@ async def security_headers_middleware(request: Request, call_next):
 
 register_exception_handlers(app)
 
+app.include_router(meta.router)
 app.include_router(setup.router)
 app.include_router(auth.router)
 app.include_router(owner.router)
@@ -131,7 +133,7 @@ def health():
 @app.get("/", tags=["system"])
 def root():
     return {
-        "name": f"{PROJECT_NAME} API",
+        "name": f"{app_name()} API",
         "version": VERSION,
         "status": "ok",
         "api_base": API_PREFIX,

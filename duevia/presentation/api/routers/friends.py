@@ -15,7 +15,7 @@ from duevia.presentation.api.schemas.friends import (
     FriendBalanceOut,
     FriendCreate,
     FriendOut,
-    FriendRename,
+    FriendUpdate,
     StatementRowOut,
 )
 
@@ -32,7 +32,8 @@ def _friend_out(conn, friend: dict) -> FriendOut:
         raise ConflictError(
             f"Friend {friend['id']} ({friend['name']}) has no DUE account; data integrity issue."
         )
-    return FriendOut(id=friend["id"], name=friend["name"], email=friend["email"], due_account_id=due["id"])
+    return FriendOut(id=friend["id"], name=friend["name"], email=friend["email"],
+                     phone=friend["phone"], due_account_id=due["id"], created_at=friend["created_at"])
 
 
 @router.post("", response_model=FriendOut, status_code=201)
@@ -42,7 +43,7 @@ def add_friend(
     owner: dict = Depends(get_current_owner),
 ):
     friend = user_service.add_friend(conn, name=payload.name, email=payload.email,
-                                      currency_code=payload.currency)
+                                      currency_code=payload.currency, phone=payload.phone)
     return _friend_out(conn, friend)
 
 
@@ -52,11 +53,12 @@ def list_friends(conn: sqlite3.Connection = Depends(get_db), owner: dict = Depen
 
 
 @router.patch("/{friend_id}", response_model=FriendOut)
-def rename_friend(
-    friend_id: int, payload: FriendRename,
+def update_friend(
+    friend_id: int, payload: FriendUpdate,
     conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
 ):
-    friend = user_service.rename_friend(conn, friend_id, payload.name)
+    fields = payload.model_dump(include=payload.model_fields_set)
+    friend = user_service.update_friend(conn, friend_id, fields=fields)
     return _friend_out(conn, friend)
 
 
