@@ -13,6 +13,7 @@ from duevia.presentation.api.routers.transactions import _entry_out
 from duevia.presentation.api.schemas.common import MessageOut
 from duevia.presentation.api.schemas.converters import money_value_out
 from duevia.presentation.api.schemas.transactions import (
+    EntryOut,
     FrontedCreate,
     SplitCompositionOut,
     SplitCreate,
@@ -113,10 +114,10 @@ def delete_split(
     return MessageOut(detail=f"Split {entry_id} deleted (mode={owner['ledger_mode']}).")
 
 
-@router.get("", response_model=list[dict])
+@router.get("", response_model=list[EntryOut])
 def list_splits(
     type: str | None = Query(default=None, pattern="^(SPLIT|FRONTED)$"),
     conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
 ):
     entries = split_service.list_splits(conn, entry_type=type)
-    return [dict(_entry_out(conn, e)) for e in entries]
+    return [_entry_out(conn, e) for e in entries]
