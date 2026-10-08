@@ -42,10 +42,10 @@ class World:
 
     def friend_balance(self, friend: str) -> int:
         rows = self.api.get("/friends/balances").json()
-        return next(r for r in rows if r["friend_id"] == self.friend[friend])["balance"]["points"]
+        return next(r for r in rows if r["friendId"] == self.friend[friend])["balance"]["points"]
 
     def entry(self, entry_id: int) -> dict:
-        r = self.api.get(f"/transactions/{entry_id}")
+        r = self.api.get(f"/transactions/{entry_id}/postings")   # raw double-entry view
         assert r.status_code == 200, r.text
         return r.json()
 

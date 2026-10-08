@@ -78,7 +78,7 @@ def api(client) -> Api:
     """Authenticated API wrapper; owner exists but no accounts/categories."""
     r = client.post(sample_data.API + "/setup/init", json=sample_data.OWNER)
     assert r.status_code == 201, r.text
-    return Api(client, r.json()["access_token"])
+    return Api(client, r.json()["accessToken"])
 
 
 @pytest.fixture()

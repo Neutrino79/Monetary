@@ -28,6 +28,7 @@ OWNER = {
     "password": "correct-horse-1",
     "security_question_id": 1,
     "security_answer": "Whiskers",
+    "seed_defaults": False,   # tests build their own categories; default seeding is tested separately
 }
 
 ACCOUNTS = {
@@ -79,7 +80,7 @@ def seed(client, headers=None, *, fund=True) -> SimpleNamespace:
     for key, spec in CATEGORIES.items():
         payload = {k: v for k, v in spec.items() if k != "parent"}
         if "parent" in spec:
-            payload["parent_id"] = cat[spec["parent"]]
+            payload["parentId"] = cat[spec["parent"]]
         cat[key] = post("/categories", payload)["id"]
     friend = {k: post("/friends", v)["id"] for k, v in FRIENDS.items()}
     if fund:
