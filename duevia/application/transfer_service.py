@@ -64,7 +64,7 @@ def _validate_transfer(conn, from_acc, to_acc, money, *, exclude_entry_id=None) 
 
 
 def create_transfer(conn, owner, *, from_account_id, to_account_id, amount_major,
-                     description=None, date_str=None) -> dict:
+                     description=None, date_str=None, note=None) -> dict:
     from_acc = _require_real_account(conn, from_account_id)
     to_acc = _require_real_account(conn, to_account_id)
     money = Money.from_major_units(amount_major, from_acc["currency_code"])
@@ -74,7 +74,7 @@ def create_transfer(conn, owner, *, from_account_id, to_account_id, amount_major
     intent = transfer_strategy.build_transfer(
         from_account_id=from_account_id, to_account_id=to_account_id, amount=money,
         description=description or f"Transfer: {from_acc['name']} -> {to_acc['name']}",
-        entry_date=entry_date,
+        entry_date=entry_date, memo=note,
     )
     return ledger_service.post(conn, intent)
 
@@ -89,7 +89,7 @@ def _require_transfer_entry(conn, entry_id) -> dict:
 
 
 def edit_transfer(conn, owner, entry_id, *, from_account_id=None, to_account_id=None,
-                   amount_major=None, description=None, date_str=None) -> dict:
+                   amount_major=None, description=None, date_str=None, note=None) -> dict:
     entry = _require_transfer_entry(conn, entry_id)
     if entry["status"] == "REVERSED":
         raise ConflictError(f"Transfer {entry_id} has already been reversed/replaced.")
@@ -112,6 +112,7 @@ def edit_transfer(conn, owner, entry_id, *, from_account_id=None, to_account_id=
     new_intent = transfer_strategy.build_transfer(
         from_account_id=resolved_from_id, to_account_id=resolved_to_id, amount=money,
         description=new_description, entry_date=entry_date,
+        memo=note if note is not None else entry["memo"],
     )
     policy = get_edit_policy(owner["ledger_mode"])
     return policy.correct(conn, entry_id, new_intent)

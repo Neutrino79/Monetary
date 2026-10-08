@@ -48,13 +48,51 @@ def category_totals(conn, owner, account_type: str, *, year=None, month=None) ->
         account_ids = [root["id"]] + child_ids
         debit, credit = repo.account_period_debit_credit(conn, account_ids, start_iso, end_iso)
         total_points = (debit - credit) if normal_side == "DEBIT" else (credit - debit)
+        children = []
+        for child_id in child_ids:
+            child = repo.get_account(conn, child_id)
+            if not child["is_active"]:
+                continue
+            c_debit, c_credit = repo.account_period_debit_credit(conn, [child_id], start_iso, end_iso)
+            children.append({
+                "category_id": child_id, "category_name": child["name"],
+                "total_points": (c_debit - c_credit) if normal_side == "DEBIT" else (c_credit - c_debit),
+            })
+        children.sort(key=lambda c: c["total_points"], reverse=True)
         results.append({
             "category_id": root["id"], "category_name": root["name"],
             "currency": root["currency_code"], "total_points": total_points,
-            "year": year, "month": month,
+            "year": year, "month": month, "children": children,
         })
     results.sort(key=lambda r: r["total_points"], reverse=True)
     return results
+
+
+def period_summary(spending: list[dict], income: list[dict]) -> list[dict]:
+    """Income / spending / savings for the period, per currency. The category
+    totals are root categories with their subcategories already rolled in, so
+    summing them counts each posting once."""
+    by_cur: dict[str, dict] = {}
+    for rows, key in ((income, "income_points"), (spending, "expense_points")):
+        for r in rows:
+            b = by_cur.setdefault(r["currency"], {"currency": r["currency"], "income_points": 0, "expense_points": 0})
+            b[key] += r["total_points"]
+    out = list(by_cur.values())
+    for b in out:
+        b["savings_points"] = b["income_points"] - b["expense_points"]
+    return out
+
+
+def friend_totals(friend_rows: list[dict]) -> list[dict]:
+    """What friends owe you in total vs. what you owe them, per currency."""
+    by_cur: dict[str, dict] = {}
+    for r in friend_rows:
+        b = by_cur.setdefault(r["currency"], {"currency": r["currency"], "owed_to_you_points": 0, "you_owe_points": 0})
+        if r["points"] > 0:
+            b["owed_to_you_points"] += r["points"]
+        else:
+            b["you_owe_points"] += -r["points"]
+    return list(by_cur.values())
 
 
 def dashboard(conn, owner, *, year=None, month=None) -> dict:
@@ -64,13 +102,18 @@ def dashboard(conn, owner, *, year=None, month=None) -> dict:
     if year is None or month is None:
         year, month = current_year_month(tz)
 
+    spending = category_totals(conn, owner, AccountType.EXPENSE.value, year=year, month=month)
+    income = category_totals(conn, owner, AccountType.INCOME.value, year=year, month=month)
+    friends = statement_service.friend_balances(conn)
     return {
         "year": year,
         "month": month,
         "net_worth": net_worth(conn),
         "account_balances": statement_service.account_balances(conn),
         "budget_status": budget_service.budget_status(conn, owner, year=year, month=month),
-        "top_spending": category_totals(conn, owner, AccountType.EXPENSE.value, year=year, month=month)[:5],
-        "income_summary": category_totals(conn, owner, AccountType.INCOME.value, year=year, month=month),
-        "friend_balances": statement_service.friend_balances(conn),
+        "top_spending": spending[:5],
+        "income_summary": income,
+        "summary": period_summary(spending, income),
+        "friend_balances": friends,
+        "friend_totals": friend_totals(friends),
     }
