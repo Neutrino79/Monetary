@@ -13,6 +13,10 @@ class ValidationError(DomainError):
     """An input violates a domain invariant."""
 
 
+class AuthenticationError(DomainError):
+    """Credentials were missing or wrong (rendered as HTTP 401)."""
+
+
 class OwnershipError(DomainError):
     """A referenced entity does not belong to the single application owner."""
 
