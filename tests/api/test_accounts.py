@@ -4,7 +4,7 @@ import pytest
 # --------------------------------------------------------------- accounts ---
 def test_create_and_list_accounts(api):
     r = api.post("/accounts", json={"name": "Bank", "type": "ASSET", "currency": "inr"})
-    assert r.status_code == 201 and r.json()["currency_code"] == "INR" and r.json()["is_active"] is True
+    assert r.status_code == 201 and r.json()["currencyCode"] == "INR" and r.json()["isActive"] is True
     assert [a["name"] for a in api.get("/accounts").json()] == ["Bank"]
 
 
@@ -24,9 +24,9 @@ def test_account_validation(api, payload):
 
 def test_deactivate_hides_from_default_list(world):
     r = world.api.post(f"/accounts/{world.acct['wallet']}/deactivate")
-    assert r.status_code == 200 and r.json()["is_active"] is False
+    assert r.status_code == 200 and r.json()["isActive"] is False
     assert "Wallet" not in [a["name"] for a in world.api.get("/accounts").json()]
-    assert "Wallet" in [a["name"] for a in world.api.get("/accounts", params={"include_inactive": True}).json()]
+    assert "Wallet" in [a["name"] for a in world.api.get("/accounts", params={"includeInactive": True}).json()]
 
 
 def test_deactivated_account_cannot_be_used(world):
@@ -45,17 +45,17 @@ def test_balance_endpoint(world):
 # -------------------------------------------------------------- categories ---
 def test_category_defaults_to_home_currency(api):
     r = api.post("/categories", json={"name": "Food", "type": "EXPENSE"})
-    assert r.status_code == 201 and r.json()["currency_code"] == "INR"
+    assert r.status_code == 201 and r.json()["currencyCode"] == "INR"
 
 
 def test_category_budget_is_stored_in_points(world):
     cats = {c["name"]: c for c in world.api.get("/categories").json()}
-    assert cats["Food"]["budget_limit"] == 500_000 and cats["Transport"]["budget_limit"] is None
+    assert cats["Food"]["budgetLimit"]["points"] == 500_000 and cats["Transport"]["budgetLimit"] is None
 
 
 def test_child_category(world):
     fuel = next(c for c in world.api.get("/categories").json() if c["name"] == "Fuel")
-    assert fuel["parent_account_id"] == world.cat["transport"]
+    assert fuel["parentId"] == world.cat["transport"]
 
 
 @pytest.mark.parametrize("payload,why", [
@@ -73,9 +73,9 @@ def test_category_rules(world, payload, why):
     payload = dict(payload)
     parent = payload.pop("parent", None)
     if parent == "missing":
-        payload["parent_id"] = 99999
+        payload["parentId"] = 99999
     elif parent:
-        payload["parent_id"] = world.cat[parent]
+        payload["parentId"] = world.cat[parent]
     assert world.api.post("/categories", json=payload).status_code in (404, 422), why
 
 
@@ -100,7 +100,7 @@ def test_inactive_category_cannot_be_used(world):
 # ------------------------------------------------------------------ friends ---
 def test_friend_lifecycle(api):
     r = api.post("/friends", json={"name": "Rahul", "email": "rahul@example.com"})
-    assert r.status_code == 201 and r.json()["due_account_id"]
+    assert r.status_code == 201 and r.json()["dueAccountId"]
     fid = r.json()["id"]
     assert api.patch(f"/friends/{fid}", json={"name": "Rahul S"}).json()["name"] == "Rahul S"
     assert api.delete(f"/friends/{fid}").status_code == 200
@@ -129,7 +129,7 @@ def test_friend_with_history_cannot_be_deleted(world):
 def test_rename_friend_renames_due_account_reflected_in_balances(world):
     world.split()
     world.api.patch(f"/friends/{world.friend['rahul']}", json={"name": "Rahul Renamed"})
-    assert "Rahul Renamed" in [r["friend_name"] for r in world.api.get("/friends/balances").json()]
+    assert "Rahul Renamed" in [r["friendName"] for r in world.api.get("/friends/balances").json()]
 
 
 def test_friend_operations_on_missing_or_owner_ids(world):

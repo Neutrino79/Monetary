@@ -12,29 +12,29 @@ def test_balance_report(world):
     assert rows == {"Bank": OPEN, "Wallet": 0, "Credit Card": 0, "USD Account": 0}
     world.api.post(f"/accounts/{world.acct['wallet']}/deactivate")
     assert "Wallet" not in {r["name"] for r in world.api.get("/reports/balance").json()}
-    assert "Wallet" in {r["name"] for r in world.api.get("/reports/balance", params={"include_inactive": True}).json()}
+    assert "Wallet" in {r["name"] for r in world.api.get("/reports/balance", params={"includeInactive": True}).json()}
 
 
 def test_net_worth_is_assets_minus_liabilities_per_currency(world):
     world.expense(account="card", amount="500.00")
     nw = inr(world.api.get("/reports/net-worth").json())
-    assert (nw["assets"]["points"], nw["liabilities"]["points"], nw["net_worth"]["points"]) == (OPEN, 50_000, OPEN - 50_000)
+    assert (nw["assets"]["points"], nw["liabilities"]["points"], nw["netWorth"]["points"]) == (OPEN, 50_000, OPEN - 50_000)
     assert inr(world.api.get("/reports/net-worth").json() , "currency")["currency"] == "INR"
     assert {r["currency"] for r in world.api.get("/reports/net-worth").json()} == {"INR", "USD"}
 
 
 def test_budget_math_and_over_budget_flag(world):
     world.expense(amount="6000.00")
-    b = next(x for x in world.api.get("/reports/budget").json() if x["category_id"] == world.cat["food"])
+    b = next(x for x in world.api.get("/reports/budget").json() if x["categoryId"] == world.cat["food"])
     assert b["budget"]["points"] == 500_000 and b["spent"]["points"] == 600_000
-    assert b["remaining"]["points"] == -100_000 and b["percentage_used"] == pytest.approx(120.0) and b["over_budget"] is True
+    assert b["remaining"]["points"] == -100_000 and b["percentageUsed"] == pytest.approx(120.0) and b["overBudget"] is True
 
 
 def test_budget_under_limit_and_only_budgeted_categories_listed(world):
     world.expense(amount="1250.00")
     rows = world.api.get("/reports/budget").json()
-    assert [r["category_name"] for r in rows] == ["Food"]
-    assert rows[0]["percentage_used"] == pytest.approx(25.0) and rows[0]["over_budget"] is False
+    assert [r["categoryName"] for r in rows] == ["Food"]
+    assert rows[0]["percentageUsed"] == pytest.approx(25.0) and rows[0]["overBudget"] is False
 
 
 def test_budget_counts_only_owner_share_of_splits(world):
@@ -48,28 +48,28 @@ def test_spending_report_sorted_and_rolls_children_into_parent(world):
     world.expense(category="fuel", amount="300.00")
     world.expense(category="transport", amount="50.00")
     rows = world.api.get("/reports/spending").json()
-    assert [(r["category_name"], r["total"]["points"]) for r in rows][:2] == [("Transport", 35_000), ("Food", 10_000)]
-    assert "Fuel" not in [r["category_name"] for r in rows]             # only root categories
+    assert [(r["categoryName"], r["total"]["points"]) for r in rows][:2] == [("Transport", 35_000), ("Food", 10_000)]
+    assert "Fuel" not in [r["categoryName"] for r in rows]             # only root categories
 
 
 def test_income_report(world):
     world.income(amount="250.00", category="freelance")
-    rows = {r["category_name"]: r["total"]["points"] for r in world.api.get("/reports/income").json()}
+    rows = {r["categoryName"]: r["total"]["points"] for r in world.api.get("/reports/income").json()}
     assert rows == {"Salary": OPEN, "Freelance": 25_000}
 
 
 def test_month_parameter_selects_period(world):
     world.expense(amount="10.00", date="2026-01-10")
-    jan = next(r for r in world.api.get("/reports/spending", params={"month": "2026-01"}).json() if r["category_name"] == "Food")
+    jan = next(r for r in world.api.get("/reports/spending", params={"month": "2026-01"}).json() if r["categoryName"] == "Food")
     assert jan["total"]["points"] == 1_000 and (jan["year"], jan["month"]) == (2026, 1)
-    feb = next(r for r in world.api.get("/reports/spending", params={"month": "2026-02"}).json() if r["category_name"] == "Food")
+    feb = next(r for r in world.api.get("/reports/spending", params={"month": "2026-02"}).json() if r["categoryName"] == "Food")
     assert feb["total"]["points"] == 0
 
 
 def test_month_boundaries_follow_owner_timezone(world):
     world.expense(amount="10.00", date="2026-01-31 23:59")      # still January in Asia/Kolkata (= 18:29 UTC)
     world.expense(amount="20.00", date="2026-02-01 00:00")
-    food = lambda m: next(r for r in world.api.get("/reports/spending", params={"month": m}).json() if r["category_name"] == "Food")["total"]["points"]
+    food = lambda m: next(r for r in world.api.get("/reports/spending", params={"month": m}).json() if r["categoryName"] == "Food")["total"]["points"]
     assert (food("2026-01"), food("2026-02")) == (1_000, 2_000)
 
 
@@ -82,9 +82,10 @@ def test_invalid_months_are_422(world, month):
 def test_dashboard_combines_everything(world):
     world.split(); world.expense(account="card", amount="200.00", category="transport")
     d = world.api.get("/reports/dashboard").json()
-    assert set(d) == {"year", "month", "net_worth", "account_balances", "budget_status", "top_spending", "income_summary", "friend_balances"}
-    assert len(d["account_balances"]) == 4 and d["friend_balances"][0]["balance"]["points"] == 35_000
-    assert d["top_spending"][0]["category_name"] == "Transport" and len(d["top_spending"]) <= 5
+    assert set(d) == {"year", "month", "netWorth", "summary", "accountBalances", "budgetStatus", "topSpending", "incomeSummary",
+                    "friendBalances", "friendTotals"}
+    assert len(d["accountBalances"]) == 4 and d["friendBalances"][0]["balance"]["points"] == 35_000
+    assert d["topSpending"][0]["categoryName"] == "Transport" and len(d["topSpending"]) <= 5
 
 
 def test_reference_data_lists_active_items_only(world):
@@ -128,3 +129,37 @@ def test_trend_parameter_validation(world):
 def test_friend_balances_sign_convention(world):
     world.split(); world.fronted(friend="priya", amount="80.00")
     assert (world.friend_balance("rahul"), world.friend_balance("priya")) == (35_000, -8_000)
+
+
+def test_dashboard_summary_and_friend_totals_are_computed_server_side(world):
+    world.split()                                                        # you paid 500; Rahul owes 350
+    world.fronted(friend="priya", amount="80.00")                        # you owe Priya 80
+    world.income(amount="1000.00", category="freelance")
+    d = world.api.get("/reports/dashboard").json()
+    inr = next(x for x in d["summary"] if x["currency"] == "INR")
+    # spend = your 150 share + Priya-fronted 80 (counted in full); income = opening salary + freelance
+    assert inr["expense"]["points"] == 15_000 + 8_000
+    assert inr["income"]["points"] == 5_000_000 + 100_000
+    assert inr["savings"]["points"] == inr["income"]["points"] - inr["expense"]["points"]
+    totals = next(x for x in d["friendTotals"] if x["currency"] == "INR")
+    assert totals["owedToYou"]["points"] == 35_000 and totals["youOwe"]["points"] == 8_000
+    assert {b["friendName"] for b in d["friendBalances"]} == {"Rahul Sharma", "Priya Nair"}
+
+
+def test_spending_includes_per_subcategory_breakdown(world):
+    world.expense(category="fuel", amount="40.00")
+    world.expense(category="transport", amount="10.00")
+    rows = world.api.get("/reports/spending").json()
+    transport = next(r for r in rows if r["categoryName"] == "Transport")
+    assert transport["total"]["points"] == 5_000                         # parent + child rolled up
+    assert [(c["categoryName"], c["total"]["points"]) for c in transport["children"]] == [("Fuel", 4_000)]
+    assert next(r for r in rows if r["categoryName"] == "Food")["children"] == []
+
+
+def test_balance_report_and_reference_data_are_typed_and_camel_cased(world):
+    bal = world.api.get("/reports/balance").json()
+    assert {"accountId", "name", "accountType", "isActive", "balance"} <= set(bal[0])
+    ref = world.api.get("/reports/reference-data").json()
+    fuel = next(c for c in ref["categories"] if c["name"] == "Fuel")
+    assert fuel["parentId"] == world.cat["transport"] and "currencyCode" in fuel
+    assert {"id", "name", "email"} == set(ref["friends"][0])
