@@ -11,18 +11,20 @@ def strict(world):
 
 
 def test_mode_switch_and_validation(world):
-    assert world.api.patch("/owner", json={"ledger_mode": "STRICT"}).json()["ledger_mode"] == "STRICT"
+    assert world.api.patch("/owner", json={"ledger_mode": "STRICT"}).json()["ledgerMode"] == "STRICT"
     assert world.api.patch("/owner", json={"ledger_mode": "strict"}).status_code == 422   # exact-case pattern
 
 
 def test_edit_reverses_original_and_posts_replacement(strict):
     e = strict.expense(amount="10.00")
     new = strict.api.patch(f"/transactions/{e['id']}", json={"amount": "25.00"}).json()
-    assert new["id"] != e["id"] and new["status"] == "POSTED"
+    assert new["id"] != e["id"] and new["status"] == "posted"
+    assert new["correctionOf"] == e["id"]                      # replacement links back to the original
+    assert strict.api.get(f"/transactions/{e['id']}").json()["replacedBy"] == new["id"]
     old = strict.entry(e["id"])
-    assert old["status"] == "REVERSED" and old["reversed_by_id"]
-    rev = strict.entry(old["reversed_by_id"])
-    assert rev["entry_type"] == "REVERSAL" and rev["reversal_of_id"] == e["id"]
+    assert old["status"] == "REVERSED" and old["reversedById"]
+    rev = strict.entry(old["reversedById"])
+    assert rev["entryType"] == "REVERSAL" and rev["reversalOfId"] == e["id"]
     assert strict.balance("bank") == OPEN - 2500
 
 
@@ -36,9 +38,12 @@ def test_reversed_entries_are_hidden_unless_requested(strict):
     e = strict.expense(title="Gone")
     strict.api.delete(f"/transactions/{e['id']}")
     default = {i["description"] for i in strict.api.get("/transactions").json()["items"]}
-    everything = strict.api.get("/transactions", params={"include_reversed": True}).json()["items"]
-    assert "Gone" not in default and any(i["description"] == "Gone" for i in everything)
-    assert any(i["entry_type"] == "REVERSAL" for i in everything)
+    everything = strict.api.get("/transactions", params={"status": "all"}).json()["items"]
+    assert "Gone" not in default and any(i["description"] == "Gone" and i["status"] == "reversed" for i in everything)
+    # the system REVERSAL row is an implementation detail and never appears in the flat API
+    assert all(i["type"] != "reversal" and not i["description"].startswith("Reversal of") for i in everything)
+    reversal_id = strict.entry(e["id"])["reversedById"]
+    assert strict.api.get(f"/transactions/{reversal_id}").status_code == 404
 
 
 def test_reversed_entries_cannot_be_edited_or_deleted_again(strict):
@@ -51,7 +56,7 @@ def test_reversed_entries_cannot_be_edited_or_deleted_again(strict):
 def test_reversed_entries_do_not_count_in_reports(strict):
     e = strict.expense(amount="700.00")
     strict.api.delete(f"/transactions/{e['id']}")
-    food = next(r for r in strict.api.get("/reports/spending").json() if r["category_id"] == strict.cat["food"])
+    food = next(r for r in strict.api.get("/reports/spending").json() if r["categoryId"] == strict.cat["food"])
     assert food["total"]["points"] == 0
 
 
@@ -59,8 +64,8 @@ def test_strict_split_delete_keeps_statement_history_with_correct_running_balanc
     sp = strict.split()["entry"]["id"]
     strict.api.delete(f"/splits/{sp}")
     rows = strict.api.get(f"/friends/{strict.friend['rahul']}/statement").json()
-    assert [(r["entry_type"], r["status"]) for r in rows] == [("SPLIT", "REVERSED"), ("REVERSAL", "POSTED")]
-    assert rows[-1]["running_balance"]["points"] == 0 and strict.friend_balance("rahul") == 0
+    assert [(r["entryType"], r["status"]) for r in rows] == [("SPLIT", "REVERSED"), ("REVERSAL", "POSTED")]
+    assert rows[-1]["runningBalance"]["points"] == 0 and strict.friend_balance("rahul") == 0
 
 
 def test_strict_refund_flow(strict):
@@ -86,10 +91,10 @@ def test_default_list_hides_both_halves_of_a_reversed_pair(strict):
     e = strict.expense(title="Oops")
     strict.api.delete(f"/transactions/{e['id']}")
     default = strict.api.get("/transactions").json()
-    assert all(i["entry_type"] != "REVERSAL" and i["status"] == "POSTED" for i in default["items"])
+    assert all(i["status"] == "posted" for i in default["items"])
     assert default["total"] == len(default["items"])
-    full = strict.api.get("/transactions", params={"include_reversed": True}).json()
-    assert full["total"] == default["total"] + 2
+    full = strict.api.get("/transactions", params={"status": "all"}).json()
+    assert full["total"] == default["total"] + 1               # the REVERSED original; REVERSAL stays hidden
 
 
 def test_reports_and_trends_ignore_reversed_pairs(strict):
@@ -98,7 +103,7 @@ def test_reports_and_trends_ignore_reversed_pairs(strict):
     strict.expense(amount="100.00")
     cash = strict.api.get("/reports/trends/cashflow", params={"months": 1}).json()["points"][-1]
     assert cash["expense"]["points"] == 10_000
-    food = next(b for b in strict.api.get("/reports/budget").json() if b["category_id"] == strict.cat["food"])
+    food = next(b for b in strict.api.get("/reports/budget").json() if b["categoryId"] == strict.cat["food"])
     assert food["spent"]["points"] == 10_000
     nw = strict.api.get("/reports/trends/net-worth", params={"months": 1}).json()
     inr = next(s for s in nw if s["currency"] == "INR")

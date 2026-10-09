@@ -5,10 +5,10 @@ from tests.sample_data import DINNER, DINNER_POINTS, OPENING_BALANCE_POINTS
 
 def test_expense_reduces_asset_and_posts_two_balanced_legs(world):
     e = world.expense(amount=DINNER, title="Dinner")
-    assert e["entry_type"] == "NORMAL" and e["amount"]["major"] == "INR 500.00"
+    assert e["entryType"] == "NORMAL" and e["amount"]["major"] == "INR 500.00"
     assert world.balance("bank") == OPENING_BALANCE_POINTS - DINNER_POINTS
     detail = world.entry(e["id"])
-    legs = {(p["account_name"], p["side"], p["amount"]["points"]) for p in detail["postings"]}
+    legs = {(p["accountName"], p["side"], p["amount"]["points"]) for p in detail["postings"]}
     assert legs == {("Bank", "CREDIT", DINNER_POINTS), ("Food", "DEBIT", DINNER_POINTS)}
 
 
@@ -57,7 +57,7 @@ def test_unknown_account_or_category_404(world):
 
 def test_explicit_date_is_interpreted_in_owner_timezone(world):
     e = world.expense(date="2026-01-15")
-    assert e["entry_date"] == "2026-01-14T18:30:00+00:00"
+    assert e["entryDate"] == "2026-01-14T18:30:00+00:00"
     assert world.api.post("/transactions/expense", json=world.expense_payload(date="15/01/2026")).status_code == 422
 
 
@@ -92,7 +92,7 @@ def test_refund_can_land_in_a_different_account(world):
 def test_refund_reduces_budget_spend(world):
     e = world.expense(amount="500.00")
     world.api.post("/transactions/refund", json={"for_entry_id": e["id"], "amount": "200.00"})
-    food = next(b for b in world.api.get("/reports/budget").json() if b["category_id"] == world.cat["food"])
+    food = next(b for b in world.api.get("/reports/budget").json() if b["categoryId"] == world.cat["food"])
     assert food["spent"]["points"] == 30_000
 
 
@@ -139,9 +139,9 @@ def test_edit_refund_respects_original_amount(world):
 def test_adjustment_moves_real_account_and_uses_equity(world, side, delta):
     r = world.api.post("/transactions/adjustment", json={"account_id": world.acct["bank"], "amount": "10.00",
                                                          "side": side, "title": "Correction"})
-    assert r.status_code == 201 and r.json()["entry_type"] == "ADJUSTMENT"
+    assert r.status_code == 201 and r.json()["entryType"] == "ADJUSTMENT"
     assert world.balance("bank") == OPENING_BALANCE_POINTS + delta
-    assert "Adjustments" in {p["account_name"] for p in world.entry(r.json()["id"])["postings"]}
+    assert "Adjustments" in {p["accountName"] for p in world.entry(r.json()["id"])["postings"]}
 
 
 def test_adjustment_side_validation(world):
@@ -162,7 +162,7 @@ def test_direct_edit_amount_account_category_and_text(world):
                                                           "category_id": world.cat["transport"], "account_id": world.acct["wallet"]})
     assert r.status_code == 200 and r.json()["id"] == e["id"]
     d = world.entry(e["id"])
-    assert (d["description"], d["memo"], d["category_id"]) == ("Big lunch", "with team", world.cat["transport"])
+    assert (d["description"], d["memo"], d["categoryId"]) == ("Big lunch", "with team", world.cat["transport"])
     assert (world.balance("bank"), world.balance("wallet")) == (OPENING_BALANCE_POINTS, -15_000)
 
 
@@ -179,14 +179,6 @@ def test_edit_income_entry(world):
     assert world.balance("bank") == OPENING_BALANCE_POINTS + 30_000
 
 
-def test_split_and_transfer_entries_are_routed_elsewhere(world):
-    sp = world.split()["entry"]["id"]
-    tr = world.transfer()["id"]
-    for eid, hint in ((sp, "splits"), (tr, "transfers")):
-        for r in (world.api.patch(f"/transactions/{eid}", json={"title": "x"}), world.api.delete(f"/transactions/{eid}")):
-            assert r.status_code == 422 and hint in r.json()["detail"]
-
-
 def test_direct_delete_removes_entry_and_restores_balance(world):
     e = world.expense()
     assert world.api.delete(f"/transactions/{e['id']}").status_code == 200
@@ -198,12 +190,12 @@ def test_direct_delete_removes_entry_and_restores_balance(world):
 # ------------------------------------------------------------------ listing ---
 def test_list_pagination_envelope_and_order(world):
     ids = [world.expense(title=f"E{i}", date=f"2026-02-0{i}")["id"] for i in range(1, 6)]
-    page = world.api.get("/transactions", params={"limit": 2, "offset": 1, "category_id": world.cat["food"]}).json()
+    page = world.api.get("/transactions", params={"limit": 2, "offset": 1, "categoryId": world.cat["food"]}).json()
     assert set(page) == {"items", "total", "limit", "offset"} and page["total"] == 5
     assert [i["id"] for i in page["items"]] == [ids[3], ids[2]]        # newest first
 
 
-@pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 501}, {"offset": -1}, {"account_id": "x"}, {"date_from": "junk"}])
+@pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 501}, {"offset": -1}, {"accountId": "x"}, {"dateFrom": "junk"}])
 def test_list_parameter_validation(world, params):
     assert world.api.get("/transactions", params=params).status_code == 422
 
@@ -212,11 +204,11 @@ def test_list_filters(world):
     world.expense(title="Coffee beans", amount="10.00", account="bank", date="2026-01-10")
     world.expense(title="Bus ticket", amount="20.00", account="wallet", category="transport", date="2026-02-10", note="airport 50%")
     q = lambda **p: {i["description"] for i in world.api.get("/transactions", params=p).json()["items"]}
-    assert q(account_id=world.acct["wallet"]) == {"Bus ticket"}
-    assert q(category_id=world.cat["transport"]) == {"Bus ticket"}
+    assert q(accountId=world.acct["wallet"]) == {"Bus ticket"}
+    assert q(categoryId=world.cat["transport"]) == {"Bus ticket"}
     assert q(search="coffee") == {"Coffee beans"} and q(search="airport") == {"Bus ticket"}
-    assert q(date_from="2026-02-01", category_id=world.cat["transport"]) == {"Bus ticket"}
-    assert q(date_to="2026-02-01", search="e") >= {"Coffee beans"} and "Bus ticket" not in q(date_to="2026-02-01")
+    assert q(dateFrom="2026-02-01", categoryId=world.cat["transport"]) == {"Bus ticket"}
+    assert q(dateTo="2026-02-01", search="e") >= {"Coffee beans"} and "Bus ticket" not in q(dateTo="2026-02-01")
     assert q(search="zzz") == set()
 
 

@@ -4,13 +4,13 @@ from tests.sample_data import OPENING_BALANCE_POINTS as OPEN
 
 
 def net_worth_inr(world):
-    return next(r for r in world.api.get("/reports/net-worth").json() if r["currency"] == "INR")["net_worth"]["points"]
+    return next(r for r in world.api.get("/reports/net-worth").json() if r["currency"] == "INR")["netWorth"]["points"]
 
 
 def test_asset_to_asset_moves_money_without_changing_net_worth(world):
     before = net_worth_inr(world)
     t = world.transfer(amount="300.00")
-    assert t["entry_type"] == "TRANSFER" and t["description"] == "Transfer: Bank -> Wallet"
+    assert t["entryType"] == "TRANSFER" and t["description"] == "Transfer: Bank -> Wallet"
     assert (world.balance("bank"), world.balance("wallet")) == (OPEN - 30_000, 30_000)
     assert net_worth_inr(world) == before
 
