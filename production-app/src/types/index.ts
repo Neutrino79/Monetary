@@ -1,146 +1,176 @@
-export type AccountType = "ASSET" | "LIABILITY" | "EXPENSE" | "INCOME" | "DUE" | "EQUITY";
-export type AccountSubtype = "bank" | "cash" | "credit_card" | "wallet" | "system";
+/**
+ * Domain types the UI works with. The wire format (camelCase JSON with
+ * `{points, major, currency}` money objects) is translated into these at the
+ * service boundary by `lib/api/mappers.ts`; money here is a plain number
+ * *for display and form input only* -- every total, balance and report is
+ * computed by the backend.
+ */
+export type Id = number;
+
+export type AccountType = "ASSET" | "LIABILITY";
+export type AccountSubtype = "bank" | "cash" | "wallet" | "credit_card";
 
 export interface Account {
-  id: string;
+  id: Id;
   name: string;
   accountType: AccountType;
   subtype: AccountSubtype;
-  icon?: string;
-  openingBalance: number;
+  currency: string;
   isActive: boolean;
-  isSystem: boolean;
+  /** Server-computed. For a LIABILITY this is the amount owed. */
+  balance: number;
+  creditLimit: number | null;
+  statementDay: number | null;
   createdAt: string;
-  archivedAt?: string;
-  creditLimit?: number;
-  statementDay?: number;
+  updatedAt: string;
 }
 
+export type CategoryType = "EXPENSE" | "INCOME";
+
+/** Expense categories and income sources share one shape (an income source is an INCOME category). */
 export interface Category {
-  id: string;
+  id: Id;
   name: string;
-  icon?: string;
+  type: CategoryType;
   color: string;
   budgetLimit: number | null;
-  parentId: string | null;
+  parentId: Id | null;
+  isActive: boolean;
 }
-
-export interface IncomeSource {
-  id: string;
-  name: string;
-  icon?: string;
-  color: string;
-}
+export type IncomeSource = Category;
 
 export interface Friend {
-  id: string;
+  id: Id;
   name: string;
   initials: string;
   email: string;
-  phone?: string | null;
+  phone: string | null;
   color: string;
   createdAt: string;
 }
 
 export interface SplitParticipant {
-  friendId: string;
+  friendId: Id;
   share: number;
-  settled: number;
 }
 
-export type TransactionType = "income" | "expense" | "transfer" | "split" | "settlement" | "refund" | "adjustment";
+export type TransactionType = "income" | "expense" | "transfer" | "split" | "fronted" | "settlement" | "refund" | "adjustment";
 export type TransactionStatus = "posted" | "reversed";
 export type SettlementDirection = "receive" | "pay";
 export type AdjustmentDirection = "increase" | "decrease";
 
 export interface Transaction {
-  id: string;
+  id: Id;
   type: TransactionType;
   description: string;
   memo: string | null;
-  date: string; // YYYY-MM-DD
+  date: string; // YYYY-MM-DD, the owner's local date
   currency: string;
   status: TransactionStatus;
   createdAt: string;
-  updatedAt?: string;
-
-  // income / expense / split / refund
-  accountId?: string;
-  categoryId?: string;
+  updatedAt: string;
+  /** Total amount (for a split: the whole bill). */
   amount: number;
-
-  // transfer
-  toAccountId?: string;
-
-  // split
+  accountId?: Id;
+  toAccountId?: Id;
+  categoryId?: Id;
+  friendId?: Id;
+  direction?: SettlementDirection | AdjustmentDirection;
+  /** split: your own share */
   yourShare?: number;
   splits?: SplitParticipant[];
-
-  // settlement
-  friendId?: string;
-  direction?: SettlementDirection | AdjustmentDirection;
-
-  // refund
-  refundOfId?: string;
-
-  // adjustment
-  // (reuses `direction`, typed loosely as string union above covers both cases at the type level via widening)
-
-  // correction bookkeeping (STRICT ledger mode)
-  correctionOf?: string;
-  reversalOf?: string;
+  refundOfId?: Id;
+  /** STRICT mode: the entry this one replaced / the entry that replaced this one. */
+  correctionOf?: Id;
+  replacedBy?: Id;
 }
 
 export type LedgerMode = "STRICT" | "DIRECT";
 
-export interface UserSettings {
-  theme: "light" | "dark";
-  ledgerMode: LedgerMode;
-  ownerName: string;
-  ownerEmail: string;
-  currency: string;
-  timezone: string;
-  homeCurrencyCode: string;
-}
-
-/**
- * Public-facing user profile — what the frontend ever sees or sends over
- * the wire. Credential material (password hash, security-answer hash,
- * session tokens) stays server-side; the mock backend keeps its own
- * internal "stored user" shape private to `lib/api/mock`.
- */
+/** The signed-in owner. */
 export interface User {
-  id: number;
+  id: Id;
   name: string;
   email: string;
   isSuperuser: boolean;
-  timezone: string;
+  timezone: string | null;
   homeCurrencyCode: string;
   ledgerMode: LedgerMode;
-  securityQuestionId: number;
+  securityQuestionId: number | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface SecurityQuestion {
+  id: number;
+  text: string;
+}
+
+export interface Branding {
+  name: string;
+  tagline: string;
+}
+
+export interface Page<T> {
+  items: T[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+// ---------------------------------------------------------------- reports
+export interface BudgetStatus {
+  categoryId: Id;
+  categoryName: string;
+  budget: number;
+  spent: number;
+  remaining: number;
+  percentageUsed: number;
+  overBudget: boolean;
+}
+
+export interface CategoryTotal {
+  categoryId: Id;
+  categoryName: string;
+  total: number;
+  children: { categoryId: Id; categoryName: string; total: number }[];
+}
+
+export interface FriendBalance {
+  friendId: Id;
+  friendName: string;
+  /** positive = they owe you; negative = you owe them */
+  balance: number;
+}
+
+export interface Dashboard {
+  year: number;
+  month: number;
+  currency: string;
+  netWorth: number;
+  assets: number;
+  liabilities: number;
+  income: number;
+  expense: number;
+  savings: number;
+  budgets: BudgetStatus[];
+  topSpending: CategoryTotal[];
+  incomeSummary: CategoryTotal[];
+  friendBalances: FriendBalance[];
+  owedToYou: number;
+  youOwe: number;
+}
+
+export interface CashflowPoint {
+  year: number;
+  month: number;
+  label: string;
+  income: number;
+  expense: number;
+  net: number;
 }
 
 export interface DateRange {
   from: string;
   to: string;
-}
-
-export interface MonthBucket extends DateRange {
-  label: string;
-  key: string;
-}
-
-export interface BudgetUsage {
-  category: Category;
-  spent: number;
-  limit: number;
-  pct: number;
-}
-
-export interface NetWorth {
-  assets: number;
-  liabilities: number;
-  net: number;
 }
