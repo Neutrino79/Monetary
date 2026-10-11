@@ -39,8 +39,27 @@ def get_db() -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
+def _db_dependency():
+    """The per-request connection dependency, committed *before* the response is sent.
+
+    By default newer FastAPI runs a `yield` dependency's cleanup (our commit) *after* the
+    response has gone out, so a client that fires its next request immediately -- as a
+    browser app does -- can read the database before the previous write is committed
+    (e.g. a settlement that "isn't there" right after the split it settles, or a password
+    reset that has no effect on the very next login). `scope="function"` closes that gap.
+    Older FastAPI versions already commit before responding and don't know the argument.
+    """
+    try:
+        return Depends(get_db, scope="function")
+    except TypeError:
+        return Depends(get_db)
+
+
+DB = _db_dependency()
+
+
 def get_current_owner(
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = DB,
     token: str = Depends(oauth2_scheme),
 ) -> dict:
     """Every endpoint except /setup/init, /auth/* (pre-login), and /health
