@@ -14,7 +14,7 @@ from duevia.application import (
 )
 from duevia.domain.exceptions import ValidationError
 from duevia.config import API_PREFIX
-from duevia.presentation.api.deps import get_current_owner, get_db
+from duevia.presentation.api.deps import get_current_owner, DB
 from duevia.presentation.api.schemas.converters import money_out
 from duevia.presentation.api.schemas.friends import FriendBalanceOut
 from duevia.presentation.api.schemas.reports import (
@@ -65,7 +65,7 @@ def _category_total_out(r: dict) -> CategoryTotalOut:
 @router.get("/balance", response_model=list[AccountBalanceRowOut])
 def balance(
     include_inactive: bool = Query(default=False, alias="includeInactive"),
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     rows = statement_service.account_balances(conn, include_inactive=include_inactive)
     return [AccountBalanceRowOut(account_id=r["account_id"], name=r["name"], account_type=r["account_type"],
@@ -76,7 +76,7 @@ def balance(
 @router.get("/budget", response_model=list[BudgetStatusOut])
 def budget(
     month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$", description="'YYYY-MM', e.g. '2026-09'"),
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     year, m = _year_month(month)
     rows = budget_service.budget_status(conn, owner, year=year, month=m)
@@ -89,7 +89,7 @@ def budget(
 
 
 @router.get("/net-worth", response_model=list[NetWorthOut])
-def net_worth(conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner)):
+def net_worth(conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner)):
     rows = dashboard_service.net_worth(conn)
     return [NetWorthOut(
         currency=r["currency"], assets=money_out(r["assets"], r["currency"]),
@@ -100,7 +100,7 @@ def net_worth(conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(
 @router.get("/spending", response_model=list[CategoryTotalOut])
 def spending(
     month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$", description="'YYYY-MM', e.g. '2026-09'"),
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     year, m = _year_month(month)
     rows = dashboard_service.category_totals(conn, owner, "EXPENSE", year=year, month=m)
@@ -110,7 +110,7 @@ def spending(
 @router.get("/income", response_model=list[CategoryTotalOut])
 def income(
     month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$", description="'YYYY-MM', e.g. '2026-09'"),
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     year, m = _year_month(month)
     rows = dashboard_service.category_totals(conn, owner, "INCOME", year=year, month=m)
@@ -120,7 +120,7 @@ def income(
 @router.get("/dashboard", response_model=DashboardOut)
 def dashboard(
     month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$", description="'YYYY-MM', e.g. '2026-09'"),
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     year, m = _year_month(month)
     d = dashboard_service.dashboard(conn, owner, year=year, month=m)
@@ -155,7 +155,7 @@ def dashboard(
 
 
 @router.get("/reference-data", response_model=ReferenceDataOut)
-def reference_data(conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner)):
+def reference_data(conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner)):
     """One round trip for everything a UI needs to populate dropdowns: active
     accounts, active categories, and friends. New endpoint -- the CLI never
     needed this since it never has to pre-populate a form."""
@@ -175,7 +175,7 @@ def reference_data(conn: sqlite3.Connection = Depends(get_db), owner: dict = Dep
 @router.get("/trends/net-worth", response_model=list[TrendOut])
 def net_worth_trend(
     months: int = Query(default=12, ge=1, le=60),
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     series = trends_service.net_worth_trend(conn, owner, months=months)
     return [TrendOut(
@@ -189,7 +189,7 @@ def net_worth_trend(
 def spending_trend(
     category_id: int,
     months: int = Query(default=12, ge=1, le=60),
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     s = trends_service.category_spending_trend(conn, owner, category_id, months=months)
     return TrendOut(
@@ -202,7 +202,7 @@ def spending_trend(
 @router.get("/trends/cashflow", response_model=CashflowTrendOut)
 def cashflow_trend(
     months: int = Query(default=12, ge=1, le=60),
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     s = trends_service.cashflow_trend(conn, owner, months=months)
     return CashflowTrendOut(

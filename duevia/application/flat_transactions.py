@@ -174,7 +174,7 @@ def view_of(conn, owner: dict, entry: dict) -> dict:
     return to_views(conn, owner, [entry])[0]
 
 
-def list_views(conn, owner: dict, *, account_id=None, category_id=None, friend_id=None, types=None,
+def list_views(conn, owner: dict, *, account_id=None, category_id=None, friend_id=None, refund_of_id=None, types=None,
                search=None, status="posted", date_from=None, date_to=None, sort="date",
                direction="desc", limit=50, offset=0) -> tuple[list[dict], int]:
     for t in types or []:
@@ -189,7 +189,7 @@ def list_views(conn, owner: dict, *, account_id=None, category_id=None, friend_i
         category_ids = [category_id, *repo.child_account_ids(conn, category_id)]
     rows, total = q.search_entries(
         conn, account_id=account_id, category_ids=category_ids, friend_id=friend_id,
-        flat_types=types or None, search=search, status=status,
+        refund_of_id=refund_of_id, flat_types=types or None, search=search, status=status,
         date_from=parse_local_to_utc_iso(date_from, tz) if date_from else None,
         date_to_exclusive=next_local_day_start_utc_iso(date_to, tz) if date_to else None,
         sort=sort, direction=direction, limit=limit, offset=offset)
