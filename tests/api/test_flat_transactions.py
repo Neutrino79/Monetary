@@ -176,6 +176,15 @@ def test_date_is_the_owners_local_date(world):
     assert raw.startswith("2026-03-09T18:30") and e["date"] == "2026-03-10"
 
 
+def test_filter_refunds_by_the_expense_they_refund(world):
+    a = ok(post(world, **base(world, "expense", description="A", accountId=world.acct["bank"], categoryId=world.cat["food"])))
+    b = ok(post(world, **base(world, "expense", description="B", accountId=world.acct["bank"], categoryId=world.cat["food"])))
+    ok(post(world, **base(world, "refund", description="refund of A", amount="10.00", refundOfId=a["id"])))
+    ok(post(world, **base(world, "refund", description="refund of B", amount="5.00", refundOfId=b["id"])))
+    got = world.api.get("/transactions", params={"refundOfId": a["id"]}).json()["items"]
+    assert [i["description"] for i in got] == ["refund of A"] and got[0]["refundOfId"] == a["id"]
+
+
 def test_postings_view_is_still_available(world):
     e = ok(post(world, **base(world, "expense", accountId=world.acct["bank"], categoryId=world.cat["food"])))
     detail = world.api.get(f"/transactions/{e['id']}/postings").json()
