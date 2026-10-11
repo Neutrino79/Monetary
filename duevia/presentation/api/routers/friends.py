@@ -8,7 +8,7 @@ from duevia.application import statement_service, user_service
 from duevia.config import API_PREFIX
 from duevia.domain.exceptions import ConflictError, NotFoundError
 from duevia.infrastructure import repositories as repo
-from duevia.presentation.api.deps import get_current_owner, get_db
+from duevia.presentation.api.deps import get_current_owner, DB
 from duevia.presentation.api.schemas.common import MessageOut
 from duevia.presentation.api.schemas.converters import money_out
 from duevia.presentation.api.schemas.friends import (
@@ -39,7 +39,7 @@ def _friend_out(conn, friend: dict) -> FriendOut:
 @router.post("", response_model=FriendOut, status_code=201)
 def add_friend(
     payload: FriendCreate,
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
     friend = user_service.add_friend(conn, name=payload.name, email=payload.email,
@@ -48,14 +48,14 @@ def add_friend(
 
 
 @router.get("", response_model=list[FriendOut])
-def list_friends(conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner)):
+def list_friends(conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner)):
     return [_friend_out(conn, f) for f in user_service.list_friends(conn)]
 
 
 @router.patch("/{friend_id}", response_model=FriendOut)
 def update_friend(
     friend_id: int, payload: FriendUpdate,
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     fields = payload.model_dump(include=payload.model_fields_set)
     friend = user_service.update_friend(conn, friend_id, fields=fields)
@@ -65,14 +65,14 @@ def update_friend(
 @router.delete("/{friend_id}", response_model=MessageOut)
 def delete_friend(
     friend_id: int,
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     user_service.delete_friend(conn, friend_id)
     return MessageOut(detail=f"Friend {friend_id} deleted.")
 
 
 @router.get("/balances", response_model=list[FriendBalanceOut])
-def friend_balances(conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner)):
+def friend_balances(conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner)):
     rows = statement_service.friend_balances(conn)
     return [FriendBalanceOut(friend_id=r["friend_id"], friend_name=r["friend_name"],
                               balance=money_out(r["points"], r["currency"])) for r in rows]
@@ -81,7 +81,7 @@ def friend_balances(conn: sqlite3.Connection = Depends(get_db), owner: dict = De
 @router.get("/{friend_id}/statement", response_model=list[StatementRowOut])
 def friend_statement(
     friend_id: int,
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     friend = repo.get_user(conn, friend_id)
     if friend is None or friend["is_superuser"]:

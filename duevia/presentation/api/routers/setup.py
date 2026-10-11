@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 
 from duevia.application import seed_service, user_service
 from duevia.config import API_PREFIX
-from duevia.presentation.api.deps import get_db
+from duevia.presentation.api.deps import DB
 from duevia.presentation.api.schemas.owner import (
     InitRequest,
     InitResponse,
@@ -18,7 +18,7 @@ router = APIRouter(prefix=f"{API_PREFIX}/setup", tags=["setup"])
 
 
 @router.get("/status", response_model=SetupStatusOut)
-def setup_status(conn: sqlite3.Connection = Depends(get_db)):
+def setup_status(conn: sqlite3.Connection = DB):
     """Public. Lets a client decide between the first-run setup screen and the
     sign-in screen. `POST /setup/init` re-checks atomically and answers 409 if
     an owner already exists, so this endpoint is a UX convenience, not a lock."""
@@ -26,7 +26,7 @@ def setup_status(conn: sqlite3.Connection = Depends(get_db)):
 
 
 @router.post("/init", response_model=InitResponse, status_code=201)
-def init(payload: InitRequest, conn: sqlite3.Connection = Depends(get_db)):
+def init(payload: InitRequest, conn: sqlite3.Connection = DB):
     owner = user_service.bootstrap_owner(
         conn, name=payload.name, email=payload.email, timezone=payload.timezone,
         home_currency_code=payload.currency, password=payload.password,

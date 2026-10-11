@@ -24,7 +24,7 @@ _SORTS = {
 }
 
 
-def search_entries(conn, *, account_id=None, category_ids=None, friend_id=None, flat_types=None,
+def search_entries(conn, *, account_id=None, category_ids=None, friend_id=None, refund_of_id=None, flat_types=None,
                    search=None, status="posted", date_from=None, date_to_exclusive=None,
                    sort="date", direction="desc", limit=50, offset=0) -> tuple[list[dict], int]:
     where = ["je.entry_type != 'REVERSAL'"]
@@ -43,6 +43,9 @@ def search_entries(conn, *, account_id=None, category_ids=None, friend_id=None, 
         where.append("EXISTS (SELECT 1 FROM posting pf JOIN account af ON af.id = pf.account_id "
                      "WHERE pf.journal_entry_id = je.id AND af.counterparty_user_id = ?)")
         params.append(friend_id)
+    if refund_of_id is not None:
+        where.append("je.refund_of_id = ?")
+        params.append(refund_of_id)
     if flat_types:
         where.append(f"({FLAT_TYPE_SQL}) IN ({','.join('?' for _ in flat_types)})")
         params.extend(flat_types)

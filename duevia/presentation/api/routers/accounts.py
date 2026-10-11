@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 
 from duevia.application import account_service
 from duevia.config import API_PREFIX
-from duevia.presentation.api.deps import get_current_owner, get_db
+from duevia.presentation.api.deps import get_current_owner, DB
 from duevia.presentation.api.schemas.accounts import (
     AccountBalanceOut,
     AccountCreate,
@@ -48,7 +48,7 @@ def category_out(cat: dict) -> CategoryOut:
 @router.post("/accounts", response_model=AccountOut, status_code=201)
 def create_account(
     payload: AccountCreate,
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
     acc = account_service.create_account_with_opening_balance(
@@ -63,7 +63,7 @@ def create_account(
 @router.get("/accounts", response_model=list[AccountOut])
 def list_accounts(
     include_inactive: bool = Query(default=False, alias="includeInactive"),
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
     return [account_out(conn, a) for a in account_service.list_accounts(conn, include_inactive=include_inactive)]
@@ -72,7 +72,7 @@ def list_accounts(
 @router.patch("/accounts/{account_id}", response_model=AccountOut)
 def update_account(
     account_id: int, payload: AccountUpdate,
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
     fields = payload.model_dump(include=payload.model_fields_set)
@@ -82,7 +82,7 @@ def update_account(
 @router.get("/accounts/{account_id}/balance", response_model=AccountBalanceOut)
 def get_account_balance(
     account_id: int,
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
     acc = account_service.get_real_account_or_raise(conn, account_id)
@@ -96,7 +96,7 @@ def get_account_balance(
 @router.post("/accounts/{account_id}/deactivate", response_model=AccountOut)
 def deactivate_account(
     account_id: int,
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
     return account_out(conn, account_service.deactivate_account(conn, account_id))
@@ -105,7 +105,7 @@ def deactivate_account(
 @router.post("/accounts/{account_id}/reactivate", response_model=AccountOut)
 def reactivate_account(
     account_id: int,
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
     return account_out(conn, account_service.reactivate_account(conn, account_id))
@@ -114,7 +114,7 @@ def reactivate_account(
 @router.post("/categories", response_model=CategoryOut, status_code=201)
 def create_category(
     payload: CategoryCreate,
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
     currency = payload.currency or owner["home_currency_code"]
@@ -130,7 +130,7 @@ def list_categories(
     include_inactive: bool = Query(default=False, alias="includeInactive"),
     type: str | None = Query(default=None, pattern="^(EXPENSE|INCOME)$",
                              description="Filter to EXPENSE categories or INCOME sources"),
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
     cats = account_service.list_categories(conn, include_inactive=include_inactive)
@@ -140,7 +140,7 @@ def list_categories(
 @router.patch("/categories/{category_id}", response_model=CategoryOut)
 def update_category(
     category_id: int, payload: CategoryUpdate,
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
     fields = payload.model_dump(include=payload.model_fields_set)
@@ -150,7 +150,7 @@ def update_category(
 @router.post("/categories/{category_id}/deactivate", response_model=CategoryOut)
 def deactivate_category(
     category_id: int,
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
     return category_out(account_service.deactivate_category(conn, category_id))
@@ -159,7 +159,7 @@ def deactivate_category(
 @router.post("/categories/{category_id}/reactivate", response_model=CategoryOut)
 def reactivate_category(
     category_id: int,
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
     return category_out(account_service.reactivate_category(conn, category_id))
