@@ -1,8 +1,9 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute, GuestOnlyRoute } from "@/routes/guards";
 import { AppShell } from "@/components/layout/AppShell";
 import { appConfig } from "@/config/app";
+import { useBranding } from "@/hooks/queries";
 
 const LoginPage = lazy(() => import("@/pages/auth/LoginPage").then((m) => ({ default: m.LoginPage })));
 const SignupPage = lazy(() => import("@/pages/auth/SignupPage").then((m) => ({ default: m.SignupPage })));
@@ -21,14 +22,29 @@ const ReportsPage = lazy(() => import("@/pages/ReportsPage").then((m) => ({ defa
 const SettingsPage = lazy(() => import("@/pages/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 
 function RouteFallback() {
+  const { name } = useBranding();
   return (
     <div className="flex min-h-[40vh] items-center justify-center">
-      <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-line-strong border-t-ink" aria-label={`Loading ${appConfig.name}…`} />
+      <span className="h-8 w-8 animate-spin rounded-full border-[3px] border-line-strong border-t-ink" aria-label={`Loading ${name}…`} />
     </div>
   );
 }
 
+/** Document title and favicon follow the backend-configured product name (GET /meta). */
+function useDocumentBranding() {
+  const { name, tagline } = useBranding();
+  useEffect(() => {
+    document.title = `${name} — ${tagline}`;
+    const icon = document.querySelector<HTMLLinkElement>("link[rel='icon']");
+    if (icon) {
+      const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${appConfig.logoMark}</text></svg>`;
+      icon.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    }
+  }, [name, tagline]);
+}
+
 export default function App() {
+  useDocumentBranding();
   return (
     <BrowserRouter>
       <Suspense fallback={<RouteFallback />}>

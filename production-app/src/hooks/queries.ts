@@ -1,50 +1,103 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import type { Branding, Id } from "@/types";
+import type { TransactionFilters } from "@/types/api";
+import { appConfig } from "@/config/app";
+import { useAuthStore } from "@/store/authStore";
+import { metaService } from "@/lib/api/services/metaService";
 import { accountsService } from "@/lib/api/services/accountsService";
 import { categoriesService } from "@/lib/api/services/categoriesService";
 import { incomeSourcesService } from "@/lib/api/services/incomeSourcesService";
 import { friendsService } from "@/lib/api/services/friendsService";
 import { transactionsService } from "@/lib/api/services/transactionsService";
+import { reportsService } from "@/lib/api/services/reportsService";
+import { authService } from "@/lib/api/services/authService";
 
-export const queryKeys = {
+/** Query keys. Everything that changes the ledger invalidates the "ledger" family together (see mutations.ts). */
+export const qk = {
+  branding: ["branding"] as const,
+  setup: ["setup-status"] as const,
+  securityQuestions: ["security-questions"] as const,
   accounts: ["accounts"] as const,
   categories: ["categories"] as const,
-  incomeSources: ["incomeSources"] as const,
+  incomeSources: ["income-sources"] as const,
   friends: ["friends"] as const,
-  transactions: ["transactions"] as const,
+  friendBalances: ["friends", "balances"] as const,
+  transactions: (f: TransactionFilters) => ["transactions", f] as const,
+  transaction: (id: Id) => ["transaction", id] as const,
+  dashboard: (month?: string) => ["reports", "dashboard", month ?? "current"] as const,
+  cashflow: (months: number) => ["reports", "cashflow", months] as const,
+  spending: (month?: string) => ["reports", "spending", month ?? "current"] as const,
 };
 
-export function useAccounts() {
-  return useQuery({ queryKey: queryKeys.accounts, queryFn: accountsService.list });
-}
-export function useCategories() {
-  return useQuery({ queryKey: queryKeys.categories, queryFn: categoriesService.list });
-}
-export function useIncomeSources() {
-  return useQuery({ queryKey: queryKeys.incomeSources, queryFn: incomeSourcesService.list });
-}
-export function useFriends() {
-  return useQuery({ queryKey: queryKeys.friends, queryFn: friendsService.list });
-}
-export function useTransactions() {
-  return useQuery({ queryKey: queryKeys.transactions, queryFn: transactionsService.list });
+/**
+ * The product name/tagline. Owned by the backend (`GET /meta`); the build-time
+ * values in `appConfig` are only the placeholder shown before it arrives or if
+ * the backend can't be reached.
+ */
+export function useBranding(): Branding {
+  const { data } = useQuery({
+    queryKey: qk.branding, queryFn: metaService.getBranding, staleTime: Infinity, retry: 1,
+  });
+  return data ?? { name: appConfig.name, tagline: appConfig.tagline };
 }
 
-/** Convenience: fetch everything the app shell needs before first paint. */
-export function useCoreData() {
-  const accounts = useAccounts();
-  const categories = useCategories();
-  const incomeSources = useIncomeSources();
-  const friends = useFriends();
-  const transactions = useTransactions();
-  const isLoading = accounts.isLoading || categories.isLoading || incomeSources.isLoading || friends.isLoading || transactions.isLoading;
-  const isError = accounts.isError || categories.isError || incomeSources.isError || friends.isError || transactions.isError;
-  return {
-    accounts: accounts.data ?? [],
-    categories: categories.data ?? [],
-    incomeSources: incomeSources.data ?? [],
-    friends: friends.data ?? [],
-    transactions: transactions.data ?? [],
-    isLoading,
-    isError,
-  };
+export function useSetupStatus() {
+  return useQuery({ queryKey: qk.setup, queryFn: metaService.isSetupComplete, staleTime: 0, retry: 1 });
+}
+
+export function useSecurityQuestions() {
+  return useQuery({ queryKey: qk.securityQuestions, queryFn: authService.securityQuestions, staleTime: Infinity });
+}
+
+export function useAccounts() {
+  return useQuery({ queryKey: qk.accounts, queryFn: () => accountsService.list(true) });
+}
+
+/** Active expense categories (roots and children). */
+export function useCategories() {
+  return useQuery({ queryKey: qk.categories, queryFn: () => categoriesService.list("EXPENSE") });
+}
+
+export function useIncomeSources() {
+  return useQuery({ queryKey: qk.incomeSources, queryFn: incomeSourcesService.list });
+}
+
+export function useFriends() {
+  return useQuery({ queryKey: qk.friends, queryFn: friendsService.list });
+}
+
+export function useFriendBalances() {
+  return useQuery({ queryKey: qk.friendBalances, queryFn: friendsService.balances });
+}
+
+/** A server-filtered, server-sorted, server-paged page of transactions. */
+export function useTransactions(filters: TransactionFilters = {}, enabled = true) {
+  return useQuery({
+    queryKey: qk.transactions(filters), queryFn: () => transactionsService.list(filters),
+    placeholderData: keepPreviousData, enabled,
+  });
+}
+
+export function useTransaction(id: Id | undefined) {
+  return useQuery({
+    queryKey: qk.transaction(id ?? 0), queryFn: () => transactionsService.get(id!), enabled: id != null,
+  });
+}
+
+export function useDashboard(month?: string) {
+  const currency = useAuthStore((s) => s.user?.homeCurrencyCode ?? appConfig.currencyCode);
+  return useQuery({
+    queryKey: [...qk.dashboard(month), currency], queryFn: () => reportsService.dashboard(currency, month),
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useCashflow(months = 6) {
+  return useQuery({ queryKey: qk.cashflow(months), queryFn: () => reportsService.cashflow(months) });
+}
+
+export function useSpending(month?: string) {
+  return useQuery({
+    queryKey: qk.spending(month), queryFn: () => reportsService.spending(month), placeholderData: keepPreviousData,
+  });
 }

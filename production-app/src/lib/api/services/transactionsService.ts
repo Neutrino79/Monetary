@@ -1,37 +1,51 @@
-/**
- * Transaction (journal entry) endpoints. Real REST shape this stands in for:
- *   GET    /transactions
- *   POST   /transactions
- *   PATCH  /transactions/:id              (body includes ledgerMode so the
- *                                          server knows whether to reverse+
- *                                          repost or mutate in place)
- *   DELETE /transactions/:id?ledgerMode=…
- *   POST   /friends/:id/settle
- */
-import type { Transaction } from "@/types";
-import type { NewTransactionInput, SettlementInput } from "@/types/api";
-import { appConfig } from "@/config/app";
+import type { Id, Page, Transaction } from "@/types";
+import type {
+  NewTransactionInput, PageDto, SettlementInput, TransactionDto, TransactionFilters, TransactionPatch, TransactionWriteOptions,
+} from "@/types/api";
 import { http } from "@/lib/api/http";
-import { mockDataApi } from "@/lib/api/mock/mockDataApi";
+import { toMajor, toPage, toTransaction } from "@/lib/api/mappers";
+
+function body(input: Partial<NewTransactionInput>) {
+  const { amount, yourShare, splits, ...rest } = input;
+  return {
+    ...rest,
+    ...(amount !== undefined ? { amount: toMajor(amount) } : {}),
+    ...(yourShare !== undefined ? { yourShare: toMajor(yourShare) } : {}),
+    ...(splits ? { splits: splits.map((s) => ({ friendId: s.friendId, share: toMajor(s.share) })) } : {}),
+  };
+}
 
 export const transactionsService = {
-  list(): Promise<Transaction[]> {
-    return appConfig.useMockApi ? mockDataApi.getTransactions() : http.get<Transaction[]>("/transactions");
+  /** Filtering, sorting and paging all happen on the server. */
+  async list(filters: TransactionFilters = {}): Promise<Page<Transaction>> {
+    const page = await http.get<PageDto<TransactionDto>>("/transactions", { ...filters });
+    return toPage(page, toTransaction);
   },
-  create(payload: NewTransactionInput): Promise<Transaction> {
-    return appConfig.useMockApi ? mockDataApi.createTransaction(payload) : http.post<Transaction>("/transactions", payload);
+
+  async get(id: Id): Promise<Transaction> {
+    return toTransaction(await http.get<TransactionDto>(`/transactions/${id}`));
   },
-  update(id: string, patch: Partial<Transaction>, ledgerMode: "STRICT" | "DIRECT"): Promise<Transaction> {
-    return appConfig.useMockApi
-      ? mockDataApi.updateTransaction(id, patch, ledgerMode)
-      : http.patch<Transaction>(`/transactions/${id}`, { ...patch, ledgerMode });
+
+  async create(input: NewTransactionInput): Promise<Transaction> {
+    return toTransaction(await http.post<TransactionDto>("/transactions", body(input)));
   },
-  remove(id: string, ledgerMode: "STRICT" | "DIRECT"): Promise<true> {
-    return appConfig.useMockApi
-      ? mockDataApi.deleteTransaction(id, ledgerMode)
-      : http.delete<true>(`/transactions/${id}?ledgerMode=${ledgerMode}`);
+
+  /** In STRICT mode the result is a *new* transaction (`correctionOf` points at the original). */
+  async update(id: Id, patch: TransactionPatch, opts: TransactionWriteOptions = {}): Promise<Transaction> {
+    return toTransaction(await http.patch<TransactionDto>(`/transactions/${id}`, { ...body(patch), ...opts }));
   },
-  settleFriend(args: SettlementInput): Promise<Transaction> {
-    return appConfig.useMockApi ? mockDataApi.settleFriend(args) : http.post<Transaction>(`/friends/${args.friendId}/settle`, args);
+
+  async remove(id: Id, opts: TransactionWriteOptions = {}): Promise<void> {
+    await http.delete(`/transactions/${id}`, { force: opts.force, removeSettlements: opts.removeSettlements });
+  },
+
+  /** Settle up with a friend. The server derives the direction from the balance and rejects a mismatch. */
+  async settle(input: SettlementInput): Promise<Transaction> {
+    return transactionsService.create({
+      type: "settlement", description: "Settlement", date: input.date ?? "", amount: input.amount,
+      friendId: input.friendId, accountId: input.accountId, direction: input.direction, memo: input.memo,
+    });
   },
 };
+
+export type { TransactionFilters };

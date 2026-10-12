@@ -1,27 +1,29 @@
-/**
- * Friend endpoints. Real REST shape this stands in for:
- *   GET    /friends
- *   POST   /friends
- *   PATCH  /friends/:id
- *   DELETE /friends/:id
- */
-import type { Friend } from "@/types";
-import type { NewFriendInput } from "@/types/api";
-import { appConfig } from "@/config/app";
+import type { Friend, FriendBalance, Id } from "@/types";
+import type { FriendDto, FriendPatch, NewFriendInput } from "@/types/api";
 import { http } from "@/lib/api/http";
-import { mockDataApi } from "@/lib/api/mock/mockDataApi";
+import { toFriend, toFriendBalance } from "@/lib/api/mappers";
 
 export const friendsService = {
-  list(): Promise<Friend[]> {
-    return appConfig.useMockApi ? mockDataApi.getFriends() : http.get<Friend[]>("/friends");
+  async list(): Promise<Friend[]> {
+    return (await http.get<FriendDto[]>("/friends")).map(toFriend);
   },
-  create(payload: NewFriendInput): Promise<Friend> {
-    return appConfig.useMockApi ? mockDataApi.createFriend(payload) : http.post<Friend>("/friends", payload);
+
+  async create(input: NewFriendInput): Promise<Friend> {
+    return toFriend(await http.post<FriendDto>("/friends", input));
   },
-  update(id: string, patch: Partial<Friend>): Promise<Friend> {
-    return appConfig.useMockApi ? mockDataApi.updateFriend(id, patch) : http.patch<Friend>(`/friends/${id}`, patch);
+
+  async update(id: Id, patch: FriendPatch): Promise<Friend> {
+    return toFriend(await http.patch<FriendDto>(`/friends/${id}`, patch));
   },
-  remove(id: string): Promise<true> {
-    return appConfig.useMockApi ? mockDataApi.deleteFriend(id) : http.delete<true>(`/friends/${id}`);
+
+  /** The backend refuses (409) when the friend has any transaction history. */
+  async remove(id: Id): Promise<void> {
+    await http.delete(`/friends/${id}`);
+  },
+
+  /** Positive = they owe you; negative = you owe them. Computed by the backend. */
+  async balances(): Promise<FriendBalance[]> {
+    const rows = await http.get<{ friendId: number; friendName: string; balance: { points: number; major: string; currency: string } }[]>("/friends/balances");
+    return rows.map(toFriendBalance);
   },
 };
