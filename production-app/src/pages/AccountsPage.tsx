@@ -3,7 +3,8 @@ import { Plus, Search, Pencil, Archive, ArchiveRestore } from "lucide-react";
 import type { Account, AccountSubtype, AccountType } from "@/types";
 import { useAccounts } from "@/hooks/queries";
 import { useCreateAccount, useUpdateAccount, useArchiveAccount, useRestoreAccount } from "@/hooks/mutations";
-import { useLedgerCalc } from "@/hooks/useLedgerCalc";
+import { useAuthStore } from "@/store/authStore";
+import { ApiError } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/Toast";
 import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { AccountChip } from "@/components/domain/chips";
@@ -25,7 +26,6 @@ const SUBTYPE_OPTIONS: { value: AccountSubtype; label: string }[] = [
 
 export function AccountsPage() {
   const { data: accounts = [], isLoading } = useAccounts();
-  const calc = useLedgerCalc();
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -104,11 +104,10 @@ export function AccountsPage() {
                     <AccountChip account={a} />
                     <div className="min-w-0">
                       <div className="truncate text-[14px] font-semibold">{a.name}</div>
-                      <div className="text-[11.5px] text-ink-faint">{a.accountType === "LIABILITY" ? "Liability" : "Asset"}{a.isSystem ? " · System" : ""}</div>
+                      <div className="text-[11.5px] text-ink-faint">{a.accountType === "LIABILITY" ? "Liability" : "Asset"}</div>
                     </div>
                   </div>
-                  {!a.isSystem && (
-                    <div className="flex gap-1">
+                  <div className="flex gap-1">
                       <button aria-label="Edit account" onClick={() => setEditingAccount(a)} className="rounded-[8px] p-1.5 text-ink-faint hover:bg-paper-sunken hover:text-ink">
                         <Pencil size={14} />
                       </button>
@@ -116,14 +115,17 @@ export function AccountsPage() {
                         <Archive size={14} />
                       </button>
                     </div>
-                  )}
                 </div>
                 <div className="rounded-[10px] bg-paper-sunken p-3">
-                  <div className="text-[11px] text-ink-faint">Current balance</div>
-                  <div className="ledger-figure text-[18px]">{formatCurrency(calc.calcAccountBalance(a.id))}</div>
+                  <div className="text-[11px] text-ink-faint">{a.accountType === "LIABILITY" ? "Amount owed" : "Current balance"}</div>
+                  <div className="ledger-figure text-[18px]">{formatCurrency(a.balance, true)}</div>
                 </div>
-                {a.creditLimit != null && (
-                  <div className="text-[11.5px] text-ink-faint">Credit limit {formatCurrency(a.creditLimit)} · Statement day {a.statementDay}</div>
+                {(a.creditLimit != null || a.statementDay != null) && (
+                  <div className="text-[11.5px] text-ink-faint">
+                    {a.creditLimit != null && <>Credit limit {formatCurrency(a.creditLimit)}</>}
+                    {a.creditLimit != null && a.statementDay != null && " · "}
+                    {a.statementDay != null && <>Statement day {a.statementDay}</>}
+                  </div>
                 )}
               </Card>
             ))}
@@ -170,11 +172,13 @@ function AccountForm({ open, onOpenChange, editingAccount = null }: { open: bool
   const createAccount = useCreateAccount();
   const updateAccount = useUpdateAccount();
   const toast = useToast();
+  const currency = useAuthStore((s) => s.user?.homeCurrencyCode ?? "INR");
   const [name, setName] = useState("");
   const [accountType, setAccountType] = useState<AccountType>("ASSET");
   const [subtype, setSubtype] = useState<AccountSubtype>("bank");
   const [openingBalance, setOpeningBalance] = useState("");
   const [creditLimit, setCreditLimit] = useState("");
+  const [statementDay, setStatementDay] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
@@ -183,35 +187,48 @@ function AccountForm({ open, onOpenChange, editingAccount = null }: { open: bool
     setName(editingAccount?.name ?? "");
     setAccountType(editingAccount?.accountType === "LIABILITY" ? "LIABILITY" : "ASSET");
     setSubtype(editingAccount?.subtype ?? "bank");
-    setOpeningBalance(editingAccount ? String(editingAccount.openingBalance) : "");
+    setOpeningBalance("");
     setCreditLimit(editingAccount?.creditLimit != null ? String(editingAccount.creditLimit) : "");
+    setStatementDay(editingAccount?.statementDay != null ? String(editingAccount.statementDay) : "");
     setErrors({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editingAccount]);
 
+  function changeType(next: AccountType) {
+    setAccountType(next);
+    // subtype must match the account type (the backend enforces the same pairing)
+    setSubtype(next === "LIABILITY" ? "credit_card" : "bank");
+  }
+
   async function submit() {
     const newErrors: Record<string, string> = {};
+    const limit = creditLimit.trim() === "" ? null : Number(creditLimit);
+    const day = statementDay.trim() === "" ? null : Number(statementDay);
+    const opening = openingBalance.trim() === "" ? undefined : Number(openingBalance);
     if (!name.trim()) newErrors.name = "Enter an account name.";
+    if (limit != null && (!Number.isFinite(limit) || limit <= 0)) newErrors.creditLimit = "Enter a credit limit above zero.";
+    if (day != null && (!Number.isInteger(day) || day < 1 || day > 31)) newErrors.statementDay = "Enter a day between 1 and 31.";
+    if (opening != null && (!Number.isFinite(opening) || opening < 0)) newErrors.openingBalance = "Opening balance can't be negative.";
     if (Object.keys(newErrors).length) return setErrors(newErrors);
 
     setSaving(true);
     try {
-      const payload = {
-        name: name.trim(),
-        accountType,
-        subtype,
-        openingBalance: parseFloat(openingBalance) || 0,
-        ...(accountType === "LIABILITY" && creditLimit ? { creditLimit: parseFloat(creditLimit) || 0 } : {}),
-      };
       if (isEdit && editingAccount) {
-        await updateAccount.mutateAsync({ id: editingAccount.id, patch: payload });
+        await updateAccount.mutateAsync({
+          id: editingAccount.id,
+          patch: { name: name.trim(), subtype, ...(accountType === "LIABILITY" ? { creditLimit: limit, statementDay: day } : {}) },
+        });
         toast.show("Account updated.", { variant: "success" });
       } else {
-        await createAccount.mutateAsync(payload);
+        await createAccount.mutateAsync({
+          name: name.trim(), accountType, subtype, currency, openingBalance: opening,
+          ...(accountType === "LIABILITY" ? { creditLimit: limit, statementDay: day } : {}),
+        });
         toast.show("Account added.", { variant: "success" });
       }
       onOpenChange(false);
     } catch (e) {
+      if (ApiError.isApiError(e) && Object.keys(e.fieldErrors).length) setErrors(e.fieldErrors);
       toast.show(e instanceof Error ? e.message : "Something went wrong.", { variant: "error" });
     } finally {
       setSaving(false);
@@ -240,7 +257,7 @@ function AccountForm({ open, onOpenChange, editingAccount = null }: { open: bool
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. HDFC Bank Savings" />
         </FormField>
         <FormField label="Type">
-          <Select value={accountType} onChange={(e) => setAccountType(e.target.value as AccountType)}>
+          <Select value={accountType} disabled={isEdit} onChange={(e) => changeType(e.target.value as AccountType)}>
             {TYPE_OPTIONS.map((t) => (
               <option key={t.value} value={t.value}>
                 {t.label}
@@ -250,23 +267,33 @@ function AccountForm({ open, onOpenChange, editingAccount = null }: { open: bool
         </FormField>
         <FormField label="Subtype">
           <Select value={subtype} onChange={(e) => setSubtype(e.target.value as AccountSubtype)}>
-            {SUBTYPE_OPTIONS.map((s) => (
+            {SUBTYPE_OPTIONS.filter((o) => (accountType === "LIABILITY") === (o.value === "credit_card")).map((s) => (
               <option key={s.value} value={s.value}>
                 {s.label}
               </option>
             ))}
           </Select>
         </FormField>
-        <FormField label="Opening balance" hint="What the account held before you started tracking it here.">
-          <AmountInput value={openingBalance} onChange={(e) => setOpeningBalance(e.target.value)} placeholder="0.00" />
-        </FormField>
-        {accountType === "LIABILITY" && (
-          <FormField label="Credit limit (optional)">
-            <AmountInput value={creditLimit} onChange={(e) => setCreditLimit(e.target.value)} placeholder="0.00" />
+        {!isEdit && (
+          <FormField
+            label={accountType === "LIABILITY" ? "Amount already owed (optional)" : "Opening balance (optional)"}
+            hint="Recorded once as an opening-balance entry; later corrections are made with adjustments."
+            error={errors.openingBalance}
+          >
+            <AmountInput value={openingBalance} onChange={(e) => setOpeningBalance(e.target.value)} placeholder="0.00" />
           </FormField>
+        )}
+        {accountType === "LIABILITY" && (
+          <div className="grid grid-cols-2 gap-4">
+            <FormField label="Credit limit (optional)" error={errors.creditLimit}>
+              <AmountInput value={creditLimit} onChange={(e) => setCreditLimit(e.target.value)} placeholder="0.00" />
+            </FormField>
+            <FormField label="Statement day (optional)" error={errors.statementDay}>
+              <Input type="number" min={1} max={31} value={statementDay} onChange={(e) => setStatementDay(e.target.value)} placeholder="1–31" />
+            </FormField>
+          </div>
         )}
       </div>
     </Modal>
   );
 }
-

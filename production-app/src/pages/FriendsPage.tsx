@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, Mail, Phone, HandCoins, Pencil, Trash2 } from "lucide-react";
 import type { Friend } from "@/types";
-import { useFriends } from "@/hooks/queries";
+import { useFriendBalances, useFriends } from "@/hooks/queries";
 import { useCreateFriend, useUpdateFriend, useDeleteFriend, useSettleFriend } from "@/hooks/mutations";
-import { useLedgerCalc } from "@/hooks/useLedgerCalc";
+import { ApiError } from "@/lib/api/errors";
 import { useAccounts } from "@/hooks/queries";
 import { useToast } from "@/components/ui/Toast";
 import { Card, Avatar, EmptyState, Skeleton } from "@/components/ui/primitives";
@@ -15,7 +15,8 @@ import { today } from "@/lib/utils/clock";
 
 export function FriendsPage() {
   const { data: friends = [], isLoading } = useFriends();
-  const calc = useLedgerCalc();
+  const { data: balances = [] } = useFriendBalances();
+  const balanceOf = (id: number) => balances.find((b) => b.friendId === id)?.balance ?? 0;
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editingFriend, setEditingFriend] = useState<Friend | null>(null);
@@ -77,7 +78,7 @@ export function FriendsPage() {
       ) : (
         <div className="grid grid-cols-3 gap-4 max-[1100px]:grid-cols-2 max-[640px]:grid-cols-1">
           {filtered.map((f) => {
-            const bal = calc.calcFriendOutstanding(f.id);
+            const bal = balanceOf(f.id); // computed by the backend; positive = they owe you
             return (
               <Card key={f.id} className="flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-2">
@@ -106,11 +107,11 @@ export function FriendsPage() {
                 </div>
 
                 <div className="rounded-[10px] bg-paper-sunken p-3">
-                  <div className="text-[11px] text-ink-faint">{Math.abs(bal) < 0.5 ? "Settled up" : bal > 0 ? "Owes you" : "You owe"}</div>
-                  <div className={`ledger-figure text-[18px] ${bal > 0.5 ? "text-accent" : bal < -0.5 ? "text-negative" : ""}`}>{formatCurrency(Math.abs(bal))}</div>
+                  <div className="text-[11px] text-ink-faint">{bal === 0 ? "Settled up" : bal > 0 ? "Owes you" : "You owe"}</div>
+                  <div className={`ledger-figure text-[18px] ${bal > 0 ? "text-accent" : bal < 0 ? "text-negative" : ""}`}>{formatCurrency(Math.abs(bal), true)}</div>
                 </div>
 
-                <Button variant="secondary" size="sm" onClick={() => setSettlingFriend(f)} disabled={Math.abs(bal) < 0.5}>
+                <Button variant="secondary" size="sm" onClick={() => setSettlingFriend(f)} disabled={bal === 0}>
                   <HandCoins size={14} /> Settle up
                 </Button>
               </Card>
@@ -126,7 +127,7 @@ export function FriendsPage() {
         open={!!deletingFriend}
         onOpenChange={(o) => !o && setDeletingFriend(null)}
         title="Remove this friend?"
-        message={`This only works if ${deletingFriend?.name ?? "they"} have no ledger history — otherwise archive by leaving them off future splits instead.`}
+        message={`This only works if ${deletingFriend?.name ?? "they"} has no transaction history. Otherwise the server will refuse — you can rename them instead.`}
         confirmLabel="Remove"
         onConfirm={handleDelete}
       />
@@ -175,6 +176,7 @@ function FriendForm({ open, onOpenChange, editingFriend = null }: { open: boolea
       setErrors({});
       onOpenChange(false);
     } catch (e) {
+      if (ApiError.isApiError(e) && Object.keys(e.fieldErrors).length) setErrors(e.fieldErrors);
       toast.show(e instanceof Error ? e.message : "Something went wrong.", { variant: "error" });
     } finally {
       setSaving(false);
@@ -205,7 +207,7 @@ function FriendForm({ open, onOpenChange, editingFriend = null }: { open: boolea
         <FormField label="Email" error={errors.email}>
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" />
         </FormField>
-        <FormField label="Phone (optional)">
+        <FormField label="Phone (optional)" error={errors.phone}>
           <Input value={phone ?? ""} onChange={(e) => setPhone(e.target.value)} placeholder="+91 …" />
         </FormField>
       </div>
@@ -215,14 +217,14 @@ function FriendForm({ open, onOpenChange, editingFriend = null }: { open: boolea
 
 function SettleForm({ friend, open, onOpenChange }: { friend: Friend | null; open: boolean; onOpenChange: (o: boolean) => void }) {
   const { data: accounts = [] } = useAccounts();
-  const calc = useLedgerCalc();
+  const { data: balances = [] } = useFriendBalances();
   const settle = useSettleFriend();
   const toast = useToast();
-  const [accountId, setAccountId] = useState("");
+  const [accountId, setAccountId] = useState<number | "">("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today());
   const [memo, setMemo] = useState("");
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -231,18 +233,20 @@ function SettleForm({ friend, open, onOpenChange }: { friend: Friend | null; ope
     setAmount("");
     setDate(today());
     setMemo("");
-    setError("");
+    setErrors({});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, friend?.id]);
 
   if (!friend) return null;
-  const bal = calc.calcFriendOutstanding(friend.id);
+  // the server derives (and verifies) the real direction from this balance; shown here for the user
+  const bal = balances.find((b) => b.friendId === friend.id)?.balance ?? 0;
   const direction: "receive" | "pay" = bal > 0 ? "receive" : "pay";
 
   async function submit() {
-    if (!accountId) return setError("Select an account.");
-    const amt = parseFloat(amount);
-    if (!(amt > 0)) return setError("Enter an amount greater than 0.");
+    if (accountId === "") return setErrors({ account: "Select an account." });
+    const amt = Number(amount);
+    if (!(amt > 0)) return setErrors({ amount: "Enter an amount greater than 0." });
+    if (amt > Math.abs(bal)) return setErrors({ amount: `That's more than the ${formatCurrency(Math.abs(bal), true)} outstanding.` });
     setSaving(true);
     try {
       await settle.mutateAsync({ friendId: friend!.id, accountId, amount: amt, direction, memo: memo.trim() || null, date });
@@ -251,9 +255,11 @@ function SettleForm({ friend, open, onOpenChange }: { friend: Friend | null; ope
       setAmount("");
       setMemo("");
       setAccountId("");
-      setError("");
+      setErrors({});
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : "Something went wrong.", { variant: "error" });
+      const message = e instanceof Error ? e.message : "Something went wrong.";
+      if (ApiError.isApiError(e) && e.status < 500 && e.status !== 0) setErrors({ amount: message });
+      toast.show(message, { variant: "error" });
     } finally {
       setSaving(false);
     }
@@ -264,7 +270,7 @@ function SettleForm({ friend, open, onOpenChange }: { friend: Friend | null; ope
       open={open}
       onOpenChange={onOpenChange}
       title={`Settle up with ${friend.name}`}
-      subtitle={direction === "receive" ? `They owe you ${formatCurrency(Math.abs(bal))}` : `You owe them ${formatCurrency(Math.abs(bal))}`}
+      subtitle={direction === "receive" ? `They owe you ${formatCurrency(Math.abs(bal), true)}` : `You owe them ${formatCurrency(Math.abs(bal), true)}`}
       size="sm"
       footer={
         <>
@@ -278,20 +284,20 @@ function SettleForm({ friend, open, onOpenChange }: { friend: Friend | null; ope
       }
     >
       <div className="flex flex-col gap-4">
-        <FormField label={direction === "receive" ? "Deposit to account" : "Pay from account"} error={error.includes("account") ? error : undefined}>
-          <Select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
+        <FormField label={direction === "receive" ? "Deposit to account" : "Pay from account"} error={errors.account}>
+          <Select value={accountId} onChange={(e) => setAccountId(e.target.value === "" ? "" : Number(e.target.value))}>
             <option value="" disabled>
               Select account…
             </option>
-            {accounts.filter((a) => a.isActive && !a.isSystem).map((a) => (
+            {accounts.filter((a) => a.isActive).map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
               </option>
             ))}
           </Select>
         </FormField>
-        <FormField label="Amount" error={error.includes("amount") ? error : undefined}>
-          <AmountInput value={amount} max={Math.abs(bal)} onChange={(e) => setAmount(e.target.value)} placeholder={String(Math.abs(bal))} />
+        <FormField label="Amount" error={errors.amount}>
+          <AmountInput value={amount} max={Math.abs(bal)} onChange={(e) => setAmount(e.target.value)} placeholder={Math.abs(bal).toFixed(2)} />
         </FormField>
         <FormField label="Date">
           <Input type="date" max={today()} value={date} onChange={(e) => setDate(e.target.value)} />
