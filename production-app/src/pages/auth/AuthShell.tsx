@@ -1,15 +1,17 @@
 import type { ReactNode } from "react";
 import { appConfig } from "@/config/app";
+import { useBranding } from "@/hooks/queries";
 
 export function AuthBrand() {
+  const { name, tagline } = useBranding();
   return (
     <div className="mb-6 flex items-center justify-center gap-3">
       <span className="flex h-10 w-10 items-center justify-center rounded-[10px] bg-ink font-semibold text-paper" style={{ fontFamily: "var(--font-ledger)", fontSize: 19 }}>
         {appConfig.logoMark}
       </span>
       <div className="text-left">
-        <div className="text-[17px] font-semibold">{appConfig.name}</div>
-        <div className="text-[11.5px] text-ink-faint">{appConfig.tagline}</div>
+        <div className="text-[17px] font-semibold">{name}</div>
+        <div className="text-[11.5px] text-ink-faint">{tagline}</div>
       </div>
     </div>
   );

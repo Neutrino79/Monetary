@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { Sparkles, TriangleAlert } from "lucide-react";
+import { Link, Navigate, useNavigate } from "react-router-dom";
+import { TriangleAlert } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
+import { useSetupStatus } from "@/hooks/queries";
 import { Button } from "@/components/ui/Button";
 import { Input, FormField } from "@/components/ui/form";
 import { useToast } from "@/components/ui/Toast";
@@ -9,6 +10,8 @@ import { AuthShell } from "./AuthShell";
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login);
+  const sessionExpired = useAuthStore((s) => s.sessionExpired);
+  const setup = useSetupStatus();
   const navigate = useNavigate();
   const toast = useToast();
   const [email, setEmail] = useState("");
@@ -30,16 +33,16 @@ export function LoginPage() {
     }
   }
 
+  // Single-owner app: until the owner exists, the only thing to do is first-run setup.
+  if (setup.data === false) return <Navigate to="/signup" replace />;
+
   return (
     <AuthShell>
       <h1 className="mb-1 text-[19px] font-semibold">Welcome back</h1>
       <p className="mb-6 text-[12.8px] text-ink-faint">Sign in to see your accounts, transactions and reports.</p>
-      <div className="mb-5 flex items-center gap-2 rounded-[10px] bg-info-soft px-3 py-3 text-[12px] leading-relaxed text-info">
-        <Sparkles size={13} className="flex-none" />
-        <span>
-          <strong>Prototype demo:</strong> ananya.kulkarni@example.com / demo1234
-        </span>
-      </div>
+      {sessionExpired && !error && (
+        <div className="mb-4 rounded-[10px] bg-info-soft px-3 py-3 text-[12.8px] text-info">Your session has expired. Please sign in again.</div>
+      )}
       {error && (
         <div className="mb-4 flex items-center gap-2 rounded-[10px] bg-danger-soft px-3 py-3 text-[12.8px] text-danger">
           <TriangleAlert size={15} className="flex-none" />
@@ -64,12 +67,6 @@ export function LoginPage() {
       <Button block onClick={submit} disabled={loading}>
         {loading ? "Signing in…" : "Sign in"}
       </Button>
-      <p className="mt-5 text-center text-[12.8px] text-ink-faint">
-        Don't have an account?{" "}
-        <Link to="/signup" className="font-semibold text-ink underline underline-offset-2">
-          Create one
-        </Link>
-      </p>
     </AuthShell>
   );
 }

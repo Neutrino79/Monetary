@@ -2,7 +2,6 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ChevronLeft, TriangleAlert } from "lucide-react";
 import { authService } from "@/lib/api/services/authService";
-import { SECURITY_QUESTIONS } from "@/config/security-questions";
 import { Button } from "@/components/ui/Button";
 import { Input, FormField } from "@/components/ui/form";
 import { AuthShell } from "./AuthShell";
@@ -13,22 +12,20 @@ export function ForgotPasswordPage() {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("email");
   const [email, setEmail] = useState("");
-  const [questionId, setQuestionId] = useState<number | null>(null);
+  const [question, setQuestion] = useState<string | null>(null);
   const [answer, setAnswer] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const question = SECURITY_QUESTIONS.find((q) => q.id === questionId);
-
   async function submitEmail() {
     setError("");
     setLoading(true);
     try {
-      const result = await authService.requestPasswordReset(email.trim());
+      const result = await authService.getResetQuestion(email.trim());
       setEmail(result.email);
-      setQuestionId(result.questionId);
+      setQuestion(result.question);
       setStep("question");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
@@ -40,6 +37,7 @@ export function ForgotPasswordPage() {
   async function submitReset() {
     setError("");
     if (password.length < 8) return setError("Password must be at least 8 characters.");
+    if (password.length > 128) return setError("Password must be at most 128 characters.");
     if (password !== confirm) return setError("Passwords don't match.");
     setLoading(true);
     try {
@@ -87,7 +85,7 @@ export function ForgotPasswordPage() {
             Answer the question you set up for <strong>{email}</strong>.
           </p>
           <div className="mb-4">
-            <FormField label={question.text} htmlFor="fp-answer">
+            <FormField label={question} htmlFor="fp-answer">
               <Input id="fp-answer" value={answer} onChange={(e) => setAnswer(e.target.value)} placeholder="Your answer" />
             </FormField>
           </div>

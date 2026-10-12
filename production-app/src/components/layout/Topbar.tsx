@@ -1,7 +1,7 @@
 import { useLocation } from "react-router-dom";
 import { Menu, Search, Sun, Moon, Bell, Plus, LogOut } from "lucide-react";
 import { ALL_NAV_ITEMS } from "@/config/nav";
-import { appConfig } from "@/config/app";
+import { useBranding } from "@/hooks/queries";
 import { useUiStore } from "@/store/uiStore";
 import { useAuthStore } from "@/store/authStore";
 import { IconButton } from "@/components/ui/primitives";
@@ -18,6 +18,7 @@ export function Topbar({
   onOpenCommandPalette: () => void;
   onOpenQuickAdd: () => void;
 }) {
+  const { name } = useBranding();
   const location = useLocation();
   const theme = useUiStore((s) => s.theme);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
@@ -36,7 +37,7 @@ export function Topbar({
       >
         <Menu size={18} />
       </button>
-      <span className="flex-none text-[18px] font-semibold max-[980px]:hidden">{navItem?.label ?? appConfig.name}</span>
+      <span className="flex-none text-[18px] font-semibold max-[980px]:hidden">{navItem?.label ?? name}</span>
       <button
         onClick={onOpenCommandPalette}
         className="flex max-w-105 flex-1 items-center gap-2 rounded-[10px] bg-paper-sunken px-3 py-2 text-ink-faint max-[640px]:hidden"

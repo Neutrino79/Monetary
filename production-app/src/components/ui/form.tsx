@@ -1,7 +1,7 @@
 import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, ReactElement } from "react";
 import { forwardRef, useId, isValidElement, cloneElement } from "react";
 import { cn } from "@/lib/utils/cn";
-import { appConfig } from "@/config/app";
+import { currencySymbol } from "@/lib/utils/format";
 
 const fieldBase =
   "w-full rounded-[10px] border border-line-strong bg-paper-raised px-3 py-2.5 text-[13.3px] text-ink transition-colors focus:border-focus-ring focus:outline-none";
@@ -25,7 +25,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<H
 export function AmountInput({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <div className="relative">
-      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint">{appConfig.currencySymbol}</span>
+      <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint">{currencySymbol()}</span>
       <Input type="number" min={0} step={0.01} className={cn("pl-6.5", className)} {...props} />
     </div>
   );
