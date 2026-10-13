@@ -1,14 +1,17 @@
 import { Users } from "lucide-react";
 import { Card, Avatar, EmptyState } from "@/components/ui/primitives";
-import { useLedgerCalc } from "@/hooks/useLedgerCalc";
+import { useFriendBalances } from "@/hooks/queries";
+import { useLookups } from "@/hooks/useLookups";
 import { formatCurrency } from "@/lib/utils/format";
 import { TransactionTable } from "@/components/domain/TransactionTable";
 
 export function SplitsPage() {
-  const calc = useLedgerCalc();
-  const balances = calc.friends
-    .map((f) => ({ friend: f, bal: calc.calcFriendOutstanding(f.id) }))
-    .filter((x) => Math.abs(x.bal) > 0.5)
+  const { data: friendBalances = [] } = useFriendBalances();
+  const lookups = useLookups();
+  // Balances are computed by the backend (running per-friend statement); only non-zero ones are listed.
+  const balances = friendBalances
+    .filter((b) => b.balance !== 0)
+    .map((b) => ({ friend: lookups.getFriend(b.friendId), name: b.friendName, bal: b.balance, id: b.friendId }))
     .sort((a, b) => Math.abs(b.bal) - Math.abs(a.bal));
 
   return (
@@ -17,12 +20,12 @@ export function SplitsPage() {
         <div className="mb-3 text-[14.5px] font-semibold">Who owes what</div>
         {balances.length ? (
           <div className="flex flex-wrap gap-3">
-            {balances.map(({ friend, bal }) => (
-              <div key={friend.id} className="flex min-w-50 flex-1 items-center gap-3 rounded-[10px] border border-line p-3">
-                <Avatar name={friend.name} color={friend.color} />
+            {balances.map(({ friend, name, bal, id }) => (
+              <div key={id} className="flex min-w-50 flex-1 items-center gap-3 rounded-[10px] border border-line p-3">
+                <Avatar name={name} color={friend?.color ?? "#5A5A5A"} />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13.3px] font-semibold">{friend.name}</div>
-                  <div className={`text-[12px] ${bal > 0 ? "text-accent" : "text-negative"}`}>{bal > 0 ? "owes you" : "you owe"} {formatCurrency(Math.abs(bal))}</div>
+                  <div className="truncate text-[13.3px] font-semibold">{name}</div>
+                  <div className={`text-[12px] ${bal > 0 ? "text-accent" : "text-negative"}`}>{bal > 0 ? "owes you" : "you owe"} {formatCurrency(Math.abs(bal), true)}</div>
                 </div>
               </div>
             ))}
