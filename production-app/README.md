@@ -1,90 +1,50 @@
-# Ledger App — React + TypeScript + Vite
+# Monetary web app
 
-Production frontend for the personal expense ledger. All 11 pages are built
-and wired. Data comes from an in-memory mock backend by default; pointing
-the app at a real backend is a one-line config change (see below) — no code
-changes required.
+React + TypeScript (Vite, TanStack Query, Zustand, Tailwind) front end for the Python backend in
+`../duevia`. It holds **no ledger logic**: balances, net worth, budgets, friend balances, reports,
+filtering, sorting and paging are all computed by the backend; the browser displays them, validates
+forms for quick feedback, and sends the user's intent.
 
 ## Run
 
 ```bash
-npm install
-cp .env.example .env   # optional: rebrand / change currency / set a backend URL
-npm run dev            # http://localhost:5173
-npm test               # integration tests (vitest + testing-library)
-npm run build          # type-check + production bundle in dist/
+npm ci
+cp .env.example .env.local          # VITE_API_BASE_URL points at the backend
+npm run dev                         # http://localhost:5173
 ```
 
-Demo login: `ananya.kulkarni@example.com` / `demo1234`
+Start the backend first with `DUEVIA_CORS_ORIGINS=http://localhost:5173` (see the root README).
+The first visit shows the one-time setup screen; once an owner exists, setup is refused and the
+app shows sign-in / password reset instead.
 
-## Connecting a real backend
+## Product name
 
-Every request goes through `src/lib/api/services/*Service.ts`. Each service
-checks `appConfig.useMockApi`: true routes to the in-memory mock backend
-(`src/lib/api/mock/`), false routes to the real HTTP client
-(`src/lib/api/http.ts`), which builds every URL from `appConfig.apiBaseUrl`.
+The name comes from the backend (`DUEVIA_APP_NAME`, via `GET /meta`) and is read through
+`useBranding()`. `VITE_APP_NAME` is only the pre-load/unreachable fallback. To rename the product,
+change the backend setting -- nothing in this folder needs editing.
 
-To switch to a real backend, set **one value**:
-
-```bash
-# .env
-VITE_API_BASE_URL=https://api.example.com/v1
-```
-
-That's it — `useMockApi` automatically flips to `false` once a base URL is
-set (or force it explicitly with `VITE_USE_MOCK_API=false`/`true`). No
-service, hook, component or page needs to change. Auth uses a bearer token
-(`src/lib/api/tokenStorage.ts`) attached automatically to every real request;
-swap that module for httpOnly-cookie auth later without touching callers.
-
-Each service file documents the REST endpoint shape it expects
-(`GET /accounts`, `POST /transactions`, etc.) in its header comment — that's
-the contract a real backend needs to implement.
-
-## Configuration (no code changes needed)
-
-Everything brand/locale/backend related lives in `src/config/app.ts` and is
-overridable via `.env` (see `.env.example`): app name, tagline, logo mark,
-currency code/symbol, locale, default timezone, backend URL, mock-mode
-toggle, request timeout, mock network latency. Navigation is data in
-`src/config/nav.ts`; security questions in `src/config/security-questions.ts`.
-
-## Stack
-
-React 19 · TypeScript · Vite · Tailwind CSS v4 (tokens in `src/styles/index.css`)
-· Radix UI (dialogs, drawers, toasts, tabs) · React Router · TanStack Query
-· Zustand · lucide-react.
-
-## Structure
+## Layout
 
 ```
 src/
-  config/         app branding/locale/backend config, nav, static option lists
-  types/          domain types (mirror the DB schema) + API request/response shapes
-  lib/utils/      formatting, the shared clock (today()), misc helpers
-  lib/domain/     pure ledger math (balances, budgets, category spend) — no I/O
-  lib/api/
-    mock/           the mock backend's internals (private — not imported outside here)
-    services/       the ONE routing layer every hook/component calls through
-    http.ts         real fetch client, built from appConfig.apiBaseUrl
-    tokenStorage.ts bearer-token storage, isolated so it's swappable
-    errors.ts       normalized ApiError
-  hooks/          TanStack Query queries/mutations + useLedgerCalc (binds
-                  lib/domain to live query data)
-  store/          Zustand: UI (theme, sidebar) and auth
-  components/     ui/ (Radix-based primitives), layout/, domain/, charts/
-  pages/          route components — all 11 pages are implemented
-  routes/         auth guards (handles the async hydration flow too)
+  config/        app.ts (build-time config + fallbacks), nav.ts, timezones.ts
+  lib/api/       http.ts (bearer token, error parsing, 401 handling), mappers.ts (wire <-> domain),
+                 services/*  one module per backend resource
+  hooks/         queries.ts / mutations.ts (TanStack Query), useLookups.ts (id -> entity)
+  store/         authStore.ts (session), uiStore.ts (theme etc.)
+  pages/ components/ routes/
+  test/          unit + stubbed-network UI tests; integration/ runs against a real backend
 ```
 
-## Pages
+Wire format: camelCase JSON, numeric ids, money as `{ points, major, currency }` (2-decimal minor
+units). `lib/api/mappers.ts` is the only place that knows this; the rest of the app sees plain numbers
+for display.
 
-Dashboard, Transactions, Income, Expenses, Transfers, Splits, Friends,
-Accounts, Categories, Reports & Trends, Settings — all implemented, all
-routed with `React.lazy()` code-splitting.
+## Scripts
 
-## Deploying
-
-Uses real URL paths (not hashes), so the host must rewrite unknown paths to
-`index.html`. `vercel.json` and `public/_redirects` (Netlify/Cloudflare) are
-included; for nginx use `try_files $uri /index.html;`.
+| | |
+|---|---|
+| `npm run dev` / `build` / `preview` | Vite |
+| `npm run typecheck` / `lint` | `tsc -b --noEmit` / `oxlint` |
+| `npm test` | unit and UI tests with a stubbed `fetch` |
+| `npm run test:integration` | the real React app against a real uvicorn + temp SQLite (needs `pip install -r ../requirements.txt`) |
