@@ -2,8 +2,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from duevia.domain.exceptions import RateLimitError
-from duevia.infrastructure import rate_limiter as rl
+from monetary.domain.exceptions import RateLimitError
+from monetary.infrastructure import rate_limiter as rl
 
 
 @pytest.fixture()

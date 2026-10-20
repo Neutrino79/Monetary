@@ -1,7 +1,7 @@
-from duevia.application import ledger_service as ls
-from duevia.application.posting_strategies import refund, simple
-from duevia.domain.money import Money
-from duevia.infrastructure import repositories as repo
+from monetary.application import ledger_service as ls
+from monetary.application.posting_strategies import refund, simple
+from monetary.domain.money import Money
+from monetary.infrastructure import repositories as repo
 
 D = "2026-03-15T00:00:00+00:00"
 

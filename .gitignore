@@ -12,20 +12,15 @@ ENV/
 # Packaging and build output
 .Python
 build/
-develop-eggs/
 dist/
 downloads/
 eggs/
 .eggs/
-lib64/
 parts/
 sdist/
 var/
 wheels/
-pip-wheel-metadata/
-share/python-wheels/
 *.egg-info/
-.installed.cfg
 MANIFEST
 
 # Test, coverage, and type-checker output
@@ -35,17 +30,22 @@ MANIFEST
 coverage.xml
 htmlcov/
 .mypy_cache/
-.pytype/
 .ruff_cache/
 
-# Local configuration and secrets
+# Node (the web app lives in web/, which has its own .gitignore)
+node_modules/
+
+# Local configuration and secrets -- never commit these; copy .env.example instead
 .env
 .env.*
 !.env.example
+*.local
 *.secret
 
-# Local application data
+# Local application data (SQLite databases)
 *.db
+*.db-wal
+*.db-shm
 *.sqlite
 *.sqlite3
 data/
@@ -56,8 +56,3 @@ data/
 .vscode/
 *.swp
 *.swo
-
-# Test/coverage artifacts
-.coverage
-htmlcov/
-.pytest_cache/

@@ -12,9 +12,9 @@ ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)
 
 PROBE = r"""
 import json, tempfile, os
-os.environ["DUEVIA_DB_PATH"] = os.path.join(tempfile.mkdtemp(), "p.db")
+os.environ["MONETARY_DB_PATH"] = os.path.join(tempfile.mkdtemp(), "p.db")
 from fastapi.testclient import TestClient
-from duevia.presentation.api.app import app
+from monetary.presentation.api.app import app
 c = TestClient(app)
 def pre(origin):
     r = c.options("/api/v0.5/owner", headers={"Origin": origin, "Access-Control-Request-Method": "GET"})
@@ -29,7 +29,7 @@ print(json.dumps({
 
 
 def probe(**env):
-    e = {k: v for k, v in os.environ.items() if not k.startswith("DUEVIA_")}
+    e = {k: v for k, v in os.environ.items() if not k.startswith("MONETARY_")}
     e.update(env, PYTHONPATH=ROOT)
     out = subprocess.run([sys.executable, "-W", "ignore", "-c", PROBE], cwd=ROOT, env=e, capture_output=True, text=True, timeout=60)
     assert out.returncode == 0, out.stderr
@@ -44,22 +44,23 @@ def test_defaults_are_production_safe():
 
 
 def test_development_exposes_docs_and_skips_hsts():
-    r = probe(DUEVIA_ENV="development")
+    r = probe(MONETARY_ENV="development")
     assert (r["docs"], r["redoc"], r["openapi"]) == (200, 200, 200) and r["root_docs"] == "/docs"
     assert r["hsts"] is False
 
 
 def test_docs_flag_overrides_environment():
-    assert probe(DUEVIA_ENV="production", DUEVIA_ENABLE_DOCS="true")["docs"] == 200
-    assert probe(DUEVIA_ENV="development", DUEVIA_ENABLE_DOCS="false")["docs"] == 404
+    assert probe(MONETARY_ENV="production", MONETARY_ENABLE_DOCS="true")["docs"] == 200
+    assert probe(MONETARY_ENV="development", MONETARY_ENABLE_DOCS="false")["docs"] == 404
 
 
 def test_explicit_cors_list_allows_only_listed_origins_with_credentials():
-    r = probe(DUEVIA_CORS_ORIGINS="http://localhost:3000, http://localhost:8501")
+    r = probe(MONETARY_CORS_ORIGINS="http://localhost:3000, http://localhost:8501")
     assert r["good"] == {"origin": "http://localhost:3000", "creds": "true"}
     assert r["evil"]["origin"] is None
 
 
 def test_wildcard_cors_never_combines_with_credentials():
-    r = probe(DUEVIA_CORS_ORIGINS="*")
+    r = probe(MONETARY_CORS_ORIGINS="*")
     assert r["evil"]["origin"] == "*" and r["evil"]["creds"] is None
+

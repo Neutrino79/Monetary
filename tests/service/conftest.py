@@ -1,9 +1,9 @@
 """Fixtures for service-level tests: real DB, real services, no HTTP."""
 import pytest
 
-from duevia.application import account_service, user_service
-from duevia.domain.enums import AccountType
-from duevia.infrastructure import repositories as repo
+from monetary.application import account_service, user_service
+from monetary.domain.enums import AccountType
+from monetary.infrastructure import repositories as repo
 from tests import sample_data as sd
 
 

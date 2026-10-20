@@ -3,7 +3,7 @@
 must tolerate that, or a real server answers some requests with a 500."""
 from concurrent.futures import ThreadPoolExecutor
 
-from duevia.infrastructure import db as db_module
+from monetary.infrastructure import db as db_module
 
 
 def test_connection_can_be_used_from_a_different_thread(tmp_path):
@@ -15,7 +15,7 @@ def test_connection_can_be_used_from_a_different_thread(tmp_path):
 
 def test_a_live_server_style_request_sequence_never_hits_the_thread_check(tmp_path, monkeypatch):
     """Mimics get_db (open in thread A) + endpoint (use in thread B) repeatedly."""
-    monkeypatch.setenv("DUEVIA_DB_PATH", str(tmp_path / "s.db"))
+    monkeypatch.setenv("MONETARY_DB_PATH", str(tmp_path / "s.db"))
     with ThreadPoolExecutor(max_workers=4) as opener, ThreadPoolExecutor(max_workers=4) as worker:
         for _ in range(25):
             conn = opener.submit(db_module.connect, tmp_path / "s.db").result()

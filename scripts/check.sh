@@ -22,11 +22,11 @@ pip install --quiet --upgrade pip
 pip install --quiet -r requirements-dev.txt
 
 echo "==> Byte-compiling every module (catches syntax errors fast)"
-python -m compileall -q duevia
+python -m compileall -q monetary
 
 echo "==> Importing the FastAPI app (catches wiring/import errors)"
 python -c "
-from duevia.presentation.api.app import app
+from monetary.presentation.api.app import app
 n = sum(1 for item in app.openapi()['paths'].values() for m in item if m.upper() in {'GET','POST','PATCH','PUT','DELETE'})
 print(f'  {n} operations registered across {len(app.openapi()[\"paths\"])} paths')
 "
@@ -38,14 +38,14 @@ if [ "$MODE" = "fast" ]; then
   python -m pytest tests -q -m "not config"
 else
   echo "==> Running the full test suite with coverage"
-  python -m pytest tests -q --cov=duevia --cov-report=term-missing
+  python -m pytest tests -q --cov=monetary --cov-report=term-missing
 fi
 
 if [ "$MODE" = "live" ]; then
   echo "==> Booting a real server and exercising it over HTTP"
   DB="$(mktemp -u).db"
-  DUEVIA_DB_PATH="$DB" DUEVIA_ENV=production \
-    uvicorn duevia.presentation.api.app:app --port 8931 --log-level warning &
+  MONETARY_DB_PATH="$DB" MONETARY_ENV=production \
+    uvicorn monetary.presentation.api.app:app --port 8931 --log-level warning &
   SERVER_PID=$!
   trap 'kill $SERVER_PID 2>/dev/null || true; rm -f "$DB" "$DB-wal" "$DB-shm"' EXIT
   for _ in $(seq 1 20); do

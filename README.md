@@ -1,184 +1,140 @@
-# Monetary (`duevia-ledger`) 0.5.0
+# Monetary 0.5.0
 
-*Monetary* is the user-facing product name. It is configuration, not code -- set
-`DUEVIA_APP_NAME` to rename it everywhere (API metadata, OpenAPI title, and the web app,
-which reads it from `GET /meta`). Internal identifiers -- the `duevia` Python package, the
-`DUEVIA_*` variables, the database file, this repository -- are deliberately unchanged.
+A personal expense tracker built on a double-entry ledger.
 
-A personal expense tracker built on a double-entry ledger. The project provides:
+- **Backend** (`monetary/`) -- a FastAPI REST API over SQLite. It owns *all* ledger logic: balances,
+  net worth, budgets, friend balances, reports, filtering and paging.
+- **Web app** (`web/`) -- a React + TypeScript single-page app that displays what the API
+  computes and sends the user's intent. See [`web/README.md`](web/README.md).
 
-- A FastAPI REST API (`duevia/`)
-- A React + TypeScript web app (`production-app/`) that talks to it -- see
-  [`production-app/README.md`](production-app/README.md). (`frontend/` is an old prototype and is not used.)
-- SQLite storage (WAL mode for concurrent request handling)
-- Single-owner authentication with bcrypt password hashing, rate-limited login
-  and password-reset endpoints
-- Expense, income, refund, transfer, split, settlement, budget, and reporting
-  features
+Features: single-owner authentication (bcrypt, rate-limited login and password reset), expenses, income,
+refunds, transfers, splits and settlements with friends, budgets, and reports.
 
-> **Migrating from an older checkout?** Earlier versions shipped a
-> `duevia` command-line interface (`duevia/presentation/cli.py`,
-> `duevia/__main__.py`). CLI support has been dropped in favor of API-only
-> access -- every capability the CLI had is available through the REST API
-> documented in [`docs/API_README.md`](docs/API_README.md). There is no data
-> migration needed: the CLI and API always shared the same SQLite database
-> and application layer.
+## Repository layout
+
+```text
+monetary/                 Backend package
+  config.py                 Product identity and every environment variable (single source of truth)
+  seed_defaults.json        Default categories / income sources created at first-run setup
+  domain/                   Money, ledger invariants, enums, exceptions, hashing -- no DB or HTTP
+  application/              Services (use cases), posting strategies, edit policies
+  infrastructure/           SQLite schema + connection, repositories, rate limiter
+  presentation/api/         FastAPI app, routers, request/response schemas, error handling
+tests/                    Backend tests: unit/ (pure), service/ (real temp SQLite), api/ (HTTP TestClient)
+web/          Web app -- a self-contained npm project with its own README and tooling
+docs/                     API reference, architecture, SQLite schema, integration record
+scripts/check.sh          One-command backend validation
+.github/workflows/ci.yml  CI: backend tests, frontend typecheck/lint/test/build, live integration suite
+.env.example              Backend configuration template
+pytest.ini  .coveragerc  requirements.txt  requirements-dev.txt
+```
+
+Dependencies point one way: `presentation → application → infrastructure → domain`
+(`application` also uses `infrastructure.repositories`; `domain` imports nothing from the project).
+Routers translate HTTP to service calls and map results to response schemas; business rules live in
+`application/` and `domain/`; all SQL lives in `infrastructure/`.
 
 ## Requirements
 
-- Python 3.10 or newer
-- `pip`
+- Python 3.10 or newer, and `pip`
+- Node.js 22 and npm (for the web app only)
 
-## Installation
-
-### 1. Clone the project and open its directory
+## Run it locally
 
 ```bash
-git clone <repository-url>
-cd <repository-directory>
-```
-
-### 2. Create a virtual environment
-
-macOS/Linux:
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-```
-
-Windows PowerShell:
-
-```powershell
-py -m venv .venv
-.venv\Scripts\Activate.ps1
-```
-
-### 3. Install dependencies
-
-```bash
-python -m pip install --upgrade pip
+# 1. Backend -> http://localhost:8000
+python3 -m venv .venv && source .venv/bin/activate        # Windows: py -m venv .venv; .venv\Scripts\Activate.ps1
 python -m pip install -r requirements.txt
-```
+export MONETARY_ENV=development MONETARY_CORS_ORIGINS=http://localhost:5173
+python -m uvicorn monetary.presentation.api.app:app --reload --port 8000
 
-## Configuration
-
-All configuration is via environment variables (see `duevia/config.py`):
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `DUEVIA_DB_PATH` | `~/.duevia_0.5/expense.db` | SQLite file path |
-| `DUEVIA_CORS_ORIGINS` | *(empty -- no origins allowed)* | Comma-separated list of allowed browser origins, or `*` for a public read-mostly API (credentials are automatically disabled when `*` is used, since browsers reject wildcard-origin + credentials) |
-| `DUEVIA_APP_NAME` | `Monetary` | User-facing product name (served by `GET /meta`, used in the OpenAPI title) |
-| `DUEVIA_APP_TAGLINE` | `Personal expense ledger` | Short tagline shown by the web app |
-| `DUEVIA_SEED_DEFAULTS_PATH` | *(bundled `duevia/seed_defaults.json`)* | JSON file of the default expense categories / income sources created at first-run setup |
-| `DUEVIA_ENV` | `production` | `production` or `development`; controls safe defaults like whether API docs are exposed |
-| `DUEVIA_ENABLE_DOCS` | *(unset, follows `DUEVIA_ENV`)* | `true`/`false` to force Swagger UI (`/docs`), ReDoc (`/redoc`), and `/openapi.json` on or off regardless of environment |
-
-For local development:
-
-```bash
-export DUEVIA_ENV=development
-export DUEVIA_CORS_ORIGINS="http://localhost:5173"   # the Vite dev server
-```
-
-### Run the whole app locally
-
-```bash
-# 1. backend (http://localhost:8000)
-pip install -r requirements.txt
-export DUEVIA_ENV=development DUEVIA_CORS_ORIGINS=http://localhost:5173
-python -m uvicorn duevia.presentation.api.app:app --reload --port 8000
-
-# 2. web app (http://localhost:5173)
-cd production-app && npm ci
-echo 'VITE_API_BASE_URL=http://localhost:8000/api/v0.5' > .env.local
+# 2. Web app -> http://localhost:5173   (in a second terminal)
+cd web
+npm ci
+cp .env.example .env.local        # VITE_API_BASE_URL defaults to http://localhost:8000/api/v0.5
 npm run dev
 ```
 
-The first visit opens the one-time setup screen (creates the single owner and seeds default
-categories and income sources). **The database schema gained columns in this release and there is
-no migration: delete any database created by an earlier version** (`~/.duevia_0.5/expense.db` by default).
-
-### Tests
+The first visit shows a one-time setup screen that creates the single owner and seeds the default
+categories and income sources. The same can be done over HTTP:
 
 ```bash
-python -m pytest                                  # backend
-cd production-app
-npm test                                          # unit + UI tests (stubbed network)
-npm run test:integration                          # React app <-> real uvicorn <-> SQLite (needs the backend's pip deps)
+curl -X POST http://localhost:8000/api/v0.5/setup/init -H "Content-Type: application/json" -d '{
+  "name": "You", "email": "you@example.com", "currency": "INR", "timezone": "Asia/Kolkata",
+  "password": "at least 8 characters", "security_question_id": 1, "security_answer": "Whiskers"}'
 ```
 
-## Start the application
+Useful URLs: health check `http://localhost:8000/health` (also verifies DB connectivity); Swagger UI
+`http://localhost:8000/docs` and the OpenAPI schema `/openapi.json` (development only by default).
+Stop the server with `Ctrl+C`. Full endpoint map, auth flow and error contract:
+[`docs/API.md`](docs/API.md).
+
+## Configuration
+
+The backend is configured only through environment variables (defined in `monetary/config.py`;
+template in [`.env.example`](.env.example) -- the app does not load that file itself).
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `MONETARY_ENV` | `production` | `production` or `development`. Production hides API docs and sends HSTS + security headers |
+| `MONETARY_CORS_ORIGINS` | *(empty -- no origins)* | Comma-separated browser origins allowed to call the API; `*` allows all but disables credentials |
+| `MONETARY_DB_PATH` | `~/.monetary_0.5/monetary.db` | SQLite file path |
+| `MONETARY_ENABLE_DOCS` | *(follows `MONETARY_ENV`)* | `true`/`false` forces `/docs`, `/redoc`, `/openapi.json` on or off |
+| `MONETARY_APP_NAME` | `Monetary` | Product name served by `GET /meta` and shown by the web app |
+| `MONETARY_APP_TAGLINE` | `Personal expense ledger` | Tagline served by `GET /meta` |
+| `MONETARY_SEED_DEFAULTS_PATH` | bundled `monetary/seed_defaults.json` | Replace the default categories / income sources |
+
+The web app's own settings (`VITE_*`) are documented in [`web/.env.example`](web/.env.example).
+
+## Database
+
+SQLite in WAL mode. The schema is created automatically on first connection by
+`monetary/infrastructure/db.py` (reference copy: [`docs/LIVE_SCHEMA.sql`](docs/LIVE_SCHEMA.sql)); the first
+`POST /setup/init` seeds the defaults. **There is no migration framework**: the schema is edited in place, so a
+database created by an older release must be deleted and re-created (default location
+`~/.monetary_0.5/monetary.db`; the directory name carries the schema generation). Back up the file before upgrading anything you care about.
+
+## Test and check
 
 ```bash
-export PYTHONPATH="$PWD"
-python -m uvicorn duevia.presentation.api.app:app --reload --port 8000
+# Backend (from the repo root, venv active; dev tools: python -m pip install -r requirements-dev.txt)
+python -m pytest                    # unit + service + api + config tests
+./scripts/check.sh                  # compile check + app import + full suite with coverage
+./scripts/check.sh fast             # skip the slower subprocess-based config tests
+./scripts/check.sh live             # also boots a real server and curls /health
+
+# Web app (from web/)
+npm run typecheck                   # tsc -b --noEmit
+npm run lint                        # oxlint
+npm test                            # unit + UI tests with a stubbed network
+npm run build                       # type-check + production bundle into dist/
+npm run test:integration            # real React app -> real uvicorn -> temp SQLite (needs the backend's pip deps)
 ```
 
-The server is now available at:
+The backend has no linter or type-checker configured; CI runs the same commands as above.
 
-- Application: <http://localhost:8000>
-- Health check: <http://localhost:8000/health> (also verifies DB connectivity)
-- Swagger UI: <http://localhost:8000/docs> (development only by default -- see Configuration above)
-- OpenAPI schema: <http://localhost:8000/openapi.json>
+## Production notes
 
-## Create the first owner
+- **TLS and proxy**: run behind a TLS-terminating reverse proxy; start uvicorn with `--proxy-headers` so the
+  rate limiter sees real client IPs.
+- **CORS**: set `MONETARY_CORS_ORIGINS` to the web app's origin. Unset blocks every browser origin.
+- **Rate limiting** is in-process (login, security-question, password-reset): fine for one instance;
+  with several instances also rate-limit at the edge.
+- **SQLite** suits a single instance. Moving to a server database would only change
+  `monetary/infrastructure/` (`db.py`, `repositories.py`, `transaction_queries.py`).
+- **Web app**: a static bundle (`npm run build` → `web/dist/`); set `VITE_API_BASE_URL` at build
+  time. The repo carries SPA-rewrite files for Vercel (`vercel.json`) and Netlify-style hosts
+  (`public/_redirects`). There is no Dockerfile or deployment pipeline in this repository.
 
-The first setup request creates the owner account and returns an access token:
+## Contributing
 
-```bash
-curl -X POST http://localhost:8000/api/v0.5/setup/init \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "You",
-    "email": "you@example.com",
-    "currency": "INR",
-    "timezone": "Asia/Kolkata",
-    "password": "at least 8 characters",
-    "security_question_id": 1,
-    "security_answer": "Whiskers"
-  }'
-```
+1. Branch from `main`; keep backend changes inside the layer that owns them (see layout above).
+2. Add tests next to the matching layer in `tests/` (`unit`, `service`, `api`); `tests/sample_data.py` is the
+   shared dataset all layers use.
+3. Run `./scripts/check.sh` and, for web changes, `npm run typecheck && npm run lint && npm test && npm run build`
+   in `web/` before opening a PR.
+4. Changing the API contract means updating `web/src/lib/api/` (services, mappers, `types/api.ts`) and
+   [`docs/API.md`](docs/API.md) in the same change.
 
-See [`docs/API_README.md`](docs/API_README.md) for the full endpoint map,
-authentication flow, and error contract, and
-[`docs/ARCHITECTURE_PLAN.md`](docs/ARCHITECTURE_PLAN.md) for the system
-design.
-
-## Testing
-
-```bash
-./scripts/check.sh          # full suite + coverage (~20-30s)
-./scripts/check.sh fast     # skip the slower deployment-config subprocess tests
-./scripts/check.sh live     # also boots a real server and curls it
-```
-
-Run this after any change. See [`docs/ROADMAP_AND_KNOWN_ISSUES.md`](docs/ROADMAP_AND_KNOWN_ISSUES.md)
-for the full testing guide, the shared sample dataset every test layer uses,
-known issues that were deliberately left as-is (with reasoning), and the
-prioritized list of remaining work.
-
-## Production readiness notes
-
-- **CORS**: set `DUEVIA_CORS_ORIGINS` explicitly to the origins that should be
-  allowed to call this API from a browser. Leaving it unset blocks all
-  browser origins (server-to-server / same-origin calls are unaffected).
-- **API docs**: `/docs`, `/redoc`, and `/openapi.json` are disabled by default
-  unless `DUEVIA_ENV=development` or `DUEVIA_ENABLE_DOCS=true` is set --
-  avoids exposing your full API surface publicly by accident.
-- **Rate limiting**: `/auth/login`, `/auth/security-question`, and
-  `/auth/reset-password` are rate-limited per client IP in-process. This is a
-  basic safety net for a single-instance deployment; a multi-instance
-  deployment should also rate-limit at the edge (reverse proxy / gateway).
-- **Reverse proxy**: run behind a TLS-terminating reverse proxy in production;
-  the app emits HSTS and baseline security headers when `DUEVIA_ENV=production`.
-- **Database**: SQLite runs in WAL mode for better concurrent read/write
-  behavior under API traffic. For heavier multi-user workloads, consider
-  migrating to a server-based database -- the repository layer
-  (`duevia/infrastructure/repositories.py`) is the only place that would need
-  to change.
-
-## Stop the application
-
-Press `Ctrl+C` in the terminal running Uvicorn.
+See also: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (system design) and
+[`docs/INTEGRATION_CHECKLIST.md`](docs/INTEGRATION_CHECKLIST.md) (record of the web-app ⇄ backend integration).

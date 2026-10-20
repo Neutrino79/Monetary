@@ -1,6 +1,6 @@
 [run]
-source = duevia
-omit = duevia/presentation/api/schemas/*
+source = monetary
+omit = monetary/presentation/api/schemas/*
 
 [report]
 show_missing = True

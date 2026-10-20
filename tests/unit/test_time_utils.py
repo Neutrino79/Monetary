@@ -1,7 +1,7 @@
 import pytest
 
-from duevia.domain import time_utils as tu
-from duevia.domain.exceptions import ValidationError
+from monetary.domain import time_utils as tu
+from monetary.domain.exceptions import ValidationError
 
 
 def test_local_to_utc_kolkata():
@@ -43,7 +43,7 @@ def test_month_bounds_december_rolls_year():
 
 
 def test_last_n_months_across_year_boundary(monkeypatch):
-    from duevia.application import trends_service
+    from monetary.application import trends_service
     monkeypatch.setattr(tu, "current_year_month", lambda tz: (2026, 1))
     assert trends_service._last_n_months(None, 3) == [(2025, 11), (2025, 12), (2026, 1)]
     assert trends_service._last_n_months(None, 14)[0] == (2024, 12)

@@ -1,0 +1,190 @@
+from __future__ import annotations
+
+import sqlite3
+
+from fastapi import APIRouter, Depends, Query
+
+from monetary.application import (
+    account_service,
+    budget_service,
+    dashboard_service,
+    statement_service,
+    trends_service,
+    user_service,
+)
+from monetary.domain.exceptions import ValidationError
+from monetary.config import API_PREFIX
+from monetary.presentation.api.deps import get_current_owner, DB
+from monetary.presentation.api.schemas.converters import (
+    account_balance_row_out,
+    budget_status_out,
+    category_total_out,
+    friend_balance_out,
+    money_out,
+    net_worth_out,
+)
+from monetary.presentation.api.schemas.reports import (
+    AccountBalanceRowOut,
+    BudgetStatusOut,
+    CashflowPointOut,
+    CashflowTrendOut,
+    CategoryTotalOut,
+    DashboardOut,
+    FriendTotalsOut,
+    MonthPointOut,
+    NetWorthOut,
+    PeriodSummaryOut,
+    ReferenceAccountOut,
+    ReferenceCategoryOut,
+    ReferenceDataOut,
+    ReferenceFriendOut,
+    TrendOut,
+)
+
+router = APIRouter(prefix=f"{API_PREFIX}/reports", tags=["reports"])
+
+
+def _year_month(month: str | None) -> tuple[int | None, int | None]:
+    if not month:
+        return None, None
+    parts = month.split("-")
+    if len(parts) != 2 or not all(p.isdigit() for p in parts):
+        raise ValidationError(f"Invalid month {month!r}; expected 'YYYY-MM', e.g. '2026-09'.")
+    year, m = int(parts[0]), int(parts[1])
+    if not (1 <= m <= 12):
+        raise ValidationError(f"Invalid month {month!r}: month must be between 01 and 12.")
+    if not (1900 <= year <= 2200):
+        raise ValidationError(f"Invalid month {month!r}: year must be between 1900 and 2200.")
+    return year, m
+
+
+@router.get("/balance", response_model=list[AccountBalanceRowOut])
+def balance(
+    include_inactive: bool = Query(default=False, alias="includeInactive"),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
+):
+    rows = statement_service.account_balances(conn, include_inactive=include_inactive)
+    return [account_balance_row_out(r) for r in rows]
+
+
+@router.get("/budget", response_model=list[BudgetStatusOut])
+def budget(
+    month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$", description="'YYYY-MM', e.g. '2026-09'"),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
+):
+    year, m = _year_month(month)
+    rows = budget_service.budget_status(conn, owner, year=year, month=m)
+    return [budget_status_out(r) for r in rows]
+
+
+@router.get("/net-worth", response_model=list[NetWorthOut])
+def net_worth(conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner)):
+    rows = dashboard_service.net_worth(conn)
+    return [net_worth_out(r) for r in rows]
+
+
+@router.get("/spending", response_model=list[CategoryTotalOut])
+def spending(
+    month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$", description="'YYYY-MM', e.g. '2026-09'"),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
+):
+    year, m = _year_month(month)
+    rows = dashboard_service.category_totals(conn, owner, "EXPENSE", year=year, month=m)
+    return [category_total_out(r) for r in rows]
+
+
+@router.get("/income", response_model=list[CategoryTotalOut])
+def income(
+    month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$", description="'YYYY-MM', e.g. '2026-09'"),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
+):
+    year, m = _year_month(month)
+    rows = dashboard_service.category_totals(conn, owner, "INCOME", year=year, month=m)
+    return [category_total_out(r) for r in rows]
+
+
+@router.get("/dashboard", response_model=DashboardOut)
+def dashboard(
+    month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$", description="'YYYY-MM', e.g. '2026-09'"),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
+):
+    year, m = _year_month(month)
+    d = dashboard_service.dashboard(conn, owner, year=year, month=m)
+    return DashboardOut(
+        year=d["year"], month=d["month"],
+        net_worth=[net_worth_out(r) for r in d["net_worth"]],
+        summary=[PeriodSummaryOut(currency=r["currency"], income=money_out(r["income_points"], r["currency"]),
+                                  expense=money_out(r["expense_points"], r["currency"]),
+                                  savings=money_out(r["savings_points"], r["currency"])) for r in d["summary"]],
+        account_balances=[account_balance_row_out(r) for r in d["account_balances"]],
+        budget_status=[budget_status_out(r) for r in d["budget_status"]],
+        top_spending=[category_total_out(r) for r in d["top_spending"]],
+        income_summary=[category_total_out(r) for r in d["income_summary"]],
+        friend_balances=[friend_balance_out(r) for r in d["friend_balances"]],
+        friend_totals=[FriendTotalsOut(currency=r["currency"],
+                                       owed_to_you=money_out(r["owed_to_you_points"], r["currency"]),
+                                       you_owe=money_out(r["you_owe_points"], r["currency"]))
+                       for r in d["friend_totals"]],
+    )
+
+
+@router.get("/reference-data", response_model=ReferenceDataOut)
+def reference_data(conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner)):
+    """One round trip for everything a UI needs to populate dropdowns: active
+    accounts, active categories, and friends. New endpoint -- the CLI never
+    needed this since it never has to pre-populate a form."""
+    accounts = account_service.list_accounts(conn)
+    categories = account_service.list_categories(conn)
+    friends = user_service.list_friends(conn)
+    return ReferenceDataOut(
+        accounts=[ReferenceAccountOut(id=a["id"], name=a["name"], account_type=a["account_type"],
+                                      currency_code=a["currency_code"]) for a in accounts],
+        categories=[ReferenceCategoryOut(id=c["id"], name=c["name"], account_type=c["account_type"],
+                                         currency_code=c["currency_code"], parent_id=c["parent_account_id"])
+                    for c in categories],
+        friends=[ReferenceFriendOut(id=f["id"], name=f["name"], email=f["email"]) for f in friends],
+    )
+
+
+@router.get("/trends/net-worth", response_model=list[TrendOut])
+def net_worth_trend(
+    months: int = Query(default=12, ge=1, le=60),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
+):
+    series = trends_service.net_worth_trend(conn, owner, months=months)
+    return [TrendOut(
+        label="Net worth", currency=s["currency"],
+        points=[MonthPointOut(year=p["year"], month=p["month"], value=money_out(p["points"], s["currency"]))
+                for p in s["points"]],
+    ) for s in series]
+
+
+@router.get("/trends/spending", response_model=TrendOut)
+def spending_trend(
+    category_id: int,
+    months: int = Query(default=12, ge=1, le=60),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
+):
+    s = trends_service.category_spending_trend(conn, owner, category_id, months=months)
+    return TrendOut(
+        label=s["category_name"], currency=s["currency"],
+        points=[MonthPointOut(year=p["year"], month=p["month"], value=money_out(p["points"], s["currency"]))
+                for p in s["points"]],
+    )
+
+
+@router.get("/trends/cashflow", response_model=CashflowTrendOut)
+def cashflow_trend(
+    months: int = Query(default=12, ge=1, le=60),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
+):
+    s = trends_service.cashflow_trend(conn, owner, months=months)
+    return CashflowTrendOut(
+        currency=s["currency"],
+        points=[CashflowPointOut(
+            year=p["year"], month=p["month"],
+            income=money_out(p["income_points"], s["currency"]),
+            expense=money_out(p["expense_points"], s["currency"]),
+            net=money_out(p["net_points"], s["currency"]),
+        ) for p in s["points"]],
+    )

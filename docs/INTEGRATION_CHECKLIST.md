@@ -1,6 +1,6 @@
-# Integration checklist — `production-app` ⇄ Python backend
+# Integration checklist — `web` ⇄ Python backend
 
-Final state of `feat/monetary-integration`. Legend: `[x]` done and verified · `[~]` done, with a caveat noted.
+Final state of `feat/monetary-integration` (a historical record; variable names updated to the current `MONETARY_*` spelling). Legend: `[x]` done and verified · `[~]` done, with a caveat noted.
 
 **Decisions in force:** single owner (one-time setup) · camelCase API · numeric IDs · money as `{points, major, currency}` ·
 all calculations server-side · flat `/transactions` layer over the untouched double-entry core · calendar-month reporting ·
@@ -11,7 +11,7 @@ no DB migrations (schema edited directly; delete any pre-existing dev database) 
 - [x] Frontend baseline: typecheck clean, 19 vitest tests passing before any change
 
 ## 1. Application name ("Monetary", configurable)
-- [x] Backend: `app_name()` / `app_tagline()` read `DUEVIA_APP_NAME` / `DUEVIA_APP_TAGLINE` (default Monetary)
+- [x] Backend: `app_name()` / `app_tagline()` read `MONETARY_APP_NAME` / `MONETARY_APP_TAGLINE` (default Monetary)
 - [x] Backend: public `GET /meta` (name, tagline, version, apiVersion); OpenAPI title + root response use it
 - [x] Backend: tests (default, override, blank fallback)
 - [x] Frontend: `useBranding()` reads `/meta`; `VITE_APP_NAME` is only the pre-load fallback (default Monetary)
@@ -40,7 +40,7 @@ no DB migrations (schema edited directly; delete any pre-existing dev database) 
 - [x] Accounts: PATCH, reactivate, subtype, **credit limit / statement day LIABILITY-only**, `balance` in list
 - [x] Accounts: opening balance on create only, posted as an "Opening balance" ADJUSTMENT
 - [x] Categories: PATCH (name/colour/budget/reparent), reactivate, colour, `?type=` filter (income sources)
-- [x] Default categories & income sources seeded at setup — configurable (`seed_defaults.json`, `DUEVIA_SEED_DEFAULTS_PATH`)
+- [x] Default categories & income sources seeded at setup — configurable (`seed_defaults.json`, `MONETARY_SEED_DEFAULTS_PATH`)
 - [x] Friends: phone, PATCH name/email/phone (clear vs unchanged), createdAt
 - [x] Flat `/transactions`: create / read / patch / delete for every type, dispatching to existing services
 - [x] Server-side filter (type, account, category subtree, friend, refundOfId, search, dates), sort, paging
@@ -79,10 +79,10 @@ no DB migrations (schema edited directly; delete any pre-existing dev database) 
 - [x] Edit & delete in DIRECT and STRICT (correction link, reversed original hidden)
 - [x] Dashboard & report numbers vs. hand-computed values
 - [x] Logout / revoked session / wrong password / password reset
-- [x] Branding served by the backend (`/meta`); renaming covered by backend tests (`DUEVIA_APP_NAME`)
+- [x] Branding served by the backend (`/meta`); renaming covered by backend tests (`MONETARY_APP_NAME`)
 
 ## 6. Docs & delivery
-- [x] README: run instructions, env vars (`DUEVIA_APP_NAME`, `DUEVIA_CORS_ORIGINS`, `VITE_API_BASE_URL`), tests
+- [x] README: run instructions, env vars (`MONETARY_APP_NAME`, `MONETARY_CORS_ORIGINS`, `VITE_API_BASE_URL`), tests
 - [x] `.env.example` updated
 - [x] Backend and frontend sources pushed to the branch and byte-compared against the locally tested tree (git blob hashes) for the backend
 - [x] Pull request opened against `main` (never pushed to `main` directly)
