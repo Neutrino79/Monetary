@@ -29,7 +29,7 @@ print(json.dumps({
 
 
 def probe(**env):
-    e = {k: v for k, v in os.environ.items() if not k.startswith(("MONETARY_", "DUEVIA_"))}
+    e = {k: v for k, v in os.environ.items() if not k.startswith("MONETARY_")}
     e.update(env, PYTHONPATH=ROOT)
     out = subprocess.run([sys.executable, "-W", "ignore", "-c", PROBE], cwd=ROOT, env=e, capture_output=True, text=True, timeout=60)
     assert out.returncode == 0, out.stderr
@@ -64,8 +64,3 @@ def test_wildcard_cors_never_combines_with_credentials():
     r = probe(MONETARY_CORS_ORIGINS="*")
     assert r["evil"]["origin"] == "*" and r["evil"]["creds"] is None
 
-
-def test_legacy_duevia_variables_still_configure_the_app():
-    """A deployment that still sets the pre-rename DUEVIA_* names must keep working."""
-    r = probe(DUEVIA_ENV="development", DUEVIA_CORS_ORIGINS="http://localhost:3000")
-    assert r["docs"] == 200 and r["good"]["origin"] == "http://localhost:3000"

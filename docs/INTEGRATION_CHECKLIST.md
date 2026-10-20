@@ -1,4 +1,4 @@
-# Integration checklist — `production-app` ⇄ Python backend
+# Integration checklist — `web` ⇄ Python backend
 
 Final state of `feat/monetary-integration` (a historical record; variable names updated to the current `MONETARY_*` spelling). Legend: `[x]` done and verified · `[~]` done, with a caveat noted.
 

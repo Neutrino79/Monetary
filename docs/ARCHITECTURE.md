@@ -29,7 +29,7 @@ The application uses:
 The SQLite database is created automatically at:
 
 ```text
-~/.duevia_0.5/expense.db
+~/.monetary_0.5/monetary.db
 ```
 
 The path can be overridden with `MONETARY_DB_PATH`.
@@ -608,28 +608,22 @@ export MONETARY_ENABLE_DOCS=true      # force /docs, /redoc, /openapi.json on or
 
 ## 12. Project naming
 
-The product is **Monetary** (formerly *Duevia*; the GitHub repository slug is still `duevia-ledger`).
+The product is **Monetary**.
 
-| Surface | Current value |
+| Surface | Value |
 |---|---|
 | Display name | `Monetary` (configurable: `MONETARY_APP_NAME`) |
 | Python package | `monetary` |
 | API import path | `monetary.presentation.api.app:app` |
 | Application version | `0.5.0` |
 | API route prefix | `/api/v0.5` |
-| Environment variables | `MONETARY_*` (legacy `DUEVIA_*` still honoured as a fallback) |
-| Default database path | `~/.duevia_0.5/expense.db` |
+| Environment variables | `MONETARY_*` |
+| Default database path | `~/.monetary_0.5/monetary.db` |
 
 Runtime-facing values are read from `monetary/config.py` rather than duplicated
-throughout the implementation.
-
-**Deliberately unchanged, because they are persisted or external contracts:**
-the default database path (an existing database lives there -- renaming the
-directory would silently orphan it), the SQLite schema (no table or column
-carries the old name), and every API route. The `DUEVIA_*` variables keep
-working so existing deployments need no coordinated change; migrate them to
-`MONETARY_*` at leisure. If the database directory is ever to be renamed, that
-needs an explicit data-migration step (move the file, or set `MONETARY_DB_PATH`).
+throughout the implementation. The database directory name carries the schema
+generation: the schema has no migrations, so an incompatible release starts a
+fresh directory instead of opening an old database.
 
 ## 13. Repository structure
 
@@ -646,7 +640,7 @@ needs an explicit data-migration step (move the file, or set `MONETARY_DB_PATH`)
 │   └── presentation/
 │       └── api/              # FastAPI app, routers, schemas, error handling
 ├── tests/                    # backend tests: unit / service / api
-├── production-app/           # React + TypeScript web app (self-contained npm project)
+├── web/           # React + TypeScript web app (self-contained npm project)
 ├── docs/
 ├── scripts/check.sh          # one-command backend validation
 ├── .github/workflows/ci.yml
@@ -659,5 +653,5 @@ needs an explicit data-migration step (move the file, or set `MONETARY_DB_PATH`)
 ## 14. Related documentation
 
 - [`README.md`](../README.md): installation and application startup
-- [`API_README.md`](API_README.md): API endpoints and authentication
+- [`API.md`](API.md): API endpoints and authentication
 - [`LIVE_SCHEMA.sql`](LIVE_SCHEMA.sql): complete generated SQLite schema

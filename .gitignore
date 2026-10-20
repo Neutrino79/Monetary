@@ -32,7 +32,7 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 
-# Node (the web app lives in production-app/, which has its own .gitignore)
+# Node (the web app lives in web/, which has its own .gitignore)
 node_modules/
 
 # Local configuration and secrets -- never commit these; copy .env.example instead

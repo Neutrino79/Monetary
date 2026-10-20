@@ -1,7 +1,7 @@
 # Monetary API
 
 A REST API over a double-entry ledger engine, documented further in
-`ARCHITECTURE_PLAN.md` and the project root `README.md`. **This is now the
+`ARCHITECTURE.md` and the project root `README.md`. **This is now the
 only interface to Monetary** -- the previous CLI has been removed; every
 capability it had (accounts, categories, transactions, splits, transfers,
 settlements, reports) is available here.
@@ -20,8 +20,7 @@ generate a typed client for whatever UI framework you use. **Docs are
 disabled by default outside development** -- see Configuration below.
 
 Config via environment variables (see `monetary/config.py`):
-- `MONETARY_DB_PATH` -- SQLite file path (default `~/.duevia_0.5/expense.db`; the default keeps its pre-rename
-  name so existing databases are found)
+- `MONETARY_DB_PATH` -- SQLite file path (default `~/.monetary_0.5/monetary.db`)
 - `MONETARY_CORS_ORIGINS` -- comma-separated allowed browser origins (default:
   none allowed). `*` is accepted for a public API, but credentialed requests
   are then disabled automatically (wildcard origin + credentials is invalid
@@ -32,10 +31,6 @@ Config via environment variables (see `monetary/config.py`):
   `Monetary` / `Personal expense ledger`), served publicly by `GET /meta`.
 - `MONETARY_SEED_DEFAULTS_PATH` -- optional JSON file replacing the default categories and income
   sources created at first-run setup (the bundled default is `monetary/seed_defaults.json`).
-
-The project was formerly named *Duevia*; the old `DUEVIA_*` spellings of every variable above are still read as
-a fallback (the `MONETARY_*` value wins when both are set), so existing deployments keep working. Prefer the new
-names in new configuration.
 
 ## Wire format
 
@@ -192,10 +187,9 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
 ## Testing
 
 `./scripts/check.sh` runs the full test suite (unit + service + API-level,
-~485 tests) plus coverage. The web app's end-to-end suite (`npm run test:integration` in
-`production-app/`) boots this API on a throw-away database and drives it from the real React app.
-See [`ROADMAP_AND_KNOWN_ISSUES.md`](ROADMAP_AND_KNOWN_ISSUES.md) for the
-testing guide, the shared sample dataset, known issues, and remaining work.
+~490 tests) plus coverage. The web app's end-to-end suite (`npm run test:integration` in
+`web/`) boots this API on a throw-away database and drives it from the real React app.
+The shared sample dataset every test layer uses is `tests/sample_data.py`.
 
 ## What stayed identical
 

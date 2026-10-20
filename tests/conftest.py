@@ -4,7 +4,7 @@ from __future__ import annotations
 import os
 
 # Fixed, known environment BEFORE the app is imported (docs/CORS are read at import).
-for _key in [k for k in os.environ if k.startswith(("MONETARY_", "DUEVIA_"))]:  # incl. legacy names
+for _key in [k for k in os.environ if k.startswith("MONETARY_")]:
     del os.environ[_key]
 os.environ["MONETARY_ENV"] = "development"
 

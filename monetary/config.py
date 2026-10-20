@@ -22,14 +22,8 @@ API_VERSION = "v0.5"
 API_PREFIX = f"/api/{API_VERSION}"
 
 # --------------------------------------------------------------------------- #
-# Environment variables. Every setting is read from `MONETARY_*`. The project
-# was previously called "Duevia" and its deployments set `DUEVIA_*`; those
-# names are still honoured as a fallback so an existing deployment keeps
-# working after upgrading. When both are set, `MONETARY_*` wins.
+# Environment variables: every setting is read from `MONETARY_*`.
 # --------------------------------------------------------------------------- #
-ENV_PREFIX = "MONETARY_"
-LEGACY_ENV_PREFIX = "DUEVIA_"
-
 APP_NAME_ENV_VAR = "MONETARY_APP_NAME"
 APP_TAGLINE_ENV_VAR = "MONETARY_APP_TAGLINE"
 SEED_DEFAULTS_ENV_VAR = "MONETARY_SEED_DEFAULTS_PATH"
@@ -38,24 +32,15 @@ CORS_ENV_VAR = "MONETARY_CORS_ORIGINS"
 ENV_ENV_VAR = "MONETARY_ENV"
 DOCS_ENV_VAR = "MONETARY_ENABLE_DOCS"
 
-# The default database location is a *persisted* path that existing installs
-# already use, so it keeps its original name. Changing it would silently
-# orphan an existing database; point `MONETARY_DB_PATH` elsewhere to relocate.
-DEFAULT_DB_PATH = Path.home() / ".duevia_0.5" / "expense.db"
-
-
-def legacy_env_var(name: str) -> str:
-    """The pre-rename (`DUEVIA_*`) spelling of a `MONETARY_*` variable name."""
-    return LEGACY_ENV_PREFIX + name.removeprefix(ENV_PREFIX)
+# The directory name carries the schema generation: the schema has no migrations,
+# so a release with an incompatible schema starts a fresh directory instead of
+# opening an old database.
+DEFAULT_DB_PATH = Path.home() / ".monetary_0.5" / "monetary.db"
 
 
 def read_env(name: str) -> str | None:
-    """Value of the `MONETARY_*` variable `name`, falling back to its legacy
-    `DUEVIA_*` spelling; None when neither is set."""
-    value = os.environ.get(name)
-    if value is None:
-        value = os.environ.get(legacy_env_var(name))
-    return value
+    """Value of the environment variable `name`, or None when unset."""
+    return os.environ.get(name)
 
 
 def app_name() -> str:
