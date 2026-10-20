@@ -1,0 +1,28 @@
+# Install once:  python -m pip install -r requirements-dev.txt && pre-commit install
+# Run on demand: pre-commit run --all-files
+# The web hook needs `npm ci` to have been run in web/.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-yaml
+      - id: check-json
+        files: ^monetary/            # web/tsconfig*.json allow comments, so only check the backend's JSON
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: check-added-large-files
+        args: [--maxkb=500]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.10
+    hooks:
+      - id: ruff-check             # config: ruff.toml
+
+  - repo: local
+    hooks:
+      - id: web-lint
+        name: oxlint (web)
+        entry: bash -c 'cd web && npm run lint'
+        language: system
+        files: ^web/
+        pass_filenames: false

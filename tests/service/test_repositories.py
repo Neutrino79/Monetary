@@ -23,7 +23,7 @@ def test_balance_as_of_is_strictly_before(ctx):
 
 
 def test_period_sums_exclude_reversed_entries(ctx):
-    a, b = post(ctx, 100), post(ctx, 250)
+    a, _ = post(ctx, 100), post(ctx, 250)
     ls.reverse(ctx.conn, a["id"])
     d, c = repo.account_period_debit_credit(ctx.conn, [ctx.cat["food"]], "2026-03-01T00:00:00+00:00",
                                             "2026-04-01T00:00:00+00:00")

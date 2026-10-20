@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from tests.sample_data import API, OWNER
+from tests.sample_data import OWNER
 
 
 # --------------------------------------------------------------------------- #
