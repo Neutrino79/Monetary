@@ -20,6 +20,7 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - run: python -m pip install -r requirements-dev.txt
+      - run: ruff check .
       - run: python -m compileall -q monetary
       - run: python -m pytest tests -q --cov=monetary --cov-report=term-missing
 
