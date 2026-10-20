@@ -1,10 +1,10 @@
 import pytest
 
-from duevia.application import ledger_service as ls
-from duevia.application.posting_strategies import simple, transfer
-from duevia.domain.exceptions import ConflictError, NotFoundError
-from duevia.domain.money import Money
-from duevia.infrastructure import repositories as repo
+from monetary.application import ledger_service as ls
+from monetary.application.posting_strategies import simple, transfer
+from monetary.domain.exceptions import ConflictError, NotFoundError
+from monetary.domain.money import Money
+from monetary.infrastructure import repositories as repo
 
 D = "2026-01-01T00:00:00+00:00"
 

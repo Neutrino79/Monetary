@@ -4,16 +4,16 @@ from __future__ import annotations
 import os
 
 # Fixed, known environment BEFORE the app is imported (docs/CORS are read at import).
-os.environ["DUEVIA_ENV"] = "development"
-os.environ.pop("DUEVIA_CORS_ORIGINS", None)
-os.environ.pop("DUEVIA_ENABLE_DOCS", None)
+for _key in [k for k in os.environ if k.startswith(("MONETARY_", "DUEVIA_"))]:  # incl. legacy names
+    del os.environ[_key]
+os.environ["MONETARY_ENV"] = "development"
 
 import bcrypt  # noqa: E402
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402
 
-from duevia.infrastructure import db as db_module  # noqa: E402
-from duevia.infrastructure.rate_limiter import (  # noqa: E402
+from monetary.infrastructure import db as db_module  # noqa: E402
+from monetary.infrastructure.rate_limiter import (  # noqa: E402
     login_rate_limiter,
     password_reset_rate_limiter,
 )
@@ -48,7 +48,7 @@ def _reset_rate_limiters():
 @pytest.fixture()
 def db_path(tmp_path, monkeypatch):
     path = tmp_path / "test.db"
-    monkeypatch.setenv("DUEVIA_DB_PATH", str(path))
+    monkeypatch.setenv("MONETARY_DB_PATH", str(path))
     return path
 
 
@@ -62,7 +62,7 @@ def conn(db_path):
 
 @pytest.fixture()
 def client(db_path):
-    from duevia.presentation.api.app import app
+    from monetary.presentation.api.app import app
     yield TestClient(app)
     assert_ledger_invariants(db_path)  # every API test also validates the ledger
 

@@ -1,4 +1,4 @@
-from duevia.domain import security as sec
+from monetary.domain import security as sec
 
 
 def test_password_roundtrip():

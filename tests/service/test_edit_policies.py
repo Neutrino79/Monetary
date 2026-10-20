@@ -1,10 +1,10 @@
 import pytest
 
-from duevia.application import ledger_service as ls
-from duevia.application.edit_policies import get_edit_policy
-from duevia.application.posting_strategies import simple, split
-from duevia.domain.money import Money
-from duevia.infrastructure import repositories as repo
+from monetary.application import ledger_service as ls
+from monetary.application.edit_policies import get_edit_policy
+from monetary.application.posting_strategies import simple, split
+from monetary.domain.money import Money
+from monetary.infrastructure import repositories as repo
 
 D = "2026-01-01T00:00:00+00:00"
 

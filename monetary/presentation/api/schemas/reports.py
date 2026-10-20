@@ -1,0 +1,131 @@
+from __future__ import annotations
+
+
+from monetary.presentation.api.schemas.common import ApiModel, MoneyOut
+from monetary.presentation.api.schemas.friends import FriendBalanceOut
+
+
+class NetWorthOut(ApiModel):
+    currency: str
+    assets: MoneyOut
+    liabilities: MoneyOut
+    net_worth: MoneyOut
+
+
+class BudgetStatusOut(ApiModel):
+    category_id: int
+    category_name: str
+    year: int
+    month: int
+    budget: MoneyOut
+    spent: MoneyOut
+    remaining: MoneyOut
+    percentage_used: float
+    over_budget: bool
+
+
+class CategoryChildTotalOut(ApiModel):
+    category_id: int
+    category_name: str
+    total: MoneyOut
+
+
+class CategoryTotalOut(ApiModel):
+    """A root category's period total, subcategories already rolled in;
+    `children` is the per-subcategory breakdown of that same total."""
+    category_id: int
+    category_name: str
+    total: MoneyOut
+    year: int
+    month: int
+    children: list[CategoryChildTotalOut] = []
+
+
+class AccountBalanceRowOut(ApiModel):
+    account_id: int
+    name: str
+    account_type: str
+    is_active: bool
+    balance: MoneyOut
+
+
+class PeriodSummaryOut(ApiModel):
+    """Income / spending / savings for the month, in one currency."""
+    currency: str
+    income: MoneyOut
+    expense: MoneyOut
+    savings: MoneyOut
+
+
+class FriendTotalsOut(ApiModel):
+    currency: str
+    owed_to_you: MoneyOut
+    you_owe: MoneyOut
+
+
+class DashboardOut(ApiModel):
+    year: int
+    month: int
+    net_worth: list[NetWorthOut]
+    summary: list[PeriodSummaryOut]
+    account_balances: list[AccountBalanceRowOut]
+    budget_status: list[BudgetStatusOut]
+    top_spending: list[CategoryTotalOut]
+    income_summary: list[CategoryTotalOut]
+    friend_balances: list[FriendBalanceOut]
+    friend_totals: list[FriendTotalsOut]
+
+
+class ReferenceAccountOut(ApiModel):
+    id: int
+    name: str
+    account_type: str
+    currency_code: str
+
+
+class ReferenceCategoryOut(ApiModel):
+    id: int
+    name: str
+    account_type: str
+    currency_code: str
+    parent_id: int | None
+
+
+class ReferenceFriendOut(ApiModel):
+    id: int
+    name: str
+    email: str
+
+
+class ReferenceDataOut(ApiModel):
+    """Everything a UI typically needs to populate dropdowns on first load, in
+    one round trip instead of three separate calls."""
+    accounts: list[ReferenceAccountOut]
+    categories: list[ReferenceCategoryOut]
+    friends: list[ReferenceFriendOut]
+
+
+class MonthPointOut(ApiModel):
+    year: int
+    month: int
+    value: MoneyOut
+
+
+class TrendOut(ApiModel):
+    """A time series for charting -- one point per month, oldest first."""
+    label: str
+    currency: str
+    points: list[MonthPointOut]
+
+
+class CashflowPointOut(ApiModel):
+    year: int
+    month: int
+    income: MoneyOut
+    expense: MoneyOut
+    net: MoneyOut
+
+
+class CashflowTrendOut(ApiModel):
+    currency: str
+    points: list[CashflowPointOut]

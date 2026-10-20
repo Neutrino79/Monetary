@@ -1,9 +1,9 @@
 import pytest
 
-from duevia.domain.enums import EntryType, Side
-from duevia.domain.exceptions import ValidationError
-from duevia.domain.ledger import Leg, LedgerIntent, assert_balanced
-from duevia.domain.money import Money
+from monetary.domain.enums import EntryType, Side
+from monetary.domain.exceptions import ValidationError
+from monetary.domain.ledger import Leg, LedgerIntent, assert_balanced
+from monetary.domain.money import Money
 
 
 def m(points, cur="INR"):

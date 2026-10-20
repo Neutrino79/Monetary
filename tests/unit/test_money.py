@@ -1,6 +1,6 @@
 import pytest
 
-from duevia.domain.money import Money, MoneyError, format_signed
+from monetary.domain.money import Money, MoneyError, format_signed
 
 
 @pytest.mark.parametrize("text,points", [

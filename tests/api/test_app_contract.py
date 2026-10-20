@@ -14,22 +14,22 @@ from tests.sample_data import API, OWNER
 # branding + setup status
 # --------------------------------------------------------------------------- #
 def test_meta_is_public_and_defaults_to_monetary(anon, monkeypatch):
-    monkeypatch.delenv("DUEVIA_APP_NAME", raising=False)
+    monkeypatch.delenv("MONETARY_APP_NAME", raising=False)
     body = anon.get("/meta").json()
     assert body["appName"] == "Monetary" and body["version"] and body["apiVersion"] == "v0.5"
     assert body["tagline"]
 
 
 def test_app_name_is_configurable_without_code_changes(anon, monkeypatch):
-    monkeypatch.setenv("DUEVIA_APP_NAME", "Ledgerly")
-    monkeypatch.setenv("DUEVIA_APP_TAGLINE", "Money, but tidy")
+    monkeypatch.setenv("MONETARY_APP_NAME", "Ledgerly")
+    monkeypatch.setenv("MONETARY_APP_TAGLINE", "Money, but tidy")
     body = anon.get("/meta").json()
     assert body["appName"] == "Ledgerly" and body["tagline"] == "Money, but tidy"
     assert anon.client.get("/").json()["name"] == "Ledgerly API"
 
 
 def test_blank_app_name_falls_back_to_default(anon, monkeypatch):
-    monkeypatch.setenv("DUEVIA_APP_NAME", "   ")
+    monkeypatch.setenv("MONETARY_APP_NAME", "   ")
     assert anon.get("/meta").json()["appName"] == "Monetary"
 
 
@@ -79,7 +79,7 @@ def test_seed_defaults_are_configurable_via_file(anon, tmp_path, monkeypatch):
     f = tmp_path / "seed.json"
     f.write_text(json.dumps({"expense": [{"name": "Pets", "children": [{"name": "Vet"}]}],
                              "income": [{"name": "Pocket money"}]}))
-    monkeypatch.setenv("DUEVIA_SEED_DEFAULTS_PATH", str(f))
+    monkeypatch.setenv("MONETARY_SEED_DEFAULTS_PATH", str(f))
     _init_seeded(anon)
     assert {c["name"] for c in anon.get("/categories").json()} == {"Pets", "Vet", "Pocket money"}
 
@@ -87,7 +87,7 @@ def test_seed_defaults_are_configurable_via_file(anon, tmp_path, monkeypatch):
 def test_bad_seed_file_aborts_setup_atomically(anon, tmp_path, monkeypatch):
     f = tmp_path / "seed.json"
     f.write_text("{not json")
-    monkeypatch.setenv("DUEVIA_SEED_DEFAULTS_PATH", str(f))
+    monkeypatch.setenv("MONETARY_SEED_DEFAULTS_PATH", str(f))
     payload = {k: v for k, v in OWNER.items() if k != "seed_defaults"}
     assert anon.post("/setup/init", json=payload).status_code == 422
     assert anon.get("/setup/status").json() == {"initialized": False}    # nothing half-created

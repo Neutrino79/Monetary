@@ -2,7 +2,7 @@
 import pytest
 from fastapi.testclient import TestClient
 
-from duevia.presentation.api.app import app
+from monetary.presentation.api.app import app
 from tests.sample_data import API
 
 PUBLIC = {
@@ -41,7 +41,7 @@ def test_security_headers_on_every_response(anon):
 
 
 def test_hsts_in_production(anon, monkeypatch):
-    monkeypatch.setenv("DUEVIA_ENV", "production")
+    monkeypatch.setenv("MONETARY_ENV", "production")
     assert "max-age" in anon.client.get("/health").headers["strict-transport-security"]
 
 
@@ -64,7 +64,7 @@ def test_openapi_is_nonempty_and_public_set_is_accurate():
 def test_unhandled_errors_return_generic_500_without_leaking(api, monkeypatch):
     def boom(*a, **k):
         raise RuntimeError("secret internal detail /etc/hidden")
-    monkeypatch.setattr("duevia.application.account_service.list_accounts", boom)
+    monkeypatch.setattr("monetary.application.account_service.list_accounts", boom)
     c = TestClient(app, raise_server_exceptions=False)
     r = c.get(API + "/accounts", headers={"Authorization": f"Bearer {api.token}"})
     assert r.status_code == 500
@@ -77,7 +77,7 @@ def test_integrity_errors_map_to_409(api, monkeypatch):
 
     def boom(*a, **k):
         raise sqlite3.IntegrityError("FOREIGN KEY constraint failed")
-    monkeypatch.setattr("duevia.application.account_service.list_accounts", boom)
+    monkeypatch.setattr("monetary.application.account_service.list_accounts", boom)
     c = TestClient(app, raise_server_exceptions=False)
     r = c.get(API + "/accounts", headers={"Authorization": f"Bearer {api.token}"})
     assert r.status_code == 409 and r.json()["error_type"] == "ConflictError"
@@ -113,7 +113,7 @@ def test_db_dependency_commits_before_the_response_is_sent():
 
     from fastapi import Depends
 
-    from duevia.presentation.api.deps import DB
+    from monetary.presentation.api.deps import DB
 
     if "scope" in inspect.signature(Depends).parameters:
         assert DB.scope == "function"

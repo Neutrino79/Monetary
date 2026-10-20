@@ -1,7 +1,7 @@
 import pytest
 
-from duevia.domain.enums import AccountType, LedgerMode, Side, as_enum
-from duevia.domain.exceptions import ValidationError
+from monetary.domain.enums import AccountType, LedgerMode, Side, as_enum
+from monetary.domain.exceptions import ValidationError
 
 
 @pytest.mark.parametrize("acct,side", [

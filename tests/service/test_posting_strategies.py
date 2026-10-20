@@ -1,10 +1,10 @@
 """Each strategy must emit a balanced intent with the right sides."""
 import pytest
 
-from duevia.application.posting_strategies import refund, settlement, simple, split, transfer
-from duevia.domain.enums import EntryType, Side
-from duevia.domain.exceptions import ValidationError
-from duevia.domain.money import Money
+from monetary.application.posting_strategies import refund, settlement, simple, split, transfer
+from monetary.domain.enums import EntryType, Side
+from monetary.domain.exceptions import ValidationError
+from monetary.domain.money import Money
 
 D = "2026-01-01T00:00:00+00:00"
 
