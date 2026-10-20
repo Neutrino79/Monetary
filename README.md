@@ -27,15 +27,20 @@ Requirements: Python 3.10+ with `pip`, and Node.js 22 with npm (web app only).
 **One command** (macOS/Linux, or Git Bash/WSL on Windows):
 
 ```bash
-./scripts/dev.sh            # API on :8000 + web app on :5173; Ctrl+C stops both
+./scripts/dev.sh            # opens the API (:8000) and the web app (:5173) in two separate terminal windows
+./scripts/dev.sh inline     # same, but both in the current terminal with [api]/[web] prefixes; Ctrl+C stops both
 ./scripts/dev.sh backend    # only the API
 ./scripts/dev.sh web        # only the web app
 ```
 
-On first run it creates `.venv`, installs backend and web dependencies, and creates `web/.env.local`; later
-runs reinstall only when `requirements*.txt` or `web/package-lock.json` change. In VS Code, run the task
-**Dev: start API + web** (`Cmd/Ctrl+Shift+P` → *Tasks: Run Task*, or *Tasks: Run Build Task*) to get the two
-servers in two side-by-side terminals. Override ports with `BACKEND_PORT` / `WEB_PORT`.
+The default opens macOS Terminal (or iTerm when you run it from there) or, on Linux, gnome-terminal / konsole /
+xterm; where no terminal window can be opened (SSH, no display) it falls back to `inline`. Stop each server with
+Ctrl+C in its own window. On first run it creates `.venv`, installs backend and web dependencies and creates
+`web/.env.local`; later runs reinstall only when `requirements*.txt` or `web/package-lock.json` change.
+Override ports with `BACKEND_PORT` / `WEB_PORT`.
+
+**In VS Code**, run the task **Dev: start API + web** (`Cmd/Ctrl+Shift+P` → *Tasks: Run Task*) instead: it opens
+the two servers in two side-by-side *integrated* terminals (a script cannot open tabs inside VS Code itself).
 
 Prefer to do it by hand? Same thing, step by step:
 
