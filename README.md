@@ -24,6 +24,21 @@ Single-owner authentication uses bcrypt password hashing, with rate-limited logi
 
 Requirements: Python 3.10+ with `pip`, and Node.js 22 with npm (web app only).
 
+**One command** (macOS/Linux, or Git Bash/WSL on Windows):
+
+```bash
+./scripts/dev.sh            # API on :8000 + web app on :5173; Ctrl+C stops both
+./scripts/dev.sh backend    # only the API
+./scripts/dev.sh web        # only the web app
+```
+
+On first run it creates `.venv`, installs backend and web dependencies, and creates `web/.env.local`; later
+runs reinstall only when `requirements*.txt` or `web/package-lock.json` change. In VS Code, run the task
+**Dev: start API + web** (`Cmd/Ctrl+Shift+P` → *Tasks: Run Task*, or *Tasks: Run Build Task*) to get the two
+servers in two side-by-side terminals. Override ports with `BACKEND_PORT` / `WEB_PORT`.
+
+Prefer to do it by hand? Same thing, step by step:
+
 ```bash
 # 1. Backend -> http://localhost:8000
 python3 -m venv .venv && source .venv/bin/activate        # Windows: py -m venv .venv; .venv\Scripts\Activate.ps1
@@ -64,8 +79,10 @@ monetary/                  Backend package
 tests/                     Backend tests: unit/ (pure), service/ (real temp SQLite), api/ (HTTP TestClient)
 web/                       Web app -- a self-contained npm project with its own README and tooling
 docs/                      API reference, architecture, SQLite schema, integration record
+scripts/dev.sh             One-command local development (API + web)
 scripts/check.sh           One-command backend validation
 .github/                   CI workflow, Dependabot config, pull-request template
+.vscode/                   Shared VS Code tasks and extension recommendations
 .env.example               Backend configuration template
 .pre-commit-config.yaml    Git hooks (see Developer tooling)
 ruff.toml  pytest.ini  .coveragerc  requirements.txt  requirements-dev.txt  .editorconfig
@@ -131,6 +148,8 @@ and every pull request.
   and `npm ci` in `web/`, run `pre-commit install` once. Every commit then runs YAML/JSON validation,
   merge-conflict and private-key detection, a large-file guard, `ruff` on Python and `oxlint` on `web/`.
   Run them on demand with `pre-commit run --all-files`.
+- **Dev servers**: `./scripts/dev.sh` and the VS Code tasks in `.vscode/tasks.json` (see Quick start);
+  `.vscode/extensions.json` recommends the Python, Ruff, Oxc and EditorConfig extensions.
 - **Editor settings**: [`.editorconfig`](.editorconfig) sets UTF-8, LF line endings, a final newline and
   indentation (4 spaces for Python, 2 elsewhere); most editors honour it automatically.
 - **Dependency updates**: Dependabot opens grouped weekly PRs for pip (`/`), npm (`/web`) and GitHub Actions.

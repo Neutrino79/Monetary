@@ -1,0 +1,30 @@
+{
+  // Run Task (Cmd/Ctrl+Shift+P -> "Tasks: Run Task") -> "Dev: start API + web".
+  // Opens two terminals side by side, one per server. Both just call scripts/dev.sh.
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Dev: API",
+      "type": "shell",
+      "command": "./scripts/dev.sh backend",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "group": "dev", "panel": "dedicated", "reveal": "always", "clear": true }
+    },
+    {
+      "label": "Dev: web",
+      "type": "shell",
+      "command": "./scripts/dev.sh web",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "group": "dev", "panel": "dedicated", "reveal": "always", "clear": true }
+    },
+    {
+      "label": "Dev: start API + web",
+      "dependsOn": ["Dev: API", "Dev: web"],
+      "dependsOrder": "parallel",
+      "problemMatcher": [],
+      "group": { "kind": "build", "isDefault": true }
+    }
+  ]
+}

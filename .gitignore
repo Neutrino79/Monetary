@@ -53,6 +53,8 @@ data/
 # macOS and editor files
 .DS_Store
 .idea/
-.vscode/
+.vscode/*
+!.vscode/tasks.json
+!.vscode/extensions.json
 *.swp
 *.swo
