@@ -1,45 +1,28 @@
-# Monetary 0.5.0
+# Monetary
 
-A personal expense tracker built on a double-entry ledger.
+[![CI](https://github.com/Neutrino79/duevia-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/Neutrino79/duevia-ledger/actions/workflows/ci.yml)
+[![License: Proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](LICENSE)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
+![Node 22](https://img.shields.io/badge/node-22-green)
+
+A personal expense tracker built on a double-entry ledger. Track expenses, income, refunds and transfers,
+split bills with friends and settle up, set budgets, and see where your money goes.
 
 - **Backend** (`monetary/`) -- a FastAPI REST API over SQLite. It owns *all* ledger logic: balances,
   net worth, budgets, friend balances, reports, filtering and paging.
-- **Web app** (`web/`) -- a React + TypeScript single-page app that displays what the API
-  computes and sends the user's intent. See [`web/README.md`](web/README.md).
+- **Web app** (`web/`) -- a React + TypeScript single-page app that displays what the API computes and
+  sends the user's intent. See [`web/README.md`](web/README.md).
 
-Features: single-owner authentication (bcrypt, rate-limited login and password reset), expenses, income,
-refunds, transfers, splits and settlements with friends, budgets, and reports.
+Single-owner authentication uses bcrypt password hashing, with rate-limited login and password reset.
 
-## Repository layout
+**Contents:** [Quick start](#quick-start) · [Repository layout](#repository-layout) ·
+[Configuration](#configuration) · [Database](#database) · [Testing and checks](#testing-and-checks) ·
+[Developer tooling](#developer-tooling) · [Production notes](#production-notes) ·
+[Contributing](#contributing) · [License](#license)
 
-```text
-monetary/                 Backend package
-  config.py                 Product identity and every environment variable (single source of truth)
-  seed_defaults.json        Default categories / income sources created at first-run setup
-  domain/                   Money, ledger invariants, enums, exceptions, hashing -- no DB or HTTP
-  application/              Services (use cases), posting strategies, edit policies
-  infrastructure/           SQLite schema + connection, repositories, rate limiter
-  presentation/api/         FastAPI app, routers, request/response schemas, error handling
-tests/                    Backend tests: unit/ (pure), service/ (real temp SQLite), api/ (HTTP TestClient)
-web/          Web app -- a self-contained npm project with its own README and tooling
-docs/                     API reference, architecture, SQLite schema, integration record
-scripts/check.sh          One-command backend validation
-.github/workflows/ci.yml  CI: backend tests, frontend typecheck/lint/test/build, live integration suite
-.env.example              Backend configuration template
-pytest.ini  .coveragerc  requirements.txt  requirements-dev.txt
-```
+## Quick start
 
-Dependencies point one way: `presentation → application → infrastructure → domain`
-(`application` also uses `infrastructure.repositories`; `domain` imports nothing from the project).
-Routers translate HTTP to service calls and map results to response schemas; business rules live in
-`application/` and `domain/`; all SQL lives in `infrastructure/`.
-
-## Requirements
-
-- Python 3.10 or newer, and `pip`
-- Node.js 22 and npm (for the web app only)
-
-## Run it locally
+Requirements: Python 3.10+ with `pip`, and Node.js 22 with npm (web app only).
 
 ```bash
 # 1. Backend -> http://localhost:8000
@@ -48,7 +31,7 @@ python -m pip install -r requirements.txt
 export MONETARY_ENV=development MONETARY_CORS_ORIGINS=http://localhost:5173
 python -m uvicorn monetary.presentation.api.app:app --reload --port 8000
 
-# 2. Web app -> http://localhost:5173   (in a second terminal)
+# 2. Web app -> http://localhost:5173   (second terminal)
 cd web
 npm ci
 cp .env.example .env.local        # VITE_API_BASE_URL defaults to http://localhost:8000/api/v0.5
@@ -65,9 +48,34 @@ curl -X POST http://localhost:8000/api/v0.5/setup/init -H "Content-Type: applica
 ```
 
 Useful URLs: health check `http://localhost:8000/health` (also verifies DB connectivity); Swagger UI
-`http://localhost:8000/docs` and the OpenAPI schema `/openapi.json` (development only by default).
-Stop the server with `Ctrl+C`. Full endpoint map, auth flow and error contract:
-[`docs/API.md`](docs/API.md).
+`http://localhost:8000/docs` and `/openapi.json` (development only by default). Full endpoint map, auth
+flow and error contract: [`docs/API.md`](docs/API.md).
+
+## Repository layout
+
+```text
+monetary/                  Backend package
+  config.py                  Product identity and every environment variable (single source of truth)
+  seed_defaults.json         Default categories / income sources created at first-run setup
+  domain/                    Money, ledger invariants, enums, exceptions, hashing -- no DB or HTTP
+  application/               Services (use cases), posting strategies, edit policies
+  infrastructure/            SQLite schema + connection, repositories, rate limiter
+  presentation/api/          FastAPI app, routers, request/response schemas, error handling
+tests/                     Backend tests: unit/ (pure), service/ (real temp SQLite), api/ (HTTP TestClient)
+web/                       Web app -- a self-contained npm project with its own README and tooling
+docs/                      API reference, architecture, SQLite schema, integration record
+scripts/check.sh           One-command backend validation
+.github/                   CI workflow, Dependabot config, pull-request template
+.env.example               Backend configuration template
+.pre-commit-config.yaml    Git hooks (see Developer tooling)
+ruff.toml  pytest.ini  .coveragerc  requirements.txt  requirements-dev.txt  .editorconfig
+```
+
+Dependencies point one way: `presentation → application → infrastructure → domain`
+(`application` also uses `infrastructure.repositories`; `domain` imports nothing from the project).
+Routers translate HTTP to service calls and map results to response schemas; business rules live in
+`application/` and `domain/`; all SQL lives in `infrastructure/`. More in
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Configuration
 
@@ -89,19 +97,22 @@ The web app's own settings (`VITE_*`) are documented in [`web/.env.example`](web
 ## Database
 
 SQLite in WAL mode. The schema is created automatically on first connection by
-`monetary/infrastructure/db.py` (reference copy: [`docs/LIVE_SCHEMA.sql`](docs/LIVE_SCHEMA.sql)); the first
-`POST /setup/init` seeds the defaults. **There is no migration framework**: the schema is edited in place, so a
-database created by an older release must be deleted and re-created (default location
-`~/.monetary_0.5/monetary.db`; the directory name carries the schema generation). Back up the file before upgrading anything you care about.
+`monetary/infrastructure/db.py` (reference copy: [`docs/LIVE_SCHEMA.sql`](docs/LIVE_SCHEMA.sql)), and the
+first `POST /setup/init` seeds the defaults.
 
-## Test and check
+> **There is no migration framework.** The schema is edited in place, so a database created by an older
+> release must be deleted and re-created. The default location is `~/.monetary_0.5/monetary.db`; the
+> directory name carries the schema generation. Back up the file before upgrading anything you care about.
+
+## Testing and checks
 
 ```bash
-# Backend (from the repo root, venv active; dev tools: python -m pip install -r requirements-dev.txt)
+# Backend (repo root, venv active, dev tools: python -m pip install -r requirements-dev.txt)
 python -m pytest                    # unit + service + api + config tests
 ./scripts/check.sh                  # compile check + app import + full suite with coverage
 ./scripts/check.sh fast             # skip the slower subprocess-based config tests
 ./scripts/check.sh live             # also boots a real server and curls /health
+ruff check .                        # lint (unused/undefined names)
 
 # Web app (from web/)
 npm run typecheck                   # tsc -b --noEmit
@@ -111,7 +122,18 @@ npm run build                       # type-check + production bundle into dist/
 npm run test:integration            # real React app -> real uvicorn -> temp SQLite (needs the backend's pip deps)
 ```
 
-The backend has no linter or type-checker configured; CI runs the same commands as above.
+CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the same commands on every push to `main`
+and every pull request.
+
+## Developer tooling
+
+- **Git hooks** ([pre-commit](https://pre-commit.com)): after `python -m pip install -r requirements-dev.txt`
+  and `npm ci` in `web/`, run `pre-commit install` once. Every commit then runs YAML/JSON validation,
+  merge-conflict and private-key detection, a large-file guard, `ruff` on Python and `oxlint` on `web/`.
+  Run them on demand with `pre-commit run --all-files`.
+- **Editor settings**: [`.editorconfig`](.editorconfig) sets UTF-8, LF line endings, a final newline and
+  indentation (4 spaces for Python, 2 elsewhere); most editors honour it automatically.
+- **Dependency updates**: Dependabot opens grouped weekly PRs for pip (`/`), npm (`/web`) and GitHub Actions.
 
 ## Production notes
 
@@ -122,8 +144,8 @@ The backend has no linter or type-checker configured; CI runs the same commands 
   with several instances also rate-limit at the edge.
 - **SQLite** suits a single instance. Moving to a server database would only change
   `monetary/infrastructure/` (`db.py`, `repositories.py`, `transaction_queries.py`).
-- **Web app**: a static bundle (`npm run build` → `web/dist/`); set `VITE_API_BASE_URL` at build
-  time. The repo carries SPA-rewrite files for Vercel (`vercel.json`) and Netlify-style hosts
+- **Web app**: a static bundle (`npm run build` → `web/dist/`); set `VITE_API_BASE_URL` at build time.
+  The repo carries SPA-rewrite files for Vercel (`vercel.json`) and Netlify-style hosts
   (`public/_redirects`). There is no Dockerfile or deployment pipeline in this repository.
 
 ## Contributing
@@ -131,10 +153,16 @@ The backend has no linter or type-checker configured; CI runs the same commands 
 1. Branch from `main`; keep backend changes inside the layer that owns them (see layout above).
 2. Add tests next to the matching layer in `tests/` (`unit`, `service`, `api`); `tests/sample_data.py` is the
    shared dataset all layers use.
-3. Run `./scripts/check.sh` and, for web changes, `npm run typecheck && npm run lint && npm test && npm run build`
-   in `web/` before opening a PR.
+3. Install the git hooks (above), and before opening a PR run `./scripts/check.sh` plus, for web changes,
+   `npm run typecheck && npm run lint && npm test && npm run build` in `web/`.
 4. Changing the API contract means updating `web/src/lib/api/` (services, mappers, `types/api.ts`) and
    [`docs/API.md`](docs/API.md) in the same change.
+5. Open a PR; the template lists what reviewers will look for.
 
 See also: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (system design) and
 [`docs/INTEGRATION_CHECKLIST.md`](docs/INTEGRATION_CHECKLIST.md) (record of the web-app ⇄ backend integration).
+
+## License
+
+Proprietary and confidential. © 2026 Atharv Hiremath, all rights reserved -- see [LICENSE](LICENSE).
+This is a private repository; no permission to use, copy or distribute the code is granted.
