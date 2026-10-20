@@ -1,7 +1,7 @@
 # Monetary
 
 [![CI](https://github.com/Neutrino79/duevia-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/Neutrino79/duevia-ledger/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License: Proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](LICENSE)
 ![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
 ![Node 22](https://img.shields.io/badge/node-22-green)
 
@@ -164,4 +164,5 @@ See also: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (system design) and
 
 ## License
 
-[MIT](LICENSE) © 2026 Atharv Hiremath
+Proprietary and confidential. © 2026 Atharv Hiremath, all rights reserved -- see [LICENSE](LICENSE).
+This is a private repository; no permission to use, copy or distribute the code is granted.
