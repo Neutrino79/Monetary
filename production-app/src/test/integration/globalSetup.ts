@@ -34,14 +34,14 @@ async function assertPortFree() {
 export default async function setup() {
   await assertPortFree()
   dir = mkdtempSync(join(tmpdir(), 'monetary-it-'))
-  server = spawn(process.env.PYTHON ?? 'python3', ['-m', 'uvicorn', 'duevia.presentation.api.app:app', '--port', String(PORT), '--log-level', 'warning'], {
+  server = spawn(process.env.PYTHON ?? 'python3', ['-m', 'uvicorn', 'monetary.presentation.api.app:app', '--port', String(PORT), '--log-level', 'warning'], {
     cwd: resolve(__dirname, '../../../..'), // repo root
     env: {
       ...process.env,
-      DUEVIA_DB_PATH: join(dir, 'integration.db'),
-      DUEVIA_ENV: 'development',
-      DUEVIA_CORS_ORIGINS: '*',
-      DUEVIA_APP_NAME: 'Monetary',
+      MONETARY_DB_PATH: join(dir, 'integration.db'),
+      MONETARY_ENV: 'development',
+      MONETARY_CORS_ORIGINS: '*',
+      MONETARY_APP_NAME: 'Monetary',
     },
     stdio: ['ignore', 'inherit', 'inherit'],
   })

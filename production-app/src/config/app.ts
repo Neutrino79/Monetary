@@ -2,7 +2,7 @@
  * Build-time configuration: locale/currency defaults, the backend URL, and the
  * *fallback* product name.
  *
- * The product name itself is owned by the backend (DUEVIA_APP_NAME, served by
+ * The product name itself is owned by the backend (MONETARY_APP_NAME, served by
  * `GET /meta`) and read at runtime through `useBranding()`. `name`/`tagline`
  * here are only what is shown before that response arrives (or if the backend
  * is unreachable) -- change the backend setting to rename the app, not this.

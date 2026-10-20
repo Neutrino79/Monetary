@@ -6,7 +6,7 @@ import path from 'node:path'
 /**
  * Fills the static parts of index.html (the title shown before JavaScript runs, the meta
  * description, the favicon) from the same VITE_APP_* values as src/config/app.ts. These are
- * only fallbacks: once the app loads, the backend's GET /meta (DUEVIA_APP_NAME) takes over.
+ * only fallbacks: once the app loads, the backend's GET /meta (MONETARY_APP_NAME) takes over.
  */
 function htmlBranding(env: Record<string, string>): Plugin {
   const name = env.VITE_APP_NAME || 'Monetary'

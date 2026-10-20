@@ -4,7 +4,7 @@ import { http } from "@/lib/api/http";
 interface MetaDto { appName: string; tagline: string; version: string; apiVersion: string }
 
 export const metaService = {
-  /** Public. The product name is owned by the backend (DUEVIA_APP_NAME). */
+  /** Public. The product name is owned by the backend (MONETARY_APP_NAME). */
   async getBranding(): Promise<Branding> {
     const m = await http.get<MetaDto>("/meta");
     return { name: m.appName, tagline: m.tagline };
