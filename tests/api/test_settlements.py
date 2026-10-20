@@ -6,7 +6,7 @@ from tests.sample_data import OPENING_BALANCE_POINTS as OPEN
 def test_friend_pays_me_back(world):
     world.split()                                                # rahul owes 350
     s = world.settle(amount="100.00")
-    assert s["entry_type"] == "SETTLEMENT" and s["description"].startswith("Settlement from Rahul Sharma")
+    assert s["entryType"] == "SETTLEMENT" and s["description"].startswith("Settlement from Rahul Sharma")
     assert "Group dinner (#" in s["description"]                  # FIFO coverage label
     assert world.friend_balance("rahul") == 25_000 and world.balance("bank") == OPEN - 50_000 + 10_000
 
@@ -105,7 +105,7 @@ def test_list_settlements_and_friend_filter(world):
 def test_friend_statement_running_balance(world):
     world.split(); world.fronted(amount="50.00"); world.settle(amount="100.00")
     rows = world.api.get(f"/friends/{world.friend['rahul']}/statement").json()
-    assert [(r["entry_type"], r["delta"]["points"], r["running_balance"]["points"]) for r in rows] == [
+    assert [(r["entryType"], r["delta"]["points"], r["runningBalance"]["points"]) for r in rows] == [
         ("SPLIT", 35_000, 35_000), ("FRONTED", -5_000, 30_000), ("SETTLEMENT", -10_000, 20_000)]
     assert world.friend_balance("rahul") == 20_000
 

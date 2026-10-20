@@ -9,6 +9,7 @@ PUBLIC = {
     ("POST", f"{API}/setup/init"), ("POST", f"{API}/auth/login"),
     ("GET", f"{API}/auth/security-questions"), ("GET", f"{API}/auth/security-question"),
     ("POST", f"{API}/auth/reset-password"), ("GET", "/health"), ("GET", "/"),
+    ("GET", f"{API}/meta"), ("GET", f"{API}/setup/status"),
 }
 
 
@@ -96,8 +97,23 @@ def test_error_contract_shape(world):
 @pytest.mark.parametrize("path", [
     "/accounts/99999999999999999999/balance",
     "/transactions?offset=1" + "0" * 30,
-    "/transactions?account_id=99999999999999999999",
+    "/transactions?accountId=99999999999999999999",
 ])
 def test_out_of_range_numbers_are_422_not_500(api, path):
     r = api.get(path)
     assert r.status_code == 422, r.text
+
+
+def test_db_dependency_commits_before_the_response_is_sent():
+    """Regression: with FastAPI's default 'request' scope the commit ran *after* the response had
+    been sent, so a client's immediate next request could read stale data (only visible against a
+    real server, never through the in-process TestClient). The dependency must be function-scoped
+    wherever FastAPI supports saying so."""
+    import inspect
+
+    from fastapi import Depends
+
+    from duevia.presentation.api.deps import DB
+
+    if "scope" in inspect.signature(Depends).parameters:
+        assert DB.scope == "function"

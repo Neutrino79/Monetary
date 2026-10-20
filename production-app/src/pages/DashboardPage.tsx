@@ -1,49 +1,47 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Download, Plus, TrendingUp, TrendingDown, ChevronRight } from "lucide-react";
+import { Plus, TrendingUp, TrendingDown, ChevronRight } from "lucide-react";
 import { Card, Skeleton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/form";
 import { LineChart, DonutChart } from "@/components/charts/charts";
 import { TxnIconChip, TxnAmount } from "@/components/domain/chips";
 import { TransactionForm } from "@/components/domain/TransactionForm";
 import { TxnDetailDrawer } from "@/components/domain/TxnDetailDrawer";
-import { useCoreData } from "@/hooks/queries";
+import { useCashflow, useDashboard, useSpending, useTransactions } from "@/hooks/queries";
+import { useLookups } from "@/hooks/useLookups";
 import { useAuthStore } from "@/store/authStore";
-import { useLedgerCalc } from "@/hooks/useLedgerCalc";
-import { formatCurrency, formatDate } from "@/lib/utils/format";
+import { currencySymbol, formatCurrency, formatDate } from "@/lib/utils/format";
+import { toMonthKey } from "@/lib/utils/clock";
+import { appConfig } from "@/config/app";
 import type { Transaction } from "@/types";
 
 export function DashboardPage() {
-  const { transactions, categories, isLoading } = useCoreData();
   const user = useAuthStore((s) => s.user);
-  const calc = useLedgerCalc();
+  const currentMonth = toMonthKey(new Date());
+  const [month, setMonth] = useState(currentMonth);
+  const dashboard = useDashboard(month);
+  const cashflow = useCashflow(6);
+  const spending = useSpending(month);
+  const recentQuery = useTransactions({ limit: 6, sort: "date", direction: "desc" });
+  const lookups = useLookups();
   const [addOpen, setAddOpen] = useState(false);
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
 
-  if (isLoading) return <DashboardSkeleton />;
+  if (dashboard.isLoading || !dashboard.data) {
+    return dashboard.isError ? <DashboardError message={dashboard.error instanceof Error ? dashboard.error.message : "Couldn't load the dashboard."} onRetry={() => dashboard.refetch()} /> : <DashboardSkeleton />;
+  }
 
-  const range30 = calc.monthRange(1);
-  const income = calc.calcTotalIncome(range30);
-  const expenses = calc.calcTotalExpenses(range30);
-  const netFlow = Math.round((income - expenses) * 100) / 100;
-  const netWorth = calc.calcNetWorth();
-  const buckets = calc.lastNMonthsBuckets(6);
-  const incomeSeries = buckets.map((b) => calc.calcTotalIncome(b));
-  const expenseSeries = buckets.map((b) => calc.calcTotalExpenses(b));
-  const budgets = calc
-    .calcBudgetUsage(range30)
-    .sort((a, b) => b.pct - a.pct)
-    .slice(0, 4);
-  const dueFriends = calc.friends.map((f) => ({ f, bal: calc.calcFriendOutstanding(f.id) })).filter((x) => Math.abs(x.bal) > 0.5);
-  const owedToYou = dueFriends.filter((x) => x.bal > 0).reduce((a, x) => a + x.bal, 0);
-  const youOwe = dueFriends.filter((x) => x.bal < 0).reduce((a, x) => a - x.bal, 0);
-  const recent = transactions.filter((t) => t.status !== "reversed").slice(0, 6);
-  const catSpend = categories
-    .filter((c) => !c.parentId)
-    .map((c) => ({ cat: c, spent: calc.calcCategorySpend(c.id, range30) }))
-    .filter((x) => x.spent > 0)
-    .sort((a, b) => b.spent - a.spent);
+  // Every figure below is computed by the backend; this page only lays them out.
+  const d = dashboard.data;
+  const { income, expense: expenses, savings: netFlow, netWorth, assets, liabilities, owedToYou, youOwe } = d;
+  const buckets = cashflow.data ?? [];
+  const budgets = [...d.budgets].sort((a, b) => b.percentageUsed - a.percentageUsed).slice(0, 4);
+  const catSpend = (spending.data ?? []).filter((c) => c.total > 0).sort((a, b) => b.total - a.total);
   const topCat = catSpend[0];
+  const topIncome = [...d.incomeSummary].sort((a, b) => b.total - a.total)[0];
+  const recent = recentQuery.data?.items ?? [];
+  const monthLabel = formatDate(`${month}-01`, "monthYear");
 
   const accentColor = "#1F6D4C";
   const negativeColor = "#7B2E3A";
@@ -53,12 +51,10 @@ export function DashboardPage() {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Good to see you, {(user?.name ?? "there").split(" ")[0]}</h1>
-          <p className="mt-1 text-[13.5px] text-ink-soft">Here's where things stand over the last 30 days.</p>
+          <p className="mt-1 text-[13.5px] text-ink-soft">Here's where things stand for {monthLabel}.</p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="secondary">
-            <Download size={15} /> Export
-          </Button>
+        <div className="flex items-center gap-2">
+          <Input type="month" aria-label="Month" max={currentMonth} value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} className="w-40" />
           <Button onClick={() => setAddOpen(true)}>
             <Plus size={15} /> Add transaction
           </Button>
@@ -68,27 +64,27 @@ export function DashboardPage() {
       <div className="mb-5 grid grid-cols-4 gap-5 max-[1180px]:grid-cols-2 max-[640px]:grid-cols-1">
         <Card className="flex flex-col gap-2">
           <div className="text-[12.5px] text-ink-soft">Net worth</div>
-          <div className="ledger-figure text-[27px]">{formatCurrency(netWorth.net)}</div>
+          <div className="ledger-figure text-[27px]">{formatCurrency(netWorth)}</div>
           <div className="text-[11.5px] text-ink-faint">
-            {formatCurrency(netWorth.assets)} assets − {formatCurrency(netWorth.liabilities)} owed
+            {formatCurrency(assets)} assets − {formatCurrency(liabilities)} owed
           </div>
         </Card>
         <Card className="flex flex-col gap-2">
           <div className="flex items-center gap-1.5 text-[12.5px] text-ink-soft">
-            <TrendingUp size={14} /> Income (30d)
+            <TrendingUp size={14} /> Income
           </div>
           <div className="ledger-figure text-accent text-[27px]">{formatCurrency(income)}</div>
-          <span className="w-fit rounded-full bg-accent-soft px-2 py-0.5 text-[12px] text-accent">Salary + freelance</span>
+          <span className="w-fit rounded-full bg-accent-soft px-2 py-0.5 text-[12px] text-accent">{topIncome ? `Top: ${topIncome.categoryName}` : "No income yet"}</span>
         </Card>
         <Card className="flex flex-col gap-2">
           <div className="flex items-center gap-1.5 text-[12.5px] text-ink-soft">
-            <TrendingDown size={14} /> Expenses (30d)
+            <TrendingDown size={14} /> Expenses
           </div>
           <div className="ledger-figure text-negative text-[27px]">{formatCurrency(expenses)}</div>
-          <span className="w-fit rounded-full bg-negative-soft px-2 py-0.5 text-[12px] text-negative">{topCat ? `Top: ${topCat.cat.name}` : "No spend yet"}</span>
+          <span className="w-fit rounded-full bg-negative-soft px-2 py-0.5 text-[12px] text-negative">{topCat ? `Top: ${topCat.categoryName}` : "No spend yet"}</span>
         </Card>
         <Card className="flex flex-col gap-2">
-          <div className="text-[12.5px] text-ink-soft">Net cash flow (30d)</div>
+          <div className="text-[12.5px] text-ink-soft">Net cash flow</div>
           <div className={`ledger-figure text-[27px] ${netFlow >= 0 ? "text-accent" : "text-negative"}`}>
             {netFlow >= 0 ? "+" : "\u2212"}
             {formatCurrency(Math.abs(netFlow))}
@@ -117,24 +113,24 @@ export function DashboardPage() {
           </div>
           <LineChart
             series={[
-              { label: "Income", color: accentColor, points: buckets.map((b, i) => ({ x: i, y: incomeSeries[i], label: b.label })) },
-              { label: "Expenses", color: negativeColor, points: buckets.map((b, i) => ({ x: i, y: expenseSeries[i], label: b.label })) },
+              { label: "Income", color: accentColor, points: buckets.map((b, i) => ({ x: i, y: b.income, label: b.label })) },
+              { label: "Expenses", color: negativeColor, points: buckets.map((b, i) => ({ x: i, y: b.expense, label: b.label })) },
             ]}
-            yFormat={(v) => "\u20B9" + Math.round(v / 1000) + "k"}
+            yFormat={(v) => currencySymbol() + Math.round(v / 1000) + "k"}
           />
         </Card>
         <Card>
           <div className="text-[14.5px] font-semibold">Where it went</div>
-          <div className="mb-2.5 text-[12.5px] text-ink-faint">Spending by category (30d)</div>
+          <div className="mb-2.5 text-[12.5px] text-ink-faint">Spending by category ({monthLabel})</div>
           {catSpend.length ? (
-            <DonutChart segments={catSpend.slice(0, 6).map((x) => ({ label: x.cat.name, value: x.spent, color: x.cat.color }))} size={172} thickness={24} centerLabel={formatCurrency(expenses)} centerSub="total spent" />
+            <DonutChart segments={catSpend.slice(0, 6).map((x) => ({ label: x.categoryName, value: x.total, color: lookups.getCategory(x.categoryId)?.color ?? "#5A5A5A" }))} size={172} thickness={24} centerLabel={formatCurrency(expenses)} centerSub="total spent" />
           ) : (
-            <div className="py-8 text-center text-[13px] text-ink-faint">No expenses in the last 30 days</div>
+            <div className="py-8 text-center text-[13px] text-ink-faint">No expenses this month</div>
           )}
           <div className="mt-4 flex flex-wrap gap-3 text-[12.5px]">
             {catSpend.slice(0, 5).map((x) => (
-              <span key={x.cat.id} className="flex items-center gap-1.5 text-ink-soft">
-                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: x.cat.color }} /> {x.cat.name}
+              <span key={x.categoryId} className="flex items-center gap-1.5 text-ink-soft">
+                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: lookups.getCategory(x.categoryId)?.color ?? "#5A5A5A" }} /> {x.categoryName}
               </span>
             ))}
           </div>
@@ -151,7 +147,7 @@ export function DashboardPage() {
           </div>
           {recent.length ? (
             recent.map((t) => {
-              const account = calc.getAccount(t.accountId);
+              const account = lookups.getAccount(t.accountId);
               return (
                 <button key={t.id} onClick={() => setSelectedTxn(t)} className="flex w-full items-center gap-3 border-b border-line py-3 text-left last:border-b-0">
                   <TxnIconChip txn={t} />
@@ -172,21 +168,21 @@ export function DashboardPage() {
 
         <div className="flex flex-col gap-5">
           <Card>
-            <div className="text-[14.5px] font-semibold">Budgets this month</div>
-            <div className="mb-3 text-[12.5px] text-ink-faint">Top categories against their limit</div>
+            <div className="text-[14.5px] font-semibold">Budgets</div>
+            <div className="mb-3 text-[12.5px] text-ink-faint">Top categories against their limit ({monthLabel})</div>
             {budgets.length ? (
               budgets.map((b) => (
-                <div key={b.category.id} className="mb-3.5 last:mb-0">
+                <div key={b.categoryId} className="mb-3.5 last:mb-0">
                   <div className="mb-1.5 flex justify-between text-[12.5px]">
-                    <span>{b.category.name}</span>
-                    <span className={b.pct > 100 ? "text-negative" : "text-ink-soft"}>
-                      {formatCurrency(b.spent)} / {formatCurrency(b.limit)}
+                    <span>{b.categoryName}</span>
+                    <span className={b.overBudget ? "text-negative" : "text-ink-soft"}>
+                      {formatCurrency(b.spent)} / {formatCurrency(b.budget)}
                     </span>
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-paper-sunken">
                     <div
                       className="h-full rounded-full"
-                      style={{ width: `${Math.min(100, b.pct)}%`, background: b.pct > 100 ? "var(--negative)" : b.pct > 80 ? "var(--warn)" : "var(--accent)" }}
+                      style={{ width: `${Math.min(100, b.percentageUsed)}%`, background: b.overBudget ? "var(--negative)" : b.percentageUsed > 80 ? "var(--warn)" : "var(--accent)" }}
                     />
                   </div>
                 </div>
@@ -234,5 +230,15 @@ function DashboardSkeleton() {
       </div>
       <Skeleton className="h-65 rounded-2xl" />
     </div>
+  );
+}
+
+function DashboardError({ message, onRetry }: { message: string; onRetry: () => void }) {
+  return (
+    <Card className="mx-auto mt-10 max-w-md text-center">
+      <div className="mb-1 text-[15px] font-semibold">Couldn't load your dashboard</div>
+      <p className="mb-4 text-[13px] text-ink-faint">{message || `Please try again, or contact ${appConfig.supportEmail}.`}</p>
+      <Button onClick={onRetry}>Try again</Button>
+    </Card>
   );
 }

@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 
 from duevia.application import user_service
 from duevia.config import API_PREFIX
-from duevia.presentation.api.deps import get_current_owner, get_db
+from duevia.presentation.api.deps import get_current_owner, DB
 from duevia.presentation.api.schemas.owner import OwnerOut, OwnerUpdateRequest
 
 router = APIRouter(prefix=f"{API_PREFIX}/owner", tags=["owner"])
@@ -20,7 +20,7 @@ def get_owner(owner: dict = Depends(get_current_owner)):
 @router.patch("", response_model=OwnerOut)
 def update_owner(
     payload: OwnerUpdateRequest,
-    conn: sqlite3.Connection = Depends(get_db),
+    conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
     result = owner

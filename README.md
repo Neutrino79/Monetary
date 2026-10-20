@@ -1,9 +1,15 @@
-# Duevia 0.5.0
+# Monetary (`duevia-ledger`) 0.5.0
 
-A personal expense tracker built on a double-entry ledger, delivered as a
-**REST API only**. The project provides:
+*Monetary* is the user-facing product name. It is configuration, not code -- set
+`DUEVIA_APP_NAME` to rename it everywhere (API metadata, OpenAPI title, and the web app,
+which reads it from `GET /meta`). Internal identifiers -- the `duevia` Python package, the
+`DUEVIA_*` variables, the database file, this repository -- are deliberately unchanged.
 
-- A FastAPI REST API (the sole interface -- there is no bundled CLI or UI)
+A personal expense tracker built on a double-entry ledger. The project provides:
+
+- A FastAPI REST API (`duevia/`)
+- A React + TypeScript web app (`production-app/`) that talks to it -- see
+  [`production-app/README.md`](production-app/README.md). (`frontend/` is an old prototype and is not used.)
 - SQLite storage (WAL mode for concurrent request handling)
 - Single-owner authentication with bcrypt password hashing, rate-limited login
   and password-reset endpoints
@@ -63,6 +69,9 @@ All configuration is via environment variables (see `duevia/config.py`):
 |---|---|---|
 | `DUEVIA_DB_PATH` | `~/.duevia_0.5/expense.db` | SQLite file path |
 | `DUEVIA_CORS_ORIGINS` | *(empty -- no origins allowed)* | Comma-separated list of allowed browser origins, or `*` for a public read-mostly API (credentials are automatically disabled when `*` is used, since browsers reject wildcard-origin + credentials) |
+| `DUEVIA_APP_NAME` | `Monetary` | User-facing product name (served by `GET /meta`, used in the OpenAPI title) |
+| `DUEVIA_APP_TAGLINE` | `Personal expense ledger` | Short tagline shown by the web app |
+| `DUEVIA_SEED_DEFAULTS_PATH` | *(bundled `duevia/seed_defaults.json`)* | JSON file of the default expense categories / income sources created at first-run setup |
 | `DUEVIA_ENV` | `production` | `production` or `development`; controls safe defaults like whether API docs are exposed |
 | `DUEVIA_ENABLE_DOCS` | *(unset, follows `DUEVIA_ENV`)* | `true`/`false` to force Swagger UI (`/docs`), ReDoc (`/redoc`), and `/openapi.json` on or off regardless of environment |
 
@@ -70,7 +79,34 @@ For local development:
 
 ```bash
 export DUEVIA_ENV=development
-export DUEVIA_CORS_ORIGINS="http://localhost:8501,http://localhost:3000"
+export DUEVIA_CORS_ORIGINS="http://localhost:5173"   # the Vite dev server
+```
+
+### Run the whole app locally
+
+```bash
+# 1. backend (http://localhost:8000)
+pip install -r requirements.txt
+export DUEVIA_ENV=development DUEVIA_CORS_ORIGINS=http://localhost:5173
+python -m uvicorn duevia.presentation.api.app:app --reload --port 8000
+
+# 2. web app (http://localhost:5173)
+cd production-app && npm ci
+echo 'VITE_API_BASE_URL=http://localhost:8000/api/v0.5' > .env.local
+npm run dev
+```
+
+The first visit opens the one-time setup screen (creates the single owner and seeds default
+categories and income sources). **The database schema gained columns in this release and there is
+no migration: delete any database created by an earlier version** (`~/.duevia_0.5/expense.db` by default).
+
+### Tests
+
+```bash
+python -m pytest                                  # backend
+cd production-app
+npm test                                          # unit + UI tests (stubbed network)
+npm run test:integration                          # React app <-> real uvicorn <-> SQLite (needs the backend's pip deps)
 ```
 
 ## Start the application

@@ -14,8 +14,8 @@ def test_setup_init_creates_owner_and_returns_token(anon):
     r = anon.post("/setup/init", json=OWNER)
     assert r.status_code == 201
     body = r.json()
-    assert body["owner"]["email"] == OWNER["email"] and body["owner"]["ledger_mode"] == "DIRECT"
-    assert body["token_type"] == "bearer" and body["access_token"].startswith("ets_")
+    assert body["owner"]["email"] == OWNER["email"] and body["owner"]["ledgerMode"] == "DIRECT"
+    assert body["tokenType"] == "bearer" and body["accessToken"].startswith("ets_")
     assert "password" not in r.text and "hash" not in r.text
 
 
@@ -56,7 +56,8 @@ def test_login_email_is_case_insensitive(anon):
 def test_bad_password_and_unknown_email_are_indistinguishable(anon):
     anon.post("/setup/init", json=OWNER)
     a, b = login(anon, password="wrong-password"), login(anon, email="ghost@example.com")
-    assert a.status_code == b.status_code == 422 and a.json() == b.json()
+    assert a.status_code == b.status_code == 401 and a.json() == b.json()
+    assert a.headers["www-authenticate"] == "Bearer"
 
 
 def test_login_expects_form_not_json(anon):
@@ -68,7 +69,7 @@ def test_login_expects_form_not_json(anon):
 def test_login_rate_limit_kicks_in_after_10_attempts(anon):
     anon.post("/setup/init", json=OWNER)
     codes = [login(anon, password="wrong-password").status_code for _ in range(12)]
-    assert codes[:10] == [422] * 10 and codes[10:] == [429, 429]
+    assert codes[:10] == [401] * 10 and codes[10:] == [429, 429]
     r = login(anon)                                   # even the right password is throttled
     assert r.status_code == 429 and r.json()["error_type"] == "RateLimitError"
 
@@ -111,7 +112,7 @@ def test_change_password_invalidates_every_session(api, anon):
     assert r.status_code == 200
     assert api.get("/owner").status_code == 401
     assert api.get("/owner", headers={"Authorization": f"Bearer {other}"}).status_code == 401
-    assert login(anon).status_code == 422 and login(anon, password="brand-new-pass").status_code == 200
+    assert login(anon).status_code == 401 and login(anon, password="brand-new-pass").status_code == 200
 
 
 @pytest.mark.parametrize("payload,code", [
@@ -128,7 +129,7 @@ def test_change_password_rejections(api, payload, code):
 def test_reset_flow(anon):
     anon.post("/setup/init", json=OWNER)
     q = anon.get("/auth/security-question", params={"email": OWNER["email"]}).json()
-    assert q["security_question_id"] == 1 and "pet" in q["question"]
+    assert q["securityQuestionId"] == 1 and "pet" in q["question"]
     r = anon.post("/auth/reset-password", json={"email": OWNER["email"], "security_answer": "  WHISKERS ",
                                                  "new_password": "reset-password-1"})
     assert r.status_code == 200
@@ -166,8 +167,8 @@ def test_security_questions_list_is_public(anon):
 def test_owner_profile_updates(api):
     r = api.patch("/owner", json={"name": "New Name", "timezone": "America/New_York", "ledger_mode": "STRICT"})
     assert r.status_code == 200
-    assert (r.json()["name"], r.json()["timezone"], r.json()["ledger_mode"]) == ("New Name", "America/New_York", "STRICT")
-    assert api.get("/owner").json()["ledger_mode"] == "STRICT"
+    assert (r.json()["name"], r.json()["timezone"], r.json()["ledgerMode"]) == ("New Name", "America/New_York", "STRICT")
+    assert api.get("/owner").json()["ledgerMode"] == "STRICT"
 
 
 @pytest.mark.parametrize("patch", [{"ledger_mode": "LOOSE"}, {"timezone": "Mars/Base"}, {"timezone": "/etc/passwd"}, {"name": "  "}])

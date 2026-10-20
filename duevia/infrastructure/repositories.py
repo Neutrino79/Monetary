@@ -22,13 +22,13 @@ def _rows(rs: Iterable[sqlite3.Row]) -> list[dict]:
 
 def create_user(conn, *, name, email, is_superuser, timezone, home_currency_code,
                  ledger_mode, password_hash=None, security_question_id=None,
-                 security_answer_hash=None, now) -> dict:
+                 security_answer_hash=None, phone=None, now) -> dict:
     cur = conn.execute(
-        """INSERT INTO user (name, email, is_superuser, timezone, home_currency_code,
+        """INSERT INTO user (name, email, phone, is_superuser, timezone, home_currency_code,
                               ledger_mode, password_hash, security_question_id,
                               security_answer_hash, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (name, email, int(is_superuser), timezone, home_currency_code, ledger_mode,
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (name, email, phone, int(is_superuser), timezone, home_currency_code, ledger_mode,
          password_hash, security_question_id, security_answer_hash, now, now),
     )
     return get_user(conn, cur.lastrowid)
@@ -101,6 +101,14 @@ def update_user_ledger_mode(conn, user_id, mode, now) -> dict:
     return get_user(conn, user_id)
 
 
+def update_friend_fields(conn, user_id, *, name, email, phone, now) -> dict:
+    """Full-value update of the editable friend columns (callers resolve
+    'unchanged' vs 'cleared' before calling)."""
+    conn.execute("UPDATE user SET name = ?, email = ?, phone = ?, updated_at = ? WHERE id = ?",
+                 (name, email, phone, now, user_id))
+    return get_user(conn, user_id)
+
+
 def delete_user(conn, user_id) -> None:
     conn.execute("DELETE FROM user WHERE id = ?", (user_id,))
 
@@ -110,14 +118,16 @@ def delete_user(conn, user_id) -> None:
 # --------------------------------------------------------------------------- #
 
 def create_account(conn, *, name, account_type, currency_code, parent_account_id=None,
-                    budget_limit=None, counterparty_user_id=None, is_system=False, now) -> dict:
+                    budget_limit=None, counterparty_user_id=None, is_system=False,
+                    subtype=None, credit_limit=None, statement_day=None, color=None, now) -> dict:
     cur = conn.execute(
         """INSERT INTO account (name, account_type, currency_code, parent_account_id,
-                                 budget_limit, counterparty_user_id, is_system, is_active,
+                                 budget_limit, subtype, credit_limit, statement_day, color,
+                                 counterparty_user_id, is_system, is_active,
                                  created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)""",
-        (name, account_type, currency_code, parent_account_id, budget_limit,
-         counterparty_user_id, int(is_system), now, now),
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)""",
+        (name, account_type, currency_code, parent_account_id, budget_limit, subtype,
+         credit_limit, statement_day, color, counterparty_user_id, int(is_system), now, now),
     )
     return get_account(conn, cur.lastrowid)
 
@@ -154,6 +164,22 @@ def list_accounts(conn, account_types=None, include_inactive=False) -> list[dict
 
 def rename_account(conn, account_id, new_name, now) -> dict:
     conn.execute("UPDATE account SET name = ?, updated_at = ? WHERE id = ?", (new_name, now, account_id))
+    return get_account(conn, account_id)
+
+
+def update_account_fields(conn, account_id, *, name, subtype, credit_limit, statement_day, color,
+                          budget_limit, parent_account_id, now) -> dict:
+    """Full-value update of the user-editable account/category columns."""
+    conn.execute(
+        "UPDATE account SET name = ?, subtype = ?, credit_limit = ?, statement_day = ?, color = ?, "
+        "budget_limit = ?, parent_account_id = ?, updated_at = ? WHERE id = ?",
+        (name, subtype, credit_limit, statement_day, color, budget_limit, parent_account_id, now, account_id),
+    )
+    return get_account(conn, account_id)
+
+
+def reactivate_account(conn, account_id, now) -> dict:
+    conn.execute("UPDATE account SET is_active = 1, updated_at = ? WHERE id = ?", (now, account_id))
     return get_account(conn, account_id)
 
 
@@ -252,14 +278,15 @@ def account_period_debit_credit(conn, account_ids, start_iso, end_iso) -> tuple[
 # --------------------------------------------------------------------------- #
 
 def create_journal_entry(conn, *, description, memo, entry_type, currency_code, entry_date,
-                          status, reversal_of_id, refund_of_id, category_id, now) -> dict:
+                          status, reversal_of_id, refund_of_id, category_id, now,
+                          correction_of_id=None) -> dict:
     cur = conn.execute(
         """INSERT INTO journal_entry (description, memo, entry_type, currency_code, entry_date,
                                        status, reversal_of_id, reversed_by_id, refund_of_id,
-                                       category_id, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?)""",
+                                       category_id, correction_of_id, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, ?, ?)""",
         (description, memo, entry_type, currency_code, entry_date, status,
-         reversal_of_id, refund_of_id, category_id, now, now),
+         reversal_of_id, refund_of_id, category_id, correction_of_id, now, now),
     )
     return get_journal_entry(conn, cur.lastrowid)
 
@@ -364,6 +391,10 @@ def update_journal_entry_fields(conn, entry_id, *, description=None, memo=None,
         ),
     )
     return get_journal_entry(conn, entry_id)
+
+
+def set_correction_of(conn, entry_id, original_id) -> None:
+    conn.execute("UPDATE journal_entry SET correction_of_id = ? WHERE id = ?", (original_id, entry_id))
 
 
 def mark_entry_reversed(conn, entry_id, reversed_by_id, now) -> dict:

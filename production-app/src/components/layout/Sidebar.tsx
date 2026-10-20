@@ -1,11 +1,13 @@
 import { NavLink } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
 import { appConfig } from "@/config/app";
+import { useBranding } from "@/hooks/queries";
 import { NAV_SECTIONS } from "@/config/nav";
 import { useUiStore } from "@/store/uiStore";
 import { cn } from "@/lib/utils/cn";
 
 export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; onCloseMobile: () => void }) {
+  const { name, tagline } = useBranding();
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleCollapsed = useUiStore((s) => s.toggleSidebarCollapsed);
 
@@ -31,8 +33,8 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
           </span>
           {!collapsed && (
             <div>
-              <div className="text-[15.5px] font-semibold">{appConfig.name}</div>
-              <div className="text-[11.5px] text-ink-faint">{appConfig.tagline}</div>
+              <div className="text-[15.5px] font-semibold">{name}</div>
+              <div className="text-[11.5px] text-ink-faint">{tagline}</div>
             </div>
           )}
         </div>

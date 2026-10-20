@@ -1,31 +1,34 @@
-/**
- * Account endpoints. Real REST shape this stands in for:
- *   GET    /accounts
- *   POST   /accounts
- *   PATCH  /accounts/:id
- *   POST   /accounts/:id/archive
- *   POST   /accounts/:id/restore
- */
-import type { Account } from "@/types";
-import type { NewAccountInput } from "@/types/api";
-import { appConfig } from "@/config/app";
+import type { Account, Id } from "@/types";
+import type { AccountDto, AccountPatch, NewAccountInput } from "@/types/api";
 import { http } from "@/lib/api/http";
-import { mockDataApi } from "@/lib/api/mock/mockDataApi";
+import { toAccount, toMajor } from "@/lib/api/mappers";
+
+const money = (n: number | null | undefined) => (n == null ? n : toMajor(n));
 
 export const accountsService = {
-  list(): Promise<Account[]> {
-    return appConfig.useMockApi ? mockDataApi.getAccounts() : http.get<Account[]>("/accounts");
+  async list(includeInactive = true): Promise<Account[]> {
+    return (await http.get<AccountDto[]>("/accounts", { includeInactive })).map(toAccount);
   },
-  create(payload: NewAccountInput): Promise<Account> {
-    return appConfig.useMockApi ? mockDataApi.createAccount(payload) : http.post<Account>("/accounts", payload);
+
+  async create(input: NewAccountInput): Promise<Account> {
+    return toAccount(await http.post<AccountDto>("/accounts", {
+      name: input.name, type: input.accountType, currency: input.currency, subtype: input.subtype,
+      creditLimit: money(input.creditLimit) ?? undefined, statementDay: input.statementDay ?? undefined,
+      openingBalance: input.openingBalance ? toMajor(input.openingBalance) : undefined,
+    }));
   },
-  update(id: string, patch: Partial<Account>): Promise<Account> {
-    return appConfig.useMockApi ? mockDataApi.updateAccount(id, patch) : http.patch<Account>(`/accounts/${id}`, patch);
+
+  async update(id: Id, patch: AccountPatch): Promise<Account> {
+    const body: Record<string, unknown> = { ...patch };
+    if ("creditLimit" in patch) body.creditLimit = money(patch.creditLimit);
+    return toAccount(await http.patch<AccountDto>(`/accounts/${id}`, body));
   },
-  archive(id: string): Promise<Account> {
-    return appConfig.useMockApi ? mockDataApi.archiveAccount(id) : http.post<Account>(`/accounts/${id}/archive`);
+
+  async archive(id: Id): Promise<Account> {
+    return toAccount(await http.post<AccountDto>(`/accounts/${id}/deactivate`));
   },
-  restore(id: string): Promise<Account> {
-    return appConfig.useMockApi ? mockDataApi.restoreAccount(id) : http.post<Account>(`/accounts/${id}/restore`);
+
+  async restore(id: Id): Promise<Account> {
+    return toAccount(await http.post<AccountDto>(`/accounts/${id}/reactivate`));
   },
 };

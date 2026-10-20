@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, Field
 
-from duevia.presentation.api.schemas.common import MoneyOut
+from duevia.presentation.api.schemas.common import ApiModel, MoneyOut
 
 
-class PostingOut(BaseModel):
+class PostingOut(ApiModel):
     account_id: int
     account_name: str
     account_type: str
@@ -13,7 +13,7 @@ class PostingOut(BaseModel):
     amount: MoneyOut
 
 
-class EntryOut(BaseModel):
+class EntryOut(ApiModel):
     id: int
     description: str
     memo: str | None
@@ -32,7 +32,7 @@ class EntryDetailOut(EntryOut):
     postings: list[PostingOut]
 
 
-class ExpenseCreate(BaseModel):
+class ExpenseCreate(ApiModel):
     account_id: int
     category_id: int
     amount: str = Field(description="Major units, e.g. '249.99'")
@@ -45,7 +45,7 @@ class IncomeCreate(ExpenseCreate):
     pass
 
 
-class RefundCreate(BaseModel):
+class RefundCreate(ApiModel):
     for_entry_id: int
     amount: str
     account_id: int | None = None
@@ -55,7 +55,7 @@ class RefundCreate(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
-class AdjustmentCreate(BaseModel):
+class AdjustmentCreate(ApiModel):
     account_id: int
     amount: str
     side: str = Field(pattern="^(DEBIT|CREDIT)$")
@@ -64,7 +64,7 @@ class AdjustmentCreate(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
-class TransactionEdit(BaseModel):
+class TransactionEdit(ApiModel):
     account_id: int | None = None
     category_id: int | None = None
     amount: str | None = None
@@ -73,12 +73,12 @@ class TransactionEdit(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
-class ShareIn(BaseModel):
+class ShareIn(ApiModel):
     friend_id: int
     amount: str
 
 
-class SplitCreate(BaseModel):
+class SplitCreate(ApiModel):
     account_id: int
     category_id: int
     owner_share: str = Field(description="Your own share, major units -- can be '0'")
@@ -88,7 +88,7 @@ class SplitCreate(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
-class FrontedCreate(BaseModel):
+class FrontedCreate(ApiModel):
     category_id: int
     friend_id: int
     amount: str
@@ -97,7 +97,7 @@ class FrontedCreate(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
-class SplitEdit(BaseModel):
+class SplitEdit(ApiModel):
     account_id: int | None = None
     category_id: int | None = None
     owner_share: str | None = None
@@ -111,24 +111,24 @@ class SplitEdit(BaseModel):
     remove_settlements: bool = False
 
 
-class SplitDeleteRequest(BaseModel):
+class SplitDeleteRequest(ApiModel):
     force: bool = False
     remove_settlements: bool = False
 
 
-class SplitParticipantOut(BaseModel):
+class SplitParticipantOut(ApiModel):
     friend_id: int | None
     friend_name: str
     share: MoneyOut
     is_owner: bool = False
 
 
-class SplitCompositionOut(BaseModel):
+class SplitCompositionOut(ApiModel):
     entry: EntryOut
     participants: list[SplitParticipantOut]
 
 
-class TransferCreate(BaseModel):
+class TransferCreate(ApiModel):
     from_account_id: int
     to_account_id: int
     amount: str
@@ -136,7 +136,7 @@ class TransferCreate(BaseModel):
     date: str | None = None
 
 
-class TransferEdit(BaseModel):
+class TransferEdit(ApiModel):
     from_account_id: int | None = None
     to_account_id: int | None = None
     amount: str | None = None
@@ -144,7 +144,7 @@ class TransferEdit(BaseModel):
     date: str | None = None
 
 
-class SettlementCreate(BaseModel):
+class SettlementCreate(ApiModel):
     friend_id: int
     account_id: int
     amount: str
@@ -153,10 +153,81 @@ class SettlementCreate(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
-class SettlementEdit(BaseModel):
+class SettlementEdit(ApiModel):
     friend_id: int | None = None
     account_id: int | None = None
     amount: str | None = None
     description: str | None = Field(default=None, max_length=500)
     date: str | None = None
     note: str | None = Field(default=None, max_length=2000)
+
+
+# --------------------------------------------------------------------------- #
+# Flat transaction API (what the web app uses)
+# --------------------------------------------------------------------------- #
+class SplitShareIn(ApiModel):
+    friend_id: int
+    share: str = Field(description="Major units, e.g. '350.00'")
+
+
+class SplitShareOut(ApiModel):
+    friend_id: int
+    share: MoneyOut
+
+
+class TransactionCreate(ApiModel):
+    type: str = Field(description="income | expense | transfer | split | fronted | settlement | refund | adjustment")
+    description: str = Field(min_length=1, max_length=500, validation_alias=AliasChoices("description", "title"))
+    amount: str = Field(description="Major units. For a split this is the TOTAL bill.")
+    date: str | None = Field(default=None, description="'YYYY-MM-DD' (owner's local date); defaults to now")
+    memo: str | None = Field(default=None, max_length=2000, validation_alias=AliasChoices("memo", "note"))
+    account_id: int | None = Field(default=None, description="Paying/receiving account; the FROM account of a transfer")
+    to_account_id: int | None = None
+    category_id: int | None = None
+    friend_id: int | None = None
+    direction: str | None = Field(default=None, description="settlement: receive|pay (verified); adjustment: increase|decrease")
+    your_share: str | None = Field(default=None, description="split: your own share (can be '0')")
+    splits: list[SplitShareIn] | None = None
+    refund_of_id: int | None = None
+
+
+class TransactionPatch(ApiModel):
+    """Partial update: only the keys you send change. An explicit null `memo`
+    clears it. Type can't change."""
+    description: str | None = Field(default=None, min_length=1, max_length=500,
+                                    validation_alias=AliasChoices("description", "title"))
+    amount: str | None = None
+    date: str | None = None
+    memo: str | None = Field(default=None, max_length=2000, validation_alias=AliasChoices("memo", "note"))
+    account_id: int | None = None
+    to_account_id: int | None = None
+    category_id: int | None = None
+    friend_id: int | None = None
+    direction: str | None = None
+    your_share: str | None = None
+    splits: list[SplitShareIn] | None = None
+    force: bool = False
+    remove_settlements: bool = False
+
+
+class TransactionOut(ApiModel):
+    id: int
+    type: str
+    description: str
+    memo: str | None
+    date: str = Field(description="'YYYY-MM-DD' in the owner's timezone")
+    currency: str
+    status: str = Field(description="posted | reversed")
+    amount: MoneyOut
+    account_id: int | None
+    to_account_id: int | None
+    category_id: int | None
+    friend_id: int | None
+    direction: str | None
+    your_share: MoneyOut | None
+    splits: list[SplitShareOut] | None
+    refund_of_id: int | None
+    correction_of: int | None = Field(description="STRICT mode: the entry this one replaced")
+    replaced_by: int | None = Field(description="STRICT mode: the entry that replaced this one")
+    created_at: str
+    updated_at: str

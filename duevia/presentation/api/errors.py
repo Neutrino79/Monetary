@@ -18,6 +18,7 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from duevia.domain.exceptions import (
+    AuthenticationError,
     ConflictError,
     DomainError,
     NotFoundError,
@@ -32,6 +33,7 @@ logger = logging.getLogger("duevia.api")
 _STATUS_MAP = {
     NotFoundError: status.HTTP_404_NOT_FOUND,
     ValidationError: 422,
+    AuthenticationError: status.HTTP_401_UNAUTHORIZED,
     OwnershipError: status.HTTP_403_FORBIDDEN,
     ConflictError: status.HTTP_409_CONFLICT,
     RateLimitError: status.HTTP_429_TOO_MANY_REQUESTS,
@@ -47,7 +49,9 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(DomainError)
     async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
         code = _STATUS_MAP.get(type(exc), status.HTTP_400_BAD_REQUEST)
-        return JSONResponse(status_code=code, content=_error_body(exc, type(exc).__name__))
+        headers = {"WWW-Authenticate": "Bearer"} if isinstance(exc, AuthenticationError) else None
+        return JSONResponse(status_code=code, content=_error_body(exc, type(exc).__name__),
+                            headers=headers)
 
     @app.exception_handler(MoneyError)
     async def money_error_handler(request: Request, exc: MoneyError) -> JSONResponse:

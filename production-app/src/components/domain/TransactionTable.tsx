@@ -1,13 +1,13 @@
-import { useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, Search, X } from "lucide-react";
 import type { Transaction, TransactionType } from "@/types";
-import { useAccounts, useCategories, useFriends } from "@/hooks/queries";
-import { useLedgerCalc } from "@/hooks/useLedgerCalc";
+import { useAccounts, useCategories, useFriends, useTransactions } from "@/hooks/queries";
+import { useLookups } from "@/hooks/useLookups";
 import { today } from "@/lib/utils/clock";
 import { formatDate, clamp } from "@/lib/utils/format";
 import { TXN_TYPE_META } from "@/lib/utils/entityVisuals";
 import { Button } from "@/components/ui/Button";
-import { EmptyState } from "@/components/ui/primitives";
+import { EmptyState, Skeleton } from "@/components/ui/primitives";
 import { TxnBadge, TxnAmount } from "./chips";
 import { TransactionForm } from "./TransactionForm";
 import { TxnDetailDrawer } from "./TxnDetailDrawer";
@@ -53,7 +53,7 @@ export function TransactionTable({
   const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
   const { data: friends = [] } = useFriends();
-  const calc = useLedgerCalc();
+  const lookups = useLookups();
   const todayStr = today();
 
   const [filters, setFilters] = useState<FilterState>(emptyFilters);
@@ -63,48 +63,36 @@ export function TransactionTable({
   const [addOpen, setAddOpen] = useState(false);
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
 
-  function matchesCategory(t: Transaction, catId: string): boolean {
-    if (!catId) return true;
-    if (t.categoryId === catId) return true;
-    return calc.categoryChildren(catId).some((k) => k.id === t.categoryId);
-  }
+  // Wait for typing to pause before asking the server to search.
+  const [search, setSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setSearch(filters.search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [filters.search]);
 
-  const filteredSorted = useMemo(() => {
-    let rows = calc.activeTxns((t) => allowedTypes.includes(t.type));
-    if (filters.search) {
-      const q = filters.search.toLowerCase();
-      rows = rows.filter((t) => (t.description + " " + (t.memo ?? "")).toLowerCase().includes(q));
-    }
-    if (filters.from) rows = rows.filter((t) => t.date >= filters.from);
-    if (filters.to) rows = rows.filter((t) => t.date <= filters.to);
-    if (filters.accountId) rows = rows.filter((t) => t.accountId === filters.accountId || t.toAccountId === filters.accountId);
-    if (filters.categoryId) rows = rows.filter((t) => matchesCategory(t, filters.categoryId));
-    if (filters.type) rows = rows.filter((t) => t.type === filters.type);
-    if (filters.friendId) rows = rows.filter((t) => t.friendId === filters.friendId || (t.splits ?? []).some((s) => s.friendId === filters.friendId));
-
-    rows = [...rows].sort((a, b) => {
-      let av: string | number;
-      let bv: string | number;
-      if (sortKey === "amount") {
-        av = a.yourShare ?? a.amount;
-        bv = b.yourShare ?? b.amount;
-      } else if (sortKey === "description") {
-        av = a.description;
-        bv = b.description;
-      } else {
-        av = a.date;
-        bv = b.date;
-      }
-      const cmp = av > bv ? 1 : av < bv ? -1 : 0;
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-    return rows;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters, sortKey, sortDir, allowedTypes]);
-
-  const totalPages = Math.max(1, Math.ceil(filteredSorted.length / pageSize));
+  // Filtering, sorting and paging all happen on the server.
+  const query = useTransactions({
+    type: filters.type ? [filters.type as TransactionType] : allowedTypes,
+    search: search || undefined,
+    dateFrom: filters.from || undefined,
+    dateTo: filters.to || undefined,
+    accountId: filters.accountId ? Number(filters.accountId) : undefined,
+    categoryId: filters.categoryId ? Number(filters.categoryId) : undefined,
+    friendId: filters.friendId ? Number(filters.friendId) : undefined,
+    sort: sortKey,
+    direction: sortDir,
+    limit: pageSize,
+    offset: (page - 1) * pageSize,
+  });
+  const pageRows = query.data?.items ?? [];
+  const total = query.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const currentPage = clamp(page, 1, totalPages);
-  const pageRows = filteredSorted.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  // e.g. after deleting the only row on the last page
+  useEffect(() => {
+    if (query.data && page > totalPages) setPage(totalPages);
+  }, [query.data, page, totalPages]);
 
   function updateFilter<K extends keyof FilterState>(key: K, value: FilterState[K]) {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -123,10 +111,10 @@ export function TransactionTable({
   if (filters.search) activeChips.push(["search", `"${filters.search}"`]);
   if (filters.from) activeChips.push(["from", `From ${formatDate(filters.from)}`]);
   if (filters.to) activeChips.push(["to", `To ${formatDate(filters.to)}`]);
-  if (filters.accountId) activeChips.push(["accountId", accounts.find((a) => a.id === filters.accountId)?.name ?? ""]);
-  if (filters.categoryId) activeChips.push(["categoryId", calc.getCategory(filters.categoryId)?.name ?? ""]);
+  if (filters.accountId) activeChips.push(["accountId", accounts.find((a) => a.id === Number(filters.accountId))?.name ?? ""]);
+  if (filters.categoryId) activeChips.push(["categoryId", lookups.getCategory(Number(filters.categoryId))?.name ?? ""]);
   if (filters.type) activeChips.push(["type", TXN_TYPE_META[filters.type as TransactionType].label]);
-  if (filters.friendId) activeChips.push(["friendId", friends.find((f) => f.id === filters.friendId)?.name ?? ""]);
+  if (filters.friendId) activeChips.push(["friendId", friends.find((f) => f.id === Number(filters.friendId))?.name ?? ""]);
 
   function sortArrow(key: SortKey) {
     if (sortKey !== key) return null;
@@ -134,10 +122,11 @@ export function TransactionTable({
   }
 
   function rowSubtext(t: Transaction): string {
-    if (t.type === "transfer") return `${calc.getAccount(t.accountId)?.name} \u2192 ${calc.getAccount(t.toAccountId)?.name}`;
-    if (t.type === "settlement") return friends.find((f) => f.id === t.friendId)?.name ?? "";
-    if (t.categoryId) return calc.getCategory(t.categoryId)?.name ?? "\u2014";
-    return calc.getAccount(t.accountId)?.name ?? "";
+    if (t.type === "transfer") return `${lookups.getAccount(t.accountId)?.name} \u2192 ${lookups.getAccount(t.toAccountId)?.name}`;
+    if (t.type === "settlement") return lookups.getFriend(t.friendId)?.name ?? "";
+    if (t.type === "fronted") return `${lookups.getFriend(t.friendId)?.name ?? ""} paid · ${lookups.getCategory(t.categoryId)?.name ?? "\u2014"}`;
+    if (t.categoryId) return lookups.getCategory(t.categoryId)?.name ?? "\u2014";
+    return lookups.getAccount(t.accountId)?.name ?? "";
   }
 
   return (
@@ -196,7 +185,7 @@ export function TransactionTable({
                   .map((root) => (
                     <optgroup key={root.id} label={root.name}>
                       <option value={root.id}>{root.name} (all)</option>
-                      {calc.categoryChildren(root.id).map((k) => (
+                      {lookups.childrenOf(root.id).map((k) => (
                         <option key={k.id} value={k.id}>
                           {k.name}
                         </option>
@@ -234,7 +223,13 @@ export function TransactionTable({
           </div>
         )}
 
-        {pageRows.length === 0 ? (
+        {query.isLoading ? (
+          <div className="flex flex-col gap-2">
+            {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-11 rounded-[10px]" />)}
+          </div>
+        ) : query.isError ? (
+          <EmptyState icon={Search} title="Couldn't load transactions" description={query.error instanceof Error ? query.error.message : "Please try again."} />
+        ) : pageRows.length === 0 ? (
           <EmptyState icon={Search} title={emptyTitle} description={emptyDescription} />
         ) : (
           <>
@@ -273,7 +268,7 @@ export function TransactionTable({
             </div>
             <div className="mt-3.5 flex items-center justify-between">
               <span className="text-[12.5px] text-ink-faint">
-                {filteredSorted.length} transaction{filteredSorted.length === 1 ? "" : "s"}
+                {total} transaction{total === 1 ? "" : "s"}
               </span>
               <div className="flex items-center gap-2">
                 <button disabled={currentPage <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-[10px] px-3 py-1.5 text-[12.5px] font-semibold text-ink-soft hover:bg-paper-sunken disabled:opacity-40">

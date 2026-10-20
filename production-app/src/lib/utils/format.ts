@@ -1,20 +1,31 @@
 import { appConfig } from "@/config/app";
 import { today } from "@/lib/utils/clock";
 
-const currencyFormatter = new Intl.NumberFormat(appConfig.locale, {
-  style: "currency",
-  currency: appConfig.currencyCode,
-  maximumFractionDigits: 0,
-});
-const currencyFormatterPrecise = new Intl.NumberFormat(appConfig.locale, {
-  style: "currency",
-  currency: appConfig.currencyCode,
-  maximumFractionDigits: 2,
-});
+function makeFormatters(currency: string) {
+  return {
+    whole: new Intl.NumberFormat(appConfig.locale, { style: "currency", currency, maximumFractionDigits: 0 }),
+    precise: new Intl.NumberFormat(appConfig.locale, { style: "currency", currency, maximumFractionDigits: 2 }),
+  };
+}
+let formatters = makeFormatters(appConfig.currencyCode);
+
+/** Called once the owner is known so every amount renders in their home currency. */
+export function setDisplayCurrency(currency: string): void {
+  try {
+    formatters = makeFormatters(currency);
+  } catch {
+    /* unknown currency code -- keep the previous formatter */
+  }
+}
+
+/** The currency symbol for the current display currency (for axes and input adornments). */
+export function currencySymbol(): string {
+  return formatters.precise.formatToParts(0).find((p) => p.type === "currency")?.value ?? "";
+}
 
 export function formatCurrency(amount: number | null | undefined, precise = false): string {
   if (amount == null || Number.isNaN(amount)) return "—";
-  return (precise ? currencyFormatterPrecise : currencyFormatter).format(amount);
+  return (precise ? formatters.precise : formatters.whole).format(amount);
 }
 
 export function formatSigned(amount: number, kind: "positive" | "negative" | "neutral"): string {
@@ -53,10 +64,6 @@ export function initialsOf(name: string): string {
     .slice(0, 2)
     .map((p) => p[0]!.toUpperCase())
     .join("");
-}
-
-export function uid(prefix: string): string {
-  return `${prefix}_${Date.now().toString(36)}${Math.floor(Math.random() * 1e4).toString(36)}`;
 }
 
 export function clamp(n: number, min: number, max: number): number {

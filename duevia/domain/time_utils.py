@@ -3,7 +3,7 @@ is used only for display and for monthly budget period boundaries."""
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from duevia.domain.exceptions import ValidationError
@@ -53,6 +53,27 @@ def utc_iso_to_local_display(utc_iso: str, tz_name: str | None) -> str:
         dt = dt.replace(tzinfo=timezone.utc)
     local_dt = dt.astimezone(_tz(tz_name))
     return local_dt.strftime("%Y-%m-%d %H:%M")
+
+
+def utc_iso_to_local_date(utc_iso: str, tz_name: str | None) -> str:
+    """'YYYY-MM-DD' of an instant in the owner's timezone (what a calendar shows)."""
+    dt = datetime.fromisoformat(utc_iso)
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(_tz(tz_name)).strftime("%Y-%m-%d")
+
+
+def local_today(tz_name: str | None) -> str:
+    return datetime.now(_tz(tz_name)).strftime("%Y-%m-%d")
+
+
+def next_local_day_start_utc_iso(date_str: str, tz_name: str | None) -> str:
+    """UTC instant of the start of the day AFTER `date_str` (local) -- the
+    exclusive upper bound that makes a 'to' date inclusive."""
+    first = parse_local_to_utc_iso(date_str, tz_name)
+    local = datetime.fromisoformat(first).astimezone(_tz(tz_name))
+    nxt = datetime(local.year, local.month, local.day, tzinfo=_tz(tz_name)) + timedelta(days=1)
+    return datetime(nxt.year, nxt.month, nxt.day, tzinfo=_tz(tz_name)).astimezone(timezone.utc).isoformat()
 
 
 def current_year_month(tz_name: str | None) -> tuple[int, int]:

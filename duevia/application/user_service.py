@@ -9,7 +9,12 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone as dt_timezone
 
 from duevia.domain.enums import AccountType, LedgerMode, as_enum
-from duevia.domain.exceptions import ConflictError, NotFoundError, ValidationError
+from duevia.domain.exceptions import (
+    AuthenticationError,
+    ConflictError,
+    NotFoundError,
+    ValidationError,
+)
 from duevia.domain.security import (
     MAX_PASSWORD_LENGTH,
     MIN_PASSWORD_LENGTH,
@@ -83,6 +88,11 @@ def bootstrap_owner(conn, *, name: str, email: str, timezone: str | None, home_c
 
 
 
+def owner_exists(conn) -> bool:
+    """True once first-run setup has completed (the single owner exists)."""
+    return repo.get_superuser(conn) is not None
+
+
 def require_owner(conn) -> dict:
     owner = repo.get_superuser(conn)
     if owner is None:
@@ -109,7 +119,8 @@ def set_ledger_mode(conn, mode: str) -> dict:
     return repo.update_user_ledger_mode(conn, owner["id"], resolved.value, utc_now_iso())
 
 
-def add_friend(conn, *, name: str, email: str, currency_code: str | None = None) -> dict:
+def add_friend(conn, *, name: str, email: str, currency_code: str | None = None,
+               phone: str | None = None) -> dict:
     owner = require_owner(conn)
     if not name or not name.strip():
         raise ValidationError("Name is required.")
@@ -120,7 +131,7 @@ def add_friend(conn, *, name: str, email: str, currency_code: str | None = None)
     now = utc_now_iso()
     friend = repo.create_user(
         conn, name=name.strip(), email=email, is_superuser=False, timezone=None,
-        home_currency_code=None, ledger_mode=LedgerMode.DIRECT.value, now=now,
+        home_currency_code=None, ledger_mode=LedgerMode.DIRECT.value, phone=_clean_phone(phone), now=now,
     )
     due_currency = (currency_code or owner["home_currency_code"]).strip().upper()
     repo.create_account(
@@ -139,6 +150,40 @@ def get_user_or_raise(conn, user_id: int) -> dict:
     if user is None:
         raise NotFoundError(f"User {user_id} not found.")
     return user
+
+
+def _clean_phone(phone: str | None) -> str | None:
+    phone = (phone or "").strip()
+    if len(phone) > 40:
+        raise ValidationError("Phone must be at most 40 characters.")
+    return phone or None
+
+
+def update_friend(conn, user_id: int, *, fields: dict) -> dict:
+    """Partial update of name / email / phone. `fields` holds only the keys the
+    client sent: an explicit null phone clears it, an absent key is unchanged."""
+    friend = get_user_or_raise(conn, user_id)
+    if friend["is_superuser"]:
+        raise ConflictError("Use 'PATCH /owner' to update the application owner.")
+    name, email, phone = friend["name"], friend["email"], friend["phone"]
+    if "name" in fields:
+        if not fields["name"] or not fields["name"].strip():
+            raise ValidationError("New name is required.")
+        name = fields["name"].strip()
+    if "email" in fields:
+        new_email = _validate_email(fields["email"])
+        if new_email != friend["email"]:
+            if repo.get_user_by_email(conn, new_email) is not None:
+                raise ConflictError(f"Email already in use: {new_email}")
+            email = new_email
+    if "phone" in fields:
+        phone = _clean_phone(fields["phone"])
+    now = utc_now_iso()
+    updated = repo.update_friend_fields(conn, user_id, name=name, email=email, phone=phone, now=now)
+    due_account = repo.get_due_account_for_friend(conn, user_id)
+    if due_account is not None and name != friend["name"]:
+        repo.rename_account(conn, due_account["id"], f"Due: {name}", now)
+    return updated
 
 
 def rename_friend(conn, user_id: int, new_name: str) -> dict:
@@ -190,9 +235,9 @@ def login(conn, *, email: str, password: str) -> tuple[dict, str]:
     would let a caller enumerate whether an email exists."""
     owner = repo.get_user_by_email(conn, _validate_email(email))
     if owner is None or not owner["is_superuser"] or owner["password_hash"] is None:
-        raise ValidationError("Invalid email or password.")
+        raise AuthenticationError("Invalid email or password.")
     if not verify_password(password, owner["password_hash"]):
-        raise ValidationError("Invalid email or password.")
+        raise AuthenticationError("Invalid email or password.")
     token = _new_session(conn, owner["id"])
     return owner, token
 

@@ -8,11 +8,12 @@ from duevia.application import split_service
 from duevia.config import API_PREFIX
 from duevia.domain.exceptions import NotFoundError
 from duevia.infrastructure import repositories as repo
-from duevia.presentation.api.deps import get_current_owner, get_db
+from duevia.presentation.api.deps import get_current_owner, DB
 from duevia.presentation.api.routers.transactions import _entry_out
 from duevia.presentation.api.schemas.common import MessageOut
 from duevia.presentation.api.schemas.converters import money_value_out
 from duevia.presentation.api.schemas.transactions import (
+    EntryOut,
     FrontedCreate,
     SplitCompositionOut,
     SplitCreate,
@@ -40,7 +41,7 @@ def _composition_out(conn, comp: dict) -> SplitCompositionOut:
 @router.post("", response_model=SplitCompositionOut, status_code=201)
 def create_split(
     payload: SplitCreate,
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     friend_shares = [(s.friend_id, s.amount) for s in payload.friend_shares]
     entry = split_service.create_split_expense(
@@ -55,7 +56,7 @@ def create_split(
 @router.post("/fronted", response_model=SplitCompositionOut, status_code=201)
 def create_fronted(
     payload: FrontedCreate,
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     entry = split_service.create_friend_fronted_expense(
         conn, owner, category_id=payload.category_id, friend_id=payload.friend_id,
@@ -69,7 +70,7 @@ def create_fronted(
 @router.get("/{entry_id}", response_model=SplitCompositionOut)
 def get_split(
     entry_id: int,
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     comp = split_service.split_composition(conn, entry_id)
     return _composition_out(conn, comp)
@@ -78,7 +79,7 @@ def get_split(
 @router.patch("/{entry_id}", response_model=SplitCompositionOut)
 def edit_split(
     entry_id: int, payload: SplitEdit,
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     entry = repo.get_journal_entry(conn, entry_id)
     if entry is None:
@@ -107,16 +108,16 @@ def delete_split(
     entry_id: int,
     force: bool = Query(default=False),
     remove_settlements: bool = Query(default=False),
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     split_service.delete_split(conn, owner, entry_id, force=force, remove_settlements=remove_settlements)
     return MessageOut(detail=f"Split {entry_id} deleted (mode={owner['ledger_mode']}).")
 
 
-@router.get("", response_model=list[dict])
+@router.get("", response_model=list[EntryOut])
 def list_splits(
     type: str | None = Query(default=None, pattern="^(SPLIT|FRONTED)$"),
-    conn: sqlite3.Connection = Depends(get_db), owner: dict = Depends(get_current_owner),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     entries = split_service.list_splits(conn, entry_type=type)
-    return [dict(_entry_out(conn, e)) for e in entries]
+    return [_entry_out(conn, e) for e in entries]

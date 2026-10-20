@@ -29,7 +29,7 @@ export function CommandPalette({ open, onOpenChange, onAddTransaction }: { open:
     const pages: CommandItem[] = ALL_NAV_ITEMS.map((i) => ({ label: i.label, hint: "Go to page", icon: <i.icon size={16} />, action: () => navigate(i.path) }));
     const friendItems: CommandItem[] = friends.map((f) => ({ label: f.name, hint: "Friend", icon: <User size={16} />, action: () => navigate("/friends") }));
     const accountItems: CommandItem[] = accounts
-      .filter((a) => !a.isSystem)
+      .filter((a) => a.isActive)
       .map((a) => ({ label: a.name, hint: "Account", icon: <User size={16} />, action: () => navigate("/accounts") }));
     return [...commands, ...pages, ...friendItems, ...accountItems];
   }, [friends, accounts, navigate, onAddTransaction, toggleTheme]);

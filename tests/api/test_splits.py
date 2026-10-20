@@ -4,12 +4,12 @@ from tests.sample_data import OPENING_BALANCE_POINTS as OPEN
 
 
 def spent(world, key="food"):
-    return next(r for r in world.api.get("/reports/spending").json() if r["category_id"] == world.cat[key])["total"]["points"]
+    return next(r for r in world.api.get("/reports/spending").json() if r["categoryId"] == world.cat[key])["total"]["points"]
 
 
 def test_split_charges_payer_full_amount_but_spend_only_owner_share(world):
     s = world.split(owner_share="150.00", shares=(("rahul", "350.00"),))
-    assert s["entry"]["entry_type"] == "SPLIT" and s["entry"]["amount"]["points"] == 50_000
+    assert s["entry"]["entryType"] == "SPLIT" and s["entry"]["amount"]["points"] == 50_000
     assert world.balance("bank") == OPEN - 50_000
     assert world.friend_balance("rahul") == 35_000
     assert spent(world) == 15_000                       # friends' share is never "my spend"
@@ -17,7 +17,7 @@ def test_split_charges_payer_full_amount_but_spend_only_owner_share(world):
 
 def test_split_participants_payload(world):
     p = world.split()["participants"]
-    assert [(x["friend_name"], x["is_owner"], x["share"]["major"]) for x in p] == [
+    assert [(x["friendName"], x["isOwner"], x["share"]["major"]) for x in p] == [
         ("(you)", True, "150.00"), ("Rahul Sharma", False, "350.00")]
 
 
@@ -28,13 +28,13 @@ def test_multi_friend_split(world):
 
 def test_zero_owner_share_split_keeps_category(world):
     s = world.split(owner_share="0", shares=(("rahul", "100.00"),))
-    assert s["entry"]["category_id"] == world.cat["food"]
-    assert [x["is_owner"] for x in s["participants"]] == [False] and spent(world) == 0
+    assert s["entry"]["categoryId"] == world.cat["food"]
+    assert [x["isOwner"] for x in s["participants"]] == [False] and spent(world) == 0
 
 
 def test_fronted_expense_is_full_spend_and_owed_to_friend(world):
     f = world.fronted(amount="50.00")
-    assert f["entry"]["entry_type"] == "FRONTED" and [x["is_owner"] for x in f["participants"]] == [False]
+    assert f["entry"]["entryType"] == "FRONTED" and [x["isOwner"] for x in f["participants"]] == [False]
     assert world.friend_balance("rahul") == -5_000 and spent(world) == 5_000
     assert world.balance("bank") == OPEN                # no account of mine was touched
 
@@ -78,7 +78,7 @@ def test_get_split(world):
 def test_list_splits_and_type_filter(world):
     world.split(); world.fronted()
     assert len(world.api.get("/splits").json()) == 2
-    assert [e["entry_type"] for e in world.api.get("/splits", params={"type": "FRONTED"}).json()] == ["FRONTED"]
+    assert [e["entryType"] for e in world.api.get("/splits", params={"type": "FRONTED"}).json()] == ["FRONTED"]
     assert world.api.get("/splits", params={"type": "NORMAL"}).status_code == 422
 
 

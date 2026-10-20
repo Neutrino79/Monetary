@@ -12,6 +12,7 @@ CREATE TABLE IF NOT EXISTS user (
     id                      INTEGER PRIMARY KEY AUTOINCREMENT,
     name                    TEXT NOT NULL,
     email                   TEXT NOT NULL UNIQUE,
+    phone                   TEXT,      -- friends only; optional contact detail
     is_superuser            INTEGER NOT NULL DEFAULT 0,
     timezone                TEXT,
     home_currency_code      TEXT,
@@ -39,6 +40,10 @@ CREATE TABLE IF NOT EXISTS account (
     currency_code           TEXT,                       -- NULL only for EQUITY (app-enforced)
     parent_account_id       INTEGER REFERENCES account(id),
     budget_limit            INTEGER,
+    subtype                 TEXT CHECK(subtype IS NULL OR subtype IN ('bank','cash','wallet','credit_card')),
+    credit_limit            INTEGER CHECK(credit_limit IS NULL OR credit_limit >= 0),  -- LIABILITY only (app-enforced)
+    statement_day           INTEGER CHECK(statement_day IS NULL OR (statement_day BETWEEN 1 AND 31)),  -- LIABILITY only
+    color                   TEXT,                       -- categories: UI colour chosen by the user
     counterparty_user_id    INTEGER REFERENCES user(id),
     is_system               INTEGER NOT NULL DEFAULT 0,
     is_active               INTEGER NOT NULL DEFAULT 1,
@@ -64,6 +69,7 @@ CREATE TABLE IF NOT EXISTS journal_entry (
     reversal_of_id     INTEGER REFERENCES journal_entry(id),
     reversed_by_id     INTEGER REFERENCES journal_entry(id),
     refund_of_id       INTEGER REFERENCES journal_entry(id),
+    correction_of_id   INTEGER REFERENCES journal_entry(id),  -- STRICT mode: the entry this one replaces
     created_at         TEXT NOT NULL,
     updated_at         TEXT NOT NULL
 );
@@ -99,7 +105,12 @@ CREATE INDEX IF NOT EXISTS idx_session_token_hash     ON session(token_hash);
 def connect(db_path: str | Path | None = None) -> sqlite3.Connection:
     path = Path(db_path) if db_path else DEFAULT_DB_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(str(path))
+    # FastAPI resolves the per-request connection dependency and runs a sync
+    # endpoint in *different* worker threads. sqlite3 refuses cross-thread use by
+    # default, which surfaced as intermittent 500s under a real server (the
+    # in-process TestClient never hits it). That is safe to disable here because a
+    # connection belongs to exactly one request and is never used concurrently.
+    conn = sqlite3.connect(str(path), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON;")
     # WAL lets concurrent readers proceed while a request holds a write

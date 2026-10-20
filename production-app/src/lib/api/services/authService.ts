@@ -1,70 +1,88 @@
-/**
- * Auth endpoints. Real REST shape this stands in for:
- *   POST /auth/login
- *   POST /auth/signup
- *   GET  /auth/me
- *   PATCH /auth/me
- *   POST /auth/password-reset/request
- *   POST /auth/password-reset/confirm
- *   POST /auth/logout
- */
-import type { User } from "@/types";
-import type { AuthResponse, PasswordResetQuestion, ProfilePatch, SignupInput } from "@/types/api";
-import { appConfig } from "@/config/app";
+import type { SecurityQuestion, User } from "@/types";
+import type { OwnerDto, PasswordResetQuestion, ProfilePatch, SetupInput } from "@/types/api";
 import { http } from "@/lib/api/http";
 import { tokenStorage } from "@/lib/api/tokenStorage";
-import { mockAuthApi } from "@/lib/api/mock/mockAuthApi";
+import { ApiError } from "@/lib/api/errors";
+import { toUser } from "@/lib/api/mappers";
+import { metaService } from "./metaService";
+
+interface TokenDto { access_token: string; token_type: string }
+interface InitDto { owner: OwnerDto; accessToken: string }
+
+export interface AuthResult {
+  user: User;
+  token: string;
+}
 
 export const authService = {
-  async login(email: string, password: string): Promise<AuthResponse> {
-    const result = appConfig.useMockApi ? await mockAuthApi.login(email, password) : await http.post<AuthResponse>("/auth/login", { email, password });
-    tokenStorage.set(result.token);
-    return result;
-  },
-
-  async signup(payload: SignupInput): Promise<AuthResponse> {
-    const result = appConfig.useMockApi ? await mockAuthApi.signup(payload) : await http.post<AuthResponse>("/auth/signup", payload);
-    tokenStorage.set(result.token);
-    return result;
-  },
-
-  async currentUser(): Promise<User | null> {
-    const token = tokenStorage.get();
-    if (!token) return null;
+  /** The login endpoint is OAuth2 form-encoded (`username` carries the email). */
+  async login(email: string, password: string): Promise<AuthResult> {
+    const t = await http.postForm<TokenDto>("/auth/login", { username: email, password }, { skipUnauthorizedHandler: true });
+    // The HTTP client reads the bearer token from storage, so it has to be stored *before* the
+    // follow-up request that loads the owner -- otherwise that request goes out unauthenticated.
+    tokenStorage.set(t.access_token);
     try {
-      return appConfig.useMockApi ? await mockAuthApi.currentUser(token) : await http.get<User>("/auth/me");
-    } catch {
-      return null;
+      return { token: t.access_token, user: await authService.fetchOwner() };
+    } catch (err) {
+      tokenStorage.clear();
+      throw err;
     }
   },
 
-  async updateProfile(patch: ProfilePatch): Promise<User | null> {
-    if (appConfig.useMockApi) {
-      const token = tokenStorage.get();
-      if (!token) return null;
-      return mockAuthApi.updateCurrentUser(token, patch);
+  /**
+   * First-run setup. Checks `GET /setup/status` first so an already-initialised
+   * instance is rejected with a clear message *before* any data is submitted
+   * (the server independently answers 409 if it races).
+   */
+  async setup(input: SetupInput): Promise<AuthResult> {
+    if (await metaService.isSetupComplete()) throw alreadySetUp();
+    try {
+      const r = await http.post<InitDto>("/setup/init", {
+        name: input.name, email: input.email, password: input.password, timezone: input.timezone,
+        currency: input.homeCurrencyCode, securityQuestionId: input.securityQuestionId,
+        securityAnswer: input.securityAnswer, seedDefaults: input.seedDefaults ?? true,
+      });
+      return { token: r.accessToken, user: toUser(r.owner) };
+    } catch (err) {
+      if (ApiError.isApiError(err) && err.status === 409) throw alreadySetUp();
+      throw err;
     }
-    return http.patch<User>("/auth/me", patch);
   },
 
-  async requestPasswordReset(email: string): Promise<PasswordResetQuestion> {
-    return appConfig.useMockApi ? mockAuthApi.requestReset(email) : http.post<PasswordResetQuestion>("/auth/password-reset/request", { email });
-  },
-
-  async resetPassword(email: string, answer: string, newPassword: string): Promise<true> {
-    return appConfig.useMockApi
-      ? mockAuthApi.resetPassword(email, answer, newPassword)
-      : http.post<true>("/auth/password-reset/confirm", { email, answer, newPassword });
+  async fetchOwner(): Promise<User> {
+    return toUser(await http.get<OwnerDto>("/owner"));
   },
 
   async logout(): Promise<void> {
-    if (!appConfig.useMockApi) {
-      try {
-        await http.post("/auth/logout");
-      } catch {
-        /* best-effort — clear the local token regardless */
-      }
+    try {
+      await http.post("/auth/logout");
+    } catch {
+      /* the local session is cleared regardless */
     }
-    tokenStorage.clear();
+  },
+
+  async updateProfile(patch: ProfilePatch): Promise<User> {
+    return toUser(await http.patch<OwnerDto>("/owner", patch));
+  },
+
+  async securityQuestions(): Promise<SecurityQuestion[]> {
+    return http.get<SecurityQuestion[]>("/auth/security-questions");
+  },
+
+  async getResetQuestion(email: string): Promise<PasswordResetQuestion> {
+    const r = await http.get<{ securityQuestionId: number; question: string }>("/auth/security-question", { email });
+    return { email, questionId: r.securityQuestionId, question: r.question };
+  },
+
+  async resetPassword(email: string, answer: string, newPassword: string): Promise<void> {
+    await http.post("/auth/reset-password", { email, securityAnswer: answer, newPassword });
+  },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await http.post("/auth/change-password", { currentPassword, newPassword });
   },
 };
+
+export function alreadySetUp(): ApiError {
+  return new ApiError("This instance has already been set up. Sign in with your account, or reset your password if you've forgotten it.", 409, "ALREADY_SETUP");
+}
