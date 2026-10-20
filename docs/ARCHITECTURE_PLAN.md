@@ -1,4 +1,4 @@
-# Duevia 0.5.0 Architecture
+# Monetary 0.5.0 Architecture
 
 This document describes the architecture that is currently implemented in the
 repository. It replaces the original planning document, which described a
@@ -6,7 +6,7 @@ CLI-only system and an earlier schema.
 
 ## 1. Current project overview
 
-Duevia 0.5.0 is a pre-release Python application for personal expense tracking,
+Monetary 0.5.0 is a pre-release Python application for personal expense tracking,
 double-entry bookkeeping, friend expense splitting, settlements, and reporting.
 It is delivered as a single presentation interface:
 
@@ -32,10 +32,10 @@ The SQLite database is created automatically at:
 ~/.duevia_0.5/expense.db
 ```
 
-The path can be overridden with `DUEVIA_DB_PATH`.
+The path can be overridden with `MONETARY_DB_PATH`.
 
 Project-facing metadata and runtime names are centralized in
-`duevia/config.py`. This module defines the display name, Python package name,
+`monetary/config.py`. This module defines the display name, Python package name,
 version, API prefix, database environment variable, CORS environment
 variable, environment name, docs-exposure toggle, and default database path.
 Future product-name changes should update that module first, then rename the
@@ -48,14 +48,14 @@ Python package directory and update the documentation examples.
 The FastAPI application is defined in:
 
 ```text
-duevia/presentation/api/app.py
+monetary/presentation/api/app.py
 ```
 
 Run it from the repository root:
 
 ```bash
 export PYTHONPATH="$PWD"
-python -m uvicorn duevia.presentation.api.app:app --reload --port 8000
+python -m uvicorn monetary.presentation.api.app:app --reload --port 8000
 ```
 
 Important endpoints:
@@ -82,7 +82,7 @@ FastAPI routers ─── application services ─── domain model
 Location:
 
 ```text
-duevia/domain/
+monetary/domain/
 ```
 
 Responsibilities:
@@ -110,7 +110,7 @@ Important modules:
 Location:
 
 ```text
-duevia/application/
+monetary/application/
 ```
 
 Responsibilities:
@@ -140,7 +140,7 @@ Important services:
 Posting strategies are in:
 
 ```text
-duevia/application/posting_strategies/
+monetary/application/posting_strategies/
 ```
 
 They build ledger intents for simple transactions, refunds, splits,
@@ -149,7 +149,7 @@ transfers, and settlements.
 Edit policies are in:
 
 ```text
-duevia/application/edit_policies/
+monetary/application/edit_policies/
 ```
 
 - `DirectEditPolicy`: updates or deletes records in place
@@ -161,7 +161,7 @@ duevia/application/edit_policies/
 Location:
 
 ```text
-duevia/infrastructure/
+monetary/infrastructure/
 ```
 
 Responsibilities:
@@ -178,7 +178,7 @@ Responsibilities:
 4. Enables foreign keys.
 5. Executes the schema bootstrap.
 
-The schema is defined in `duevia/infrastructure/db.py`; `LIVE_SCHEMA.sql` is the
+The schema is defined in `monetary/infrastructure/db.py`; `LIVE_SCHEMA.sql` is the
 schema snapshot generated from SQLite's `sqlite_master`.
 
 ### 3.4 Presentation layer
@@ -186,7 +186,7 @@ schema snapshot generated from SQLite's `sqlite_master`.
 Location:
 
 ```text
-duevia/presentation/
+monetary/presentation/
 ```
 
 The API translates HTTP requests into application-service calls; business
@@ -199,12 +199,12 @@ The API includes:
 - Pydantic request/response schemas, with field-level length/format limits
 - Domain error handlers with a consistent error response, plus a catch-all
   handler so unexpected exceptions never leak internals to a client
-- CORS configuration through `DUEVIA_CORS_ORIGINS` (default: no origins
+- CORS configuration through `MONETARY_CORS_ORIGINS` (default: no origins
   allowed; `*` disables credentialed requests automatically)
 - Per-IP rate limiting on login and password-reset endpoints
-  (`duevia/infrastructure/rate_limiter.py`)
+  (`monetary/infrastructure/rate_limiter.py`)
 - Baseline security headers and environment-gated API docs
-  (`DUEVIA_ENV`, `DUEVIA_ENABLE_DOCS`)
+  (`MONETARY_ENV`, `MONETARY_ENABLE_DOCS`)
 
 ## 4. Domain and ledger model
 
@@ -246,7 +246,7 @@ The `DUE` account intentionally uses one signed running balance per friend:
 ## 5. Current SQLite schema
 
 The following is the current table schema implemented by
-`duevia/infrastructure/db.py` and represented in `LIVE_SCHEMA.sql`.
+`monetary/infrastructure/db.py` and represented in `LIVE_SCHEMA.sql`.
 The application bootstraps the schema automatically. The complete generated
 snapshot, including all indexes, is in `LIVE_SCHEMA.sql`.
 
@@ -581,13 +581,13 @@ Passwords and security answers are stored as bcrypt hashes.
 ### Database
 
 ```bash
-export DUEVIA_DB_PATH="$PWD/data/expense.db"
+export MONETARY_DB_PATH="$PWD/data/expense.db"
 ```
 
 ### API CORS
 
 ```bash
-export DUEVIA_CORS_ORIGINS="http://localhost:8501,http://localhost:3000"
+export MONETARY_CORS_ORIGINS="http://localhost:8501,http://localhost:3000"
 ```
 
 The default is no allowed origins at all (server-to-server calls are
@@ -598,53 +598,62 @@ since wildcard origin + credentials is invalid per the CORS spec.
 ### Environment / docs exposure
 
 ```bash
-export DUEVIA_ENV=development       # or "production" (default)
-export DUEVIA_ENABLE_DOCS=true      # force /docs, /redoc, /openapi.json on or off
+export MONETARY_ENV=development       # or "production" (default)
+export MONETARY_ENABLE_DOCS=true      # force /docs, /redoc, /openapi.json on or off
 ```
 
 `/docs`, `/redoc`, and `/openapi.json` are served by default only in
 `development`; `production` (the default) disables them unless
-`DUEVIA_ENABLE_DOCS=true` is set explicitly.
+`MONETARY_ENABLE_DOCS=true` is set explicitly.
 
-## 12. Project naming and future renames
+## 12. Project naming
 
-The current product name is **Duevia**:
+The product is **Monetary** (formerly *Duevia*; the GitHub repository slug is still `duevia-ledger`).
 
 | Surface | Current value |
 |---|---|
-| Display name | `Duevia` |
-| Python package | `duevia` |
-| API import path | `duevia.presentation.api.app:app` |
+| Display name | `Monetary` (configurable: `MONETARY_APP_NAME`) |
+| Python package | `monetary` |
+| API import path | `monetary.presentation.api.app:app` |
 | Application version | `0.5.0` |
 | API route prefix | `/api/v0.5` |
-| Database environment variable | `DUEVIA_DB_PATH` |
-| CORS environment variable | `DUEVIA_CORS_ORIGINS` |
-| Default database directory | `~/.duevia_0.5/` |
+| Environment variables | `MONETARY_*` (legacy `DUEVIA_*` still honoured as a fallback) |
+| Default database path | `~/.duevia_0.5/expense.db` |
 
-Runtime-facing values are read from `duevia/config.py` rather than duplicated
-throughout the implementation. A complete rename still requires changing the
-package directory and command examples because Python import paths and
-documentation are external interfaces, but the application metadata and
-configuration names have one source of truth.
+Runtime-facing values are read from `monetary/config.py` rather than duplicated
+throughout the implementation.
+
+**Deliberately unchanged, because they are persisted or external contracts:**
+the default database path (an existing database lives there -- renaming the
+directory would silently orphan it), the SQLite schema (no table or column
+carries the old name), and every API route. The `DUEVIA_*` variables keep
+working so existing deployments need no coordinated change; migrate them to
+`MONETARY_*` at leisure. If the database directory is ever to be renamed, that
+needs an explicit data-migration step (move the file, or set `MONETARY_DB_PATH`).
 
 ## 13. Repository structure
 
 ```text
 <repository-directory>/
-├── duevia/
-│   ├── domain/
-│   ├── application/
+├── monetary/                 # backend package (FastAPI + SQLite)
+│   ├── config.py             # product identity + every environment variable
+│   ├── seed_defaults.json
+│   ├── domain/               # money, ledger invariants, enums, exceptions, hashing -- no DB or HTTP
+│   ├── application/          # services, posting strategies, edit policies
 │   │   ├── edit_policies/
 │   │   └── posting_strategies/
-│   ├── infrastructure/
+│   ├── infrastructure/       # SQLite schema/connection, repositories, rate limiter
 │   └── presentation/
-│       └── api/
+│       └── api/              # FastAPI app, routers, schemas, error handling
+├── tests/                    # backend tests: unit / service / api
+├── production-app/           # React + TypeScript web app (self-contained npm project)
 ├── docs/
-│   ├── ARCHITECTURE_PLAN.md
-│   ├── API_README.md
-│   └── LIVE_SCHEMA.sql
-├── README.md
-└── requirements.txt
+├── scripts/check.sh          # one-command backend validation
+├── .github/workflows/ci.yml
+├── .env.example              # backend configuration template
+├── pytest.ini  .coveragerc
+├── requirements.txt  requirements-dev.txt
+└── README.md
 ```
 
 ## 14. Related documentation

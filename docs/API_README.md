@@ -1,8 +1,8 @@
-# Monetary API (Duevia backend)
+# Monetary API
 
 A REST API over a double-entry ledger engine, documented further in
 `ARCHITECTURE_PLAN.md` and the project root `README.md`. **This is now the
-only interface to Duevia** -- the previous CLI has been removed; every
+only interface to Monetary** -- the previous CLI has been removed; every
 capability it had (accounts, categories, transactions, splits, transfers,
 settlements, reports) is available here.
 
@@ -11,7 +11,7 @@ settlements, reports) is available here.
 ```bash
 cd <repository-directory>
 export PYTHONPATH="$PWD"
-uvicorn duevia.presentation.api.app:app --reload --port 8000
+uvicorn monetary.presentation.api.app:app --reload --port 8000
 ```
 
 Interactive docs (Swagger UI): `http://localhost:8000/docs`. OpenAPI schema:
@@ -19,18 +19,23 @@ Interactive docs (Swagger UI): `http://localhost:8000/docs`. OpenAPI schema:
 generate a typed client for whatever UI framework you use. **Docs are
 disabled by default outside development** -- see Configuration below.
 
-Config via environment variables (see `duevia/config.py`):
-- `DUEVIA_DB_PATH` -- SQLite file path (default `~/.duevia_0.5/expense.db`)
-- `DUEVIA_CORS_ORIGINS` -- comma-separated allowed browser origins (default:
+Config via environment variables (see `monetary/config.py`):
+- `MONETARY_DB_PATH` -- SQLite file path (default `~/.duevia_0.5/expense.db`; the default keeps its pre-rename
+  name so existing databases are found)
+- `MONETARY_CORS_ORIGINS` -- comma-separated allowed browser origins (default:
   none allowed). `*` is accepted for a public API, but credentialed requests
   are then disabled automatically (wildcard origin + credentials is invalid
   per the CORS spec and rejected by browsers anyway).
-- `DUEVIA_ENV` -- `production` (default) or `development`.
-- `DUEVIA_ENABLE_DOCS` -- force `/docs`, `/redoc`, `/openapi.json` on/off.
-- `DUEVIA_APP_NAME` / `DUEVIA_APP_TAGLINE` -- the user-facing product name and tagline (default
+- `MONETARY_ENV` -- `production` (default) or `development`.
+- `MONETARY_ENABLE_DOCS` -- force `/docs`, `/redoc`, `/openapi.json` on/off.
+- `MONETARY_APP_NAME` / `MONETARY_APP_TAGLINE` -- the user-facing product name and tagline (default
   `Monetary` / `Personal expense ledger`), served publicly by `GET /meta`.
-- `DUEVIA_SEED_DEFAULTS_PATH` -- optional JSON file replacing the default categories and income
-  sources created at first-run setup (the bundled default is `duevia/seed_defaults.json`).
+- `MONETARY_SEED_DEFAULTS_PATH` -- optional JSON file replacing the default categories and income
+  sources created at first-run setup (the bundled default is `monetary/seed_defaults.json`).
+
+The project was formerly named *Duevia*; the old `DUEVIA_*` spellings of every variable above are still read as
+a fallback (the `MONETARY_*` value wins when both are set), so existing deployments keep working. Prefer the new
+names in new configuration.
 
 ## Wire format
 
@@ -69,7 +74,7 @@ curl -X POST http://localhost:8000/api/v0.5/setup/init \
 ```
 
 Setup also creates the default expense categories and income sources (set `"seedDefaults": false`
-to skip, or point `DUEVIA_SEED_DEFAULTS_PATH` at your own list).
+to skip, or point `MONETARY_SEED_DEFAULTS_PATH` at your own list).
 
 `GET /api/v0.5/auth/security-questions` lists the fixed set of 5 questions (id + text) so a signup
 form can render a dropdown for `securityQuestionId`.
@@ -173,12 +178,12 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
 
 ## What's enforced at the API boundary
 
-- **CORS**: no browser origin is allowed until `DUEVIA_CORS_ORIGINS` is set (see Configuration).
+- **CORS**: no browser origin is allowed until `MONETARY_CORS_ORIGINS` is set (see Configuration).
 - **Security headers**: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` on every
-  response; `Strict-Transport-Security` when `DUEVIA_ENV=production` (put a TLS-terminating proxy
+  response; `Strict-Transport-Security` when `MONETARY_ENV=production` (put a TLS-terminating proxy
   in front in that case).
 - **Docs exposure**: `/docs`, `/redoc`, `/openapi.json` are only served when explicitly enabled
-  (development environment, or `DUEVIA_ENABLE_DOCS=true`).
+  (development environment, or `MONETARY_ENABLE_DOCS=true`).
 - **Unhandled errors** never leak exception text or stack traces to the client; they're logged
   server-side and returned as a generic `500 InternalError`.
 - **Read-your-writes.** Each request's database transaction is committed before its response is
