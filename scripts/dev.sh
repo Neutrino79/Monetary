@@ -10,7 +10,7 @@
 #
 # In VS Code, use the task "Dev: start API + web" instead: it opens two *integrated* terminals.
 #
-# First run (and whenever requirements.txt / package-lock.json change) it also creates .venv,
+# First run (and whenever backend/requirements*.txt / web/package-lock.json change) it also creates .venv,
 # installs dependencies and creates web/.env.local. Override ports with BACKEND_PORT / WEB_PORT.
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -22,10 +22,10 @@ MODE="${1:-auto}"
 setup_backend() {
   [ -d .venv ] || { echo "==> Creating .venv"; python3 -m venv .venv; }
   # reinstall only when requirements changed since the last install
-  if [ ! -f .venv/.deps-stamp ] || [ requirements-dev.txt -nt .venv/.deps-stamp ] || [ requirements.txt -nt .venv/.deps-stamp ]; then
+  if [ ! -f .venv/.deps-stamp ] || [ backend/requirements-dev.txt -nt .venv/.deps-stamp ] || [ backend/requirements.txt -nt .venv/.deps-stamp ]; then
     echo "==> Installing backend dependencies"
     .venv/bin/python -m pip install --quiet --upgrade pip
-    .venv/bin/python -m pip install --quiet -r requirements-dev.txt
+    .venv/bin/python -m pip install --quiet -r backend/requirements-dev.txt
     touch .venv/.deps-stamp
   fi
 }
@@ -41,7 +41,7 @@ setup_web() {
 run_backend() {
   export MONETARY_ENV=development
   export MONETARY_CORS_ORIGINS="${MONETARY_CORS_ORIGINS:-http://localhost:$WEB_PORT}"
-  exec .venv/bin/python -m uvicorn monetary.presentation.api.app:app --reload --port "$BACKEND_PORT"
+  cd backend && exec ../.venv/bin/python -m uvicorn monetary.presentation.api.app:app --reload --port "$BACKEND_PORT"
 }
 
 run_web() {

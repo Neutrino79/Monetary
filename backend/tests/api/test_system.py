@@ -3,7 +3,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from monetary.presentation.api.app import app
-from tests.sample_data import API
+from tests.support.sample_data import API
 
 PUBLIC = {
     ("POST", f"{API}/setup/init"), ("POST", f"{API}/auth/login"),

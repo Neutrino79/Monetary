@@ -23,7 +23,7 @@ All four sections below are required and checked by CI. Delete the comments as y
 ## Risk and rollout
 - [ ] API contract unchanged (or: `docs/API.md` and `web/src/lib/api/` updated in this PR)
 - [ ] Database schema unchanged (or: stated here that existing databases must be recreated -- there are no migrations yet)
-- [ ] No new/changed environment variables (or: `.env.example` and README updated)
+- [ ] No new/changed environment variables (or: `backend/.env.example` and README updated)
 - [ ] Not a breaking change (or: title has `!` and the description has a `BREAKING CHANGE:` line)
 
 ## Related
@@ -31,6 +31,6 @@ All four sections below are required and checked by CI. Delete the comments as y
 
 ## Checklist
 - [ ] `./scripts/check.sh` passes (backend) and/or `npm run typecheck && npm run lint && npm test && npm run build` pass (`web/`)
-- [ ] New behaviour has tests in the matching layer (`tests/unit`, `tests/service`, `tests/api`, `web/src/test`)
+- [ ] New behaviour has tests in the matching layer (`backend/tests/unit`, `service`, `infrastructure`, `api`, `web/src/test`)
 - [ ] Docs updated where behaviour, setup, config or structure changed
 - [ ] No secrets, `.env` files, databases or generated files committed

@@ -7,7 +7,7 @@ import json
 
 import pytest
 
-from tests.sample_data import OWNER
+from tests.support.sample_data import OWNER
 
 
 # --------------------------------------------------------------------------- #

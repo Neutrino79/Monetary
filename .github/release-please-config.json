@@ -10,7 +10,7 @@
       "changelog-path": "CHANGELOG.md",
       "pull-request-title-pattern": "chore(release): ${version}",
       "extra-files": [
-        "monetary/config.py",
+        "backend/monetary/config.py",
         { "type": "json", "path": "web/package.json", "jsonpath": "$.version" },
         { "type": "json", "path": "web/package-lock.json", "jsonpath": "$.version" },
         { "type": "json", "path": "web/package-lock.json", "jsonpath": "$.packages[''].version" }

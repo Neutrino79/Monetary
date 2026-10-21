@@ -17,14 +17,15 @@ from monetary.infrastructure.rate_limiter import (  # noqa: E402
     login_rate_limiter,
     password_reset_rate_limiter,
 )
-from tests import sample_data  # noqa: E402
-from tests.helpers import Api, World, assert_ledger_invariants  # noqa: E402
+from tests.support import sample_data  # noqa: E402
+from tests.support.helpers import Api, World, assert_ledger_invariants  # noqa: E402
+from tests.support.service_ctx import ctx  # noqa: E402,F401  (fixture shared by service/ and infrastructure/)
 
 
 def pytest_collection_modifyitems(items):
-    """Auto-mark tests by directory so `pytest -m unit|service|api` works."""
+    """Auto-mark tests by directory so `pytest -m unit|service|infrastructure|api|tooling` works."""
     for item in items:
-        for name in ("unit", "service", "api"):
+        for name in ("unit", "service", "infrastructure", "api", "tooling"):
             if f"/tests/{name}/" in str(item.fspath).replace("\\", "/"):
                 item.add_marker(getattr(pytest.mark, name))
 
@@ -83,7 +84,7 @@ def api(client) -> Api:
 
 @pytest.fixture()
 def world(api) -> World:
-    """The full sample world (see tests/sample_data.py), bank funded."""
+    """The full sample world (see tests/support/sample_data.py), bank funded."""
     return World(api, sample_data.seed(api.client, {"Authorization": f"Bearer {api.token}"}))
 
 

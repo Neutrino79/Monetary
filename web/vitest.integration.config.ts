@@ -8,7 +8,7 @@ import NameOrderSequencer from './src/test/integration/sequencer.ts'
  * running the Python backend against a throw-away SQLite database
  * (see src/test/integration/globalSetup.ts).
  *
- *   npm run test:integration        (needs `pip install -r requirements.txt` at the repo root)
+ *   npm run test:integration        (needs `pip install -r backend/requirements.txt` at the repo root)
  */
 export default defineConfig({
   plugins: [react()],

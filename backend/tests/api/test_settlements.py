@@ -1,6 +1,6 @@
 import pytest
 
-from tests.sample_data import OPENING_BALANCE_POINTS as OPEN
+from tests.support.sample_data import OPENING_BALANCE_POINTS as OPEN
 
 
 def test_friend_pays_me_back(world):

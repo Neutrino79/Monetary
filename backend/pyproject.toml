@@ -1,0 +1,41 @@
+# Backend tooling configuration (ruff, pytest, coverage).
+# This file defines no installable package: dependencies live in requirements.txt / requirements-dev.txt.
+
+[tool.ruff]
+target-version = "py311"
+
+# Deliberately minimal: only pyflakes-class errors (unused/undefined names), which are real bugs or dead
+# code. Widen `select` (e.g. add "E", "I", "B") once you want style rules enforced.
+[tool.ruff.lint]
+select = ["F"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra --strict-markers"
+# Markers are applied automatically from the directory a test lives in (see tests/conftest.py),
+# except `config`, which test_deployment_config.py sets itself.
+markers = [
+    "unit: pure unit tests (no DB, no HTTP)",
+    "service: application-service tests against a real temporary SQLite DB",
+    "infrastructure: repository / database tests against a real temporary SQLite DB",
+    "api: HTTP-level tests through FastAPI's TestClient",
+    "config: deployment/config tests that spawn a subprocess",
+    "tooling: tests of repository tooling (scripts/), not of the application",
+]
+filterwarnings = [
+    "ignore:Using .httpx. with",
+]
+
+[tool.coverage.run]
+source = ["monetary"]
+omit = ["monetary/presentation/api/schemas/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    'if __name__ == .__main__.:',
+    '\.\.\.',
+]

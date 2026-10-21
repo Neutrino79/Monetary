@@ -8,7 +8,7 @@ import subprocess
 import pytest
 
 _spec = importlib.util.spec_from_file_location(
-    "commit_lint", pathlib.Path(__file__).resolve().parents[2] / "scripts" / "commit_lint.py"
+    "commit_lint", pathlib.Path(__file__).resolve().parents[3] / "scripts" / "commit_lint.py"
 )
 cl = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(cl)
@@ -129,7 +129,7 @@ def test_pr_description_needs_every_section():
 
 
 def test_untouched_template_is_rejected():
-    template = (pathlib.Path(__file__).resolve().parents[2] / ".github" / "pull_request_template.md").read_text()
+    template = (pathlib.Path(__file__).resolve().parents[3] / ".github" / "pull_request_template.md").read_text()
     errs = cl.lint_body(template)
     assert any("'## Summary' section is empty" in e for e in errs)
 
@@ -170,7 +170,7 @@ def test_cli_exit_codes(tmp_path):
 
 # ---------------------------------------------------------------- docs cannot drift from the linter
 
-ROOT = pathlib.Path(__file__).resolve().parents[2]
+ROOT = pathlib.Path(__file__).resolve().parents[3]
 
 
 @pytest.mark.parametrize("doc", ["AGENTS.md", ".github/pull_request_template.md", ".gitmessage"])

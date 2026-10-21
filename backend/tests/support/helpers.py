@@ -6,7 +6,7 @@ from __future__ import annotations
 import os
 import sqlite3
 
-from tests.sample_data import API
+from tests.support.sample_data import API
 
 
 class Api:

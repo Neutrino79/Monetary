@@ -8,19 +8,23 @@ Violations are caught by hooks and CI, so follow them the first time.
 
 Monetary: a personal expense tracker on a double-entry ledger.
 
-- `monetary/` -- Python 3.11+ FastAPI backend over SQLite. Layers, imports flow one way:
+- `backend/` -- the Python 3.11+ FastAPI backend over SQLite: package `backend/monetary/`, tests, `pyproject.toml`
+  (ruff/pytest/coverage), `requirements*.txt` and `.env.example`. Layers, imports flow one way:
   `presentation → application → infrastructure → domain`. Routers only translate HTTP; business rules live in
   `application/` and `domain/`; **all SQL lives in `infrastructure/`**; `domain/` imports nothing from the project.
 - `web/` -- React + TypeScript (Vite) app. It holds **no ledger logic**: the API computes everything.
-- `tests/` -- backend tests: `unit/` (pure), `service/` (real temp SQLite), `api/` (HTTP TestClient).
+- `backend/tests/` -- by what is tested: `unit/` (pure), `service/` (application services, real temp SQLite),
+  `infrastructure/` (repositories, DB), `api/` (HTTP TestClient), `deployment/` (config in a subprocess),
+  `tooling/` (`scripts/`), with shared fixtures and sample data in `support/`.
 - `docs/` -- `API.md`, `ARCHITECTURE.md`, `LIVE_SCHEMA.sql`. `scripts/` -- `dev.sh`, `check.sh`, `commit_lint.py`.
 
 ## Commands (run from the repo root unless noted)
 
 ```bash
 ./scripts/dev.sh inline              # run API (:8000) + web (:5173) together in this terminal
-python -m pytest                     # backend tests (must stay >= 95% coverage: ./scripts/check.sh)
-ruff check .                         # backend lint
+./scripts/check.sh                   # backend: compile, app import, full tests (must stay >= 95% coverage)
+(cd backend && python -m pytest)     # backend tests only
+(cd backend && ruff check .)         # backend lint (pre-commit also lints scripts/ with the same config)
 pre-commit run --all-files           # every hook (YAML, secrets, ruff, ...)
 cd web && npm run typecheck && npm run lint && npm test && npm run build
 cd web && npm run test:integration  # real app <-> real backend (needs backend pip deps)
@@ -45,9 +49,9 @@ say "not run" or "blocked" instead.
 6. **Never edit generated files by hand**: `web/package-lock.json` (use `npm`), `CHANGELOG.md` (release-please),
    `.secrets.baseline` (use `detect-secrets`).
 7. **Never change the API contract, DB schema or `MONETARY_*` configuration silently.** If you do change them,
-   update `docs/API.md` + `web/src/lib/api/`, `docs/LIVE_SCHEMA.sql`, `.env.example` + README in the same PR and say
+   update `docs/API.md` + `web/src/lib/api/`, `docs/LIVE_SCHEMA.sql` (the only copy of the schema SQL), `backend/.env.example` + README in the same PR and say
    so under *Risk and rollout*. There are no DB migrations: a schema change means existing databases are recreated.
-8. **Never put SQL outside `monetary/infrastructure/`**, business rules in routers, or ledger math in `web/`.
+8. **Never put SQL outside `backend/monetary/infrastructure/`**, business rules in routers, or ledger math in `web/`.
 9. **Never run destructive commands** (`rm -rf`, `git reset --hard`, dropping a database, deleting branches)
    against anything you did not create in this session without explicit approval.
 
