@@ -1,0 +1,15 @@
+{
+  "attribution": { "commit": "", "pr": "" },
+  "permissions": {
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Read(./web/.env)",
+      "Read(./web/.env.local)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git commit --no-verify:*)",
+      "Bash(git push --no-verify:*)"
+    ]
+  }
+}

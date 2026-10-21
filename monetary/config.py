@@ -17,7 +17,7 @@ from pathlib import Path
 DEFAULT_APP_NAME = "Monetary"
 DEFAULT_APP_TAGLINE = "Personal expense ledger"
 PACKAGE_NAME = "monetary"
-VERSION = "0.5.0"
+VERSION = "0.5.0"  # x-release-please-version
 API_VERSION = "v0.5"
 API_PREFIX = f"/api/{API_VERSION}"
 

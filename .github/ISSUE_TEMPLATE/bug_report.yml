@@ -1,0 +1,29 @@
+name: Bug report
+description: Something is broken or behaves unexpectedly
+title: "fix: "
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations: {required: true}
+  - type: textarea
+    id: repro
+    attributes:
+      label: Steps to reproduce
+      placeholder: "1. ...\n2. ...\n3. ..."
+    validations: {required: true}
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where?
+      options: [Backend (API), Web app, Database, Tooling / CI, Docs, Not sure]
+    validations: {required: true}
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots / environment
+      description: Error output, OS, Python and Node versions, and the commit you are on.
+      render: text

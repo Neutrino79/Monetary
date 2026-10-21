@@ -1,6 +1,6 @@
 # Backend lint. Deliberately minimal: only pyflakes-class errors (unused/undefined names), which are
 # real bugs or dead code. Widen `select` (e.g. add "E", "I", "B") once you want style rules enforced.
-target-version = "py310"
+target-version = "py311"
 extend-exclude = ["web", ".venv"]
 
 [lint]
