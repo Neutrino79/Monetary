@@ -1,0 +1,56 @@
+name: PR conventions
+
+# Enforces CONTRIBUTING.md on every pull request: branch name, title (the squash-commit subject),
+# description sections, and (advisory) each commit message. All logic lives in scripts/commit_lint.py.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+concurrency:
+  group: pr-checks-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  conventions:
+    name: Branch, title, description, commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      # Untrusted PR text is passed through env vars, never interpolated into the shell script.
+      - name: Branch name
+        run: python scripts/commit_lint.py branch "$BRANCH"
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+      - name: PR title
+        run: python scripts/commit_lint.py title "$TITLE"
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+      # Dependabot / release-please write their own descriptions and commits.
+      - name: PR description
+        if: github.actor != 'dependabot[bot]' && !startsWith(github.event.pull_request.head.ref, 'release-please--')
+        run: |
+          printf '%s' "$BODY" > "$RUNNER_TEMP/pr-body.md"
+          python scripts/commit_lint.py body "$RUNNER_TEMP/pr-body.md"
+        env:
+          BODY: ${{ github.event.pull_request.body }}
+      # Advisory (warning, not failure): the PR is squash-merged, so individual commit messages never reach main,
+      # and a stacked PR retargeted after its parent was squashed would otherwise be blocked by old commits.
+      # The commit-msg hook is the strict, local gate.
+      - name: Commit messages (advisory)
+        if: github.actor != 'dependabot[bot]' && !startsWith(github.event.pull_request.head.ref, 'release-please--')
+        run: |
+          if ! python scripts/commit_lint.py range "$BASE" "$HEAD"; then
+            echo "::warning title=Commit messages::Some commits break the conventions (see this step's log). Not blocking: the PR title becomes the squash commit."
+          fi
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}

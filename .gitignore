@@ -50,6 +50,9 @@ node_modules/
 *.sqlite3
 data/
 
+# Claude Code local-only settings (the shared .claude/settings.json IS tracked)
+.claude/settings.local.json
+
 # macOS and editor files
 .DS_Store
 .idea/

@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/Neutrino79/duevia-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/Neutrino79/duevia-ledger/actions/workflows/ci.yml)
 [![License: Proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](LICENSE)
-![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)
+![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![Node 22](https://img.shields.io/badge/node-22-green)
 
 A personal expense tracker built on a double-entry ledger. Track expenses, income, refunds and transfers,
@@ -22,7 +22,7 @@ Single-owner authentication uses bcrypt password hashing, with rate-limited logi
 
 ## Quick start
 
-Requirements: Python 3.10+ with `pip`, and Node.js 22 with npm (web app only).
+Requirements: Python 3.11+ with `pip`, and Node.js 22 with npm (web app only).
 
 **One command** (macOS/Linux, or Git Bash/WSL on Windows):
 
@@ -86,11 +86,16 @@ web/                       Web app -- a self-contained npm project with its own 
 docs/                      API reference, architecture, SQLite schema, integration record
 scripts/dev.sh             One-command local development (API + web)
 scripts/check.sh           One-command backend validation
-.github/                   CI workflow, Dependabot config, pull-request template
+scripts/commit_lint.py     Checks branch names, commit messages, PR titles and descriptions
+.github/                   Workflows (CI, PR conventions, release), Dependabot, PR/issue templates, CODEOWNERS
+.devcontainer/             VS Code / Codespaces container definition
+CONTRIBUTING.md            Branch, commit, PR and code conventions (enforced by hooks and CI)
+AGENTS.md  CLAUDE.md       Rules for AI coding agents (Copilot/Cursor pointers live in .github/ and .cursor/)
 .vscode/                   Shared VS Code tasks and extension recommendations
 .env.example               Backend configuration template
 .pre-commit-config.yaml    Git hooks (see Developer tooling)
-ruff.toml  pytest.ini  .coveragerc  requirements.txt  requirements-dev.txt  .editorconfig
+ruff.toml  pytest.ini  .coveragerc  requirements*.txt  .editorconfig  .gitattributes  .gitmessage
+release-please-config.json  CHANGELOG.md   (automated releases and changelog)
 ```
 
 Dependencies point one way: `presentation → application → infrastructure → domain`
@@ -144,15 +149,19 @@ npm run build                       # type-check + production bundle into dist/
 npm run test:integration            # real React app -> real uvicorn -> temp SQLite (needs the backend's pip deps)
 ```
 
-CI ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) runs the same commands on every push to `main`
-and every pull request.
+CI runs the same commands on every push to `main` and every pull request (see Developer tooling).
 
 ## Developer tooling
 
 - **Git hooks** ([pre-commit](https://pre-commit.com)): after `python -m pip install -r requirements-dev.txt`
-  and `npm ci` in `web/`, run `pre-commit install` once. Every commit then runs YAML/JSON validation,
-  merge-conflict and private-key detection, a large-file guard, `ruff` on Python and `oxlint` on `web/`.
-  Run them on demand with `pre-commit run --all-files`.
+  and `npm ci` in `web/`, run `pre-commit install` once (it installs the pre-commit, commit-msg and pre-push
+  hooks) and `git config commit.template .gitmessage`. Then every commit runs YAML/JSON validation, merge-marker,
+  private-key and secret detection (`detect-secrets`), a large-file guard, a no-commits-to-`main` guard, `ruff`
+  and `oxlint`; every commit **message** is checked against Conventional Commits, and every **push** checks the
+  branch name. Run them on demand with `pre-commit run --all-files`.
+- **CI** ([`.github/workflows/`](.github/workflows)): `CI` (hooks, tests on Python 3.11/3.12/3.13 with a 95%
+  coverage gate, web checks, `pip-audit`/`npm audit`, and a single required `CI passed` check), `PR conventions`
+  (branch, title, description, commits) and `Release` (release-please). Actions are pinned to commit SHAs.
 - **Dev servers**: `./scripts/dev.sh` and the VS Code tasks in `.vscode/tasks.json` (see Quick start);
   `.vscode/extensions.json` recommends the Python, Ruff, Oxc and EditorConfig extensions.
 - **Editor settings**: [`.editorconfig`](.editorconfig) sets UTF-8, LF line endings, a final newline and
@@ -174,14 +183,19 @@ and every pull request.
 
 ## Contributing
 
-1. Branch from `main`; keep backend changes inside the layer that owns them (see layout above).
-2. Add tests next to the matching layer in `tests/` (`unit`, `service`, `api`); `tests/sample_data.py` is the
-   shared dataset all layers use.
-3. Install the git hooks (above), and before opening a PR run `./scripts/check.sh` plus, for web changes,
-   `npm run typecheck && npm run lint && npm test && npm run build` in `web/`.
-4. Changing the API contract means updating `web/src/lib/api/` (services, mappers, `types/api.ts`) and
-   [`docs/API.md`](docs/API.md) in the same change.
-5. Open a PR; the template lists what reviewers will look for.
+The full rules are in **[CONTRIBUTING.md](CONTRIBUTING.md)**; in short:
+
+- Branch `<type>/<kebab-case>` (`feat/add-budget-alerts`), then small commits in
+  [Conventional Commits](https://www.conventionalcommits.org/) form (`fix(api): handle empty budgets`), with a
+  body explaining *why* for `feat`/`fix`/`perf`/`refactor`.
+- The PR title uses the same format (PRs are squash-merged) and the description follows the
+  [PR template](.github/pull_request_template.md): Summary, Changes, Testing, Risk and rollout.
+- Run `./scripts/check.sh` and, for web changes, `npm run typecheck && npm run lint && npm test && npm run build`
+  in `web/`. Keep backend coverage at 95% or above.
+- Changing the API contract means updating `web/src/lib/api/` and [`docs/API.md`](docs/API.md) in the same PR.
+
+**AI coding agents** must also follow [AGENTS.md](AGENTS.md): no AI attribution in commits or PRs, no commits to
+`main`, no bypassing hooks.
 
 See also: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (system design) and
 [`docs/INTEGRATION_CHECKLIST.md`](docs/INTEGRATION_CHECKLIST.md) (record of the web-app ⇄ backend integration).

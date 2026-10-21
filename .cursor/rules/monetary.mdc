@@ -1,0 +1,9 @@
+---
+description: Monetary repository rules (git conventions, architecture, verification)
+alwaysApply: true
+---
+
+Follow `AGENTS.md` (rules for AI agents) and `CONTRIBUTING.md` (conventions) at the repository root. They are
+mandatory: branch names `<type>/<kebab-case>`, Conventional Commit messages and PR titles, a filled-in PR
+description from `.github/pull_request_template.md`, no AI attribution lines in commits or PRs, no commits to
+`main`, no bypassing hooks, and the backend layering `presentation → application → infrastructure → domain`.

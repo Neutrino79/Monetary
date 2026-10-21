@@ -19,7 +19,7 @@ agnostic, so dropping one adapter had zero effect on business logic.
 
 The application uses:
 
-- Python 3.10+
+- Python 3.11+
 - SQLite
 - Integer money values, stored as the smallest currency unit
 - FastAPI, Uvicorn, Pydantic, bcrypt, and `python-multipart`
