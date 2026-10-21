@@ -1,10 +1,12 @@
-"""Fixtures for service-level tests: real DB, real services, no HTTP."""
+"""Shared `ctx` fixture for service- and infrastructure-level tests: real DB, real services, no HTTP.
+
+Registered for every test by tests/conftest.py."""
 import pytest
 
 from monetary.application import account_service, user_service
 from monetary.domain.enums import AccountType
 from monetary.infrastructure import repositories as repo
-from tests import sample_data as sd
+from tests.support import sample_data as sd
 
 
 class Ctx:

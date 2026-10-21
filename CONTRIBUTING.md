@@ -17,7 +17,7 @@ and a check disagree, the check (`scripts/commit_lint.py`) is the bug -- open a 
 One-time setup (installs the git hooks and the commit-message template):
 
 ```bash
-python -m pip install -r requirements-dev.txt
+python -m pip install -r backend/requirements-dev.txt
 (cd web && npm ci)
 pre-commit install            # installs the pre-commit, commit-msg and pre-push hooks
 git config commit.template .gitmessage
@@ -124,20 +124,20 @@ must contain a `BREAKING CHANGE:` line.
   Conventional Commit history on `main`, keeps a `chore(release): X.Y.Z` PR open with the version bump and the
   `CHANGELOG.md` entry, and tags the release when that PR is merged. `feat` bumps the minor version, `fix` the
   patch; while the version is `0.x`, breaking changes also bump the minor. Do not edit `CHANGELOG.md` by hand.
-- The version lives in `monetary/config.py` (`VERSION`) and `web/package.json`; release-please keeps them in sync.
+- The version lives in `backend/monetary/config.py` (`VERSION`) and `web/package.json`; release-please keeps them in sync.
 
 ## 6. Code standards
 
 - **Layers (backend)**: `presentation → application → infrastructure → domain`. Routers only translate HTTP;
   business rules live in `application/` and `domain/`; all SQL lives in `infrastructure/`. The web app contains
   no ledger logic (the API computes everything). See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
-- **Tests**: new behaviour comes with tests in the matching layer (`tests/unit`, `tests/service`, `tests/api`,
+- **Tests**: new behaviour comes with tests in the matching layer (`backend/tests/unit`, `service`, `infrastructure`, `api`,
   `web/src/test`). Backend coverage must stay at or above 95% (CI gate).
 - **API changes**: update `docs/API.md` and `web/src/lib/api/` (services, mappers, `types/api.ts`) in the same PR.
 - **Schema changes**: there are no migrations yet. Say so in the PR (`Risk and rollout`) and in `docs/LIVE_SCHEMA.sql`.
-- **Config**: every setting is a `MONETARY_*` variable defined in `monetary/config.py`, and documented in
-  `.env.example` and the README.
-- **Dependencies**: change `requirements*.txt` / `web/package.json` deliberately; let `npm` regenerate
+- **Config**: every setting is a `MONETARY_*` variable defined in `backend/monetary/config.py`, and documented in
+  `backend/.env.example` and the README.
+- **Dependencies**: change `backend/requirements*.txt` / `web/package.json` deliberately; let `npm` regenerate
   `package-lock.json` (never edit it by hand). CI audits both ecosystems.
 - **Secrets**: never commit `.env*` (except `*.example`), databases, keys or tokens. The `detect-secrets` hook and
   CI scan for them; genuine false positives go in `.secrets.baseline` (`detect-secrets scan --baseline .secrets.baseline`).

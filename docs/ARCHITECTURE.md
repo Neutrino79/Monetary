@@ -1,4 +1,4 @@
-# Monetary 0.5.0 Architecture
+# Monetary Architecture
 
 This document describes the architecture that is currently implemented in the
 repository. It replaces the original planning document, which described a
@@ -6,7 +6,7 @@ CLI-only system and an earlier schema.
 
 ## 1. Current project overview
 
-Monetary 0.5.0 is a pre-release Python application for personal expense tracking,
+Monetary is a pre-release Python application for personal expense tracking,
 double-entry bookkeeping, friend expense splitting, settlements, and reporting.
 It is delivered as a single presentation interface:
 
@@ -35,7 +35,7 @@ The SQLite database is created automatically at:
 The path can be overridden with `MONETARY_DB_PATH`.
 
 Project-facing metadata and runtime names are centralized in
-`monetary/config.py`. This module defines the display name, Python package name,
+`backend/monetary/config.py`. This module defines the display name, Python package name,
 version, API prefix, database environment variable, CORS environment
 variable, environment name, docs-exposure toggle, and default database path.
 Future product-name changes should update that module first, then rename the
@@ -48,12 +48,13 @@ Python package directory and update the documentation examples.
 The FastAPI application is defined in:
 
 ```text
-monetary/presentation/api/app.py
+backend/monetary/presentation/api/app.py
 ```
 
-Run it from the repository root:
+Run it from `backend/`:
 
 ```bash
+cd backend
 export PYTHONPATH="$PWD"
 python -m uvicorn monetary.presentation.api.app:app --reload --port 8000
 ```
@@ -82,7 +83,7 @@ FastAPI routers ─── application services ─── domain model
 Location:
 
 ```text
-monetary/domain/
+backend/monetary/domain/
 ```
 
 Responsibilities:
@@ -110,7 +111,7 @@ Important modules:
 Location:
 
 ```text
-monetary/application/
+backend/monetary/application/
 ```
 
 Responsibilities:
@@ -140,7 +141,7 @@ Important services:
 Posting strategies are in:
 
 ```text
-monetary/application/posting_strategies/
+backend/monetary/application/posting_strategies/
 ```
 
 They build ledger intents for simple transactions, refunds, splits,
@@ -149,7 +150,7 @@ transfers, and settlements.
 Edit policies are in:
 
 ```text
-monetary/application/edit_policies/
+backend/monetary/application/edit_policies/
 ```
 
 - `DirectEditPolicy`: updates or deletes records in place
@@ -161,7 +162,7 @@ monetary/application/edit_policies/
 Location:
 
 ```text
-monetary/infrastructure/
+backend/monetary/infrastructure/
 ```
 
 Responsibilities:
@@ -178,7 +179,7 @@ Responsibilities:
 4. Enables foreign keys.
 5. Executes the schema bootstrap.
 
-The schema is defined in `monetary/infrastructure/db.py`; `LIVE_SCHEMA.sql` is the
+The schema is defined in `backend/monetary/infrastructure/db.py`; `LIVE_SCHEMA.sql` is the
 schema snapshot generated from SQLite's `sqlite_master`.
 
 ### 3.4 Presentation layer
@@ -186,7 +187,7 @@ schema snapshot generated from SQLite's `sqlite_master`.
 Location:
 
 ```text
-monetary/presentation/
+backend/monetary/presentation/
 ```
 
 The API translates HTTP requests into application-service calls; business
@@ -202,7 +203,7 @@ The API includes:
 - CORS configuration through `MONETARY_CORS_ORIGINS` (default: no origins
   allowed; `*` disables credentialed requests automatically)
 - Per-IP rate limiting on login and password-reset endpoints
-  (`monetary/infrastructure/rate_limiter.py`)
+  (`backend/monetary/infrastructure/rate_limiter.py`)
 - Baseline security headers and environment-gated API docs
   (`MONETARY_ENV`, `MONETARY_ENABLE_DOCS`)
 
@@ -246,9 +247,10 @@ The `DUE` account intentionally uses one signed running balance per friend:
 ## 5. Current SQLite schema
 
 The following is the current table schema implemented by
-`monetary/infrastructure/db.py` and represented in `LIVE_SCHEMA.sql`.
-The application bootstraps the schema automatically. The complete generated
-snapshot, including all indexes, is in `LIVE_SCHEMA.sql`.
+`backend/monetary/infrastructure/db.py` and represented in `LIVE_SCHEMA.sql`.
+The application bootstraps the schema automatically. The complete SQL,
+including every index, lives only in [`LIVE_SCHEMA.sql`](LIVE_SCHEMA.sql), so there is
+a single copy to keep in sync.
 
 ### 5.1 `user`
 
@@ -260,6 +262,7 @@ have no login credentials.
 | `id` | Primary key |
 | `name` | Display name |
 | `email` | Unique email |
+| `phone` | Optional contact detail (friends only) |
 | `is_superuser` | Owner/admin marker |
 | `timezone` | Owner's IANA timezone |
 | `home_currency_code` | Owner's default currency |
@@ -350,111 +353,11 @@ CHECK (
 The current schema creates indexes for:
 
 - Account type, parent, and counterparty
-- Journal-entry date, status, refund parent, and category
+- Journal-entry date, status, type, refund parent, and category
 - Posting entry and account
-- Session owner and expiry
+- Session owner, expiry, and token hash
 
-## 6. Current schema SQL snapshot
-
-The authoritative complete SQL snapshot is
-[`LIVE_SCHEMA.sql`](LIVE_SCHEMA.sql). The table definitions are reproduced
-below, followed by the index definitions. The linked file remains the complete
-schema snapshot.
-
-```sql
-PRAGMA foreign_keys = ON;
-
-CREATE TABLE user (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    email TEXT NOT NULL UNIQUE,
-    is_superuser INTEGER NOT NULL DEFAULT 0,
-    timezone TEXT,
-    home_currency_code TEXT,
-    ledger_mode TEXT NOT NULL DEFAULT 'DIRECT'
-        CHECK(ledger_mode IN ('STRICT','DIRECT')),
-    password_hash TEXT,
-    security_question_id INTEGER,
-    security_answer_hash TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-
-CREATE TABLE session (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    owner_id INTEGER NOT NULL REFERENCES user(id),
-    token_hash TEXT NOT NULL UNIQUE,
-    created_at TEXT NOT NULL,
-    expires_at TEXT NOT NULL
-);
-
-CREATE TABLE account (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    account_type TEXT NOT NULL CHECK(account_type IN
-        ('ASSET','LIABILITY','EXPENSE','INCOME','DUE','EQUITY')),
-    currency_code TEXT,
-    parent_account_id INTEGER REFERENCES account(id),
-    budget_limit INTEGER,
-    counterparty_user_id INTEGER REFERENCES user(id),
-    is_system INTEGER NOT NULL DEFAULT 0,
-    is_active INTEGER NOT NULL DEFAULT 1,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-
-CREATE TABLE journal_entry (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    description TEXT NOT NULL,
-    memo TEXT,
-    entry_type TEXT NOT NULL CHECK(entry_type IN
-        ('NORMAL','SPLIT','FRONTED','REFUND','TRANSFER',
-         'ADJUSTMENT','SETTLEMENT','REVERSAL')),
-    currency_code TEXT NOT NULL,
-    entry_date TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'POSTED'
-        CHECK(status IN ('POSTED','REVERSED')),
-    category_id INTEGER REFERENCES account(id),
-    reversal_of_id INTEGER REFERENCES journal_entry(id),
-    reversed_by_id INTEGER REFERENCES journal_entry(id),
-    refund_of_id INTEGER REFERENCES journal_entry(id),
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL
-);
-
-CREATE TABLE posting (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    journal_entry_id INTEGER NOT NULL REFERENCES journal_entry(id),
-    account_id INTEGER NOT NULL REFERENCES account(id),
-    debit_amount INTEGER NOT NULL DEFAULT 0 CHECK(debit_amount >= 0),
-    credit_amount INTEGER NOT NULL DEFAULT 0 CHECK(credit_amount >= 0),
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    CHECK (
-        (debit_amount > 0 AND credit_amount = 0)
-        OR
-        (credit_amount > 0 AND debit_amount = 0)
-    )
-);
-```
-
-The schema also creates the following indexes:
-
-```sql
-CREATE INDEX idx_account_counterparty ON account(counterparty_user_id);
-CREATE INDEX idx_account_parent ON account(parent_account_id);
-CREATE INDEX idx_account_type ON account(account_type);
-CREATE INDEX idx_entry_category ON journal_entry(category_id);
-CREATE INDEX idx_entry_date ON journal_entry(entry_date);
-CREATE INDEX idx_entry_refund_of ON journal_entry(refund_of_id);
-CREATE INDEX idx_entry_status ON journal_entry(status);
-CREATE INDEX idx_posting_account ON posting(account_id);
-CREATE INDEX idx_posting_entry ON posting(journal_entry_id);
-CREATE INDEX idx_session_expires ON session(expires_at);
-CREATE INDEX idx_session_owner ON session(owner_id);
-```
-
-## 7. Feature flows
+## 6. Feature flows
 
 ### Ordinary expense
 
@@ -511,7 +414,7 @@ asset or liability account.
 A transfer moves value between two owner accounts without affecting income or
 expense totals. It is recorded as a balanced `TRANSFER` entry.
 
-## 8. Edit and deletion policies
+## 7. Edit and deletion policies
 
 The owner setting `ledger_mode` controls future corrections:
 
@@ -536,7 +439,7 @@ participant relationship after settlement history exists. The API accepts
 `force` and `remove_settlements` query/body parameters for explicit override
 behavior.
 
-## 9. Validation and error handling
+## 8. Validation and error handling
 
 The application validates:
 
@@ -564,7 +467,7 @@ The per-request database connection (`presentation/api/deps.py::get_db`)
 rolls back automatically whenever a domain, money, value, or SQLite
 constraint error is raised while handling a request.
 
-## 10. API authentication
+## 9. API authentication
 
 The owner is bootstrapped through `POST /api/v0.5/setup/init`. Subsequent API
 logins use the owner's email and password. Sessions:
@@ -576,7 +479,7 @@ logins use the owner's email and password. Sessions:
 
 Passwords and security answers are stored as bcrypt hashes.
 
-## 11. Configuration
+## 10. Configuration
 
 ### Database
 
@@ -606,7 +509,7 @@ export MONETARY_ENABLE_DOCS=true      # force /docs, /redoc, /openapi.json on or
 `development`; `production` (the default) disables them unless
 `MONETARY_ENABLE_DOCS=true` is set explicitly.
 
-## 12. Project naming
+## 11. Project naming
 
 The product is **Monetary**.
 
@@ -615,42 +518,43 @@ The product is **Monetary**.
 | Display name | `Monetary` (configurable: `MONETARY_APP_NAME`) |
 | Python package | `monetary` |
 | API import path | `monetary.presentation.api.app:app` |
-| Application version | `0.5.0` |
+| Application version | `VERSION` in `backend/monetary/config.py` |
 | API route prefix | `/api/v0.5` |
 | Environment variables | `MONETARY_*` |
 | Default database path | `~/.monetary_0.5/monetary.db` |
 
-Runtime-facing values are read from `monetary/config.py` rather than duplicated
+Runtime-facing values are read from `backend/monetary/config.py` rather than duplicated
 throughout the implementation. The database directory name carries the schema
 generation: the schema has no migrations, so an incompatible release starts a
 fresh directory instead of opening an old database.
 
-## 13. Repository structure
+## 12. Repository structure
 
 ```text
 <repository-directory>/
-├── monetary/                 # backend package (FastAPI + SQLite)
-│   ├── config.py             # product identity + every environment variable
-│   ├── seed_defaults.json
-│   ├── domain/               # money, ledger invariants, enums, exceptions, hashing -- no DB or HTTP
-│   ├── application/          # services, posting strategies, edit policies
-│   │   ├── edit_policies/
-│   │   └── posting_strategies/
-│   ├── infrastructure/       # SQLite schema/connection, repositories, rate limiter
-│   └── presentation/
-│       └── api/              # FastAPI app, routers, schemas, error handling
-├── tests/                    # backend tests: unit / service / api
-├── web/           # React + TypeScript web app (self-contained npm project)
-├── docs/
-├── scripts/check.sh          # one-command backend validation
-├── .github/workflows/ci.yml
-├── .env.example              # backend configuration template
-├── pytest.ini  .coveragerc
-├── requirements.txt  requirements-dev.txt
+├── backend/                  # Python backend: everything needed to run and test the API
+│   ├── monetary/             # the package (FastAPI + SQLite)
+│   │   ├── config.py         # product identity + every environment variable
+│   │   ├── seed_defaults.json
+│   │   ├── domain/           # money, ledger invariants, enums, exceptions, hashing -- no DB or HTTP
+│   │   ├── application/      # services, posting strategies, edit policies
+│   │   │   ├── edit_policies/
+│   │   │   └── posting_strategies/
+│   │   ├── infrastructure/   # SQLite schema/connection, repositories, rate limiter
+│   │   └── presentation/
+│   │       └── api/          # FastAPI app, routers, schemas, error handling
+│   ├── tests/                # unit/ service/ infrastructure/ api/ deployment/ tooling/ (+ support/)
+│   ├── pyproject.toml        # ruff, pytest and coverage configuration
+│   ├── requirements.txt  requirements-dev.txt
+│   └── .env.example          # backend configuration template
+├── web/                      # React + TypeScript web app (self-contained npm project)
+├── docs/                     # API, architecture, SQLite schema (archive/ holds historical records)
+├── scripts/                  # dev.sh, check.sh, commit_lint.py
+├── .github/                  # workflows, release-please config, templates, CODEOWNERS
 └── README.md
 ```
 
-## 14. Related documentation
+## 13. Related documentation
 
 - [`README.md`](../README.md): installation and application startup
 - [`API.md`](API.md): API endpoints and authentication

@@ -54,4 +54,4 @@ to the backend's `MONETARY_CORS_ORIGINS`.
 | `npm run dev` / `build` / `preview` | Vite |
 | `npm run typecheck` / `lint` | `tsc -b --noEmit` / `oxlint` |
 | `npm test` | unit and UI tests with a stubbed `fetch` |
-| `npm run test:integration` | the real React app against a real uvicorn + temp SQLite (needs `pip install -r ../requirements.txt`) |
+| `npm run test:integration` | the real React app against a real uvicorn + temp SQLite (needs `pip install -r ../backend/requirements.txt`) |

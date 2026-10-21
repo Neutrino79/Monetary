@@ -48,7 +48,8 @@ node_modules/
 *.db-shm
 *.sqlite
 *.sqlite3
-data/
+/data/
+/backend/data/
 
 # Claude Code local-only settings (the shared .claude/settings.json IS tracked)
 .claude/settings.local.json

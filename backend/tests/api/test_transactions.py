@@ -1,6 +1,6 @@
 import pytest
 
-from tests.sample_data import DINNER, DINNER_POINTS, OPENING_BALANCE_POINTS
+from tests.support.sample_data import DINNER, DINNER_POINTS, OPENING_BALANCE_POINTS
 
 
 def test_expense_reduces_asset_and_posts_two_balanced_legs(world):

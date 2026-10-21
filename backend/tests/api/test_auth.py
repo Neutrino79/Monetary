@@ -2,7 +2,7 @@ import sqlite3
 
 import pytest
 
-from tests.sample_data import API, OWNER
+from tests.support.sample_data import API, OWNER
 
 
 def login(anon, email=OWNER["email"], password=OWNER["password"]):

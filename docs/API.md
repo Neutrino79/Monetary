@@ -9,7 +9,7 @@ settlements, reports) is available here.
 ## Run it
 
 ```bash
-cd <repository-directory>
+cd <repository-directory>/backend
 export PYTHONPATH="$PWD"
 uvicorn monetary.presentation.api.app:app --reload --port 8000
 ```
@@ -19,7 +19,7 @@ Interactive docs (Swagger UI): `http://localhost:8000/docs`. OpenAPI schema:
 generate a typed client for whatever UI framework you use. **Docs are
 disabled by default outside development** -- see Configuration below.
 
-Config via environment variables (see `monetary/config.py`):
+Config via environment variables (see `backend/monetary/config.py`):
 - `MONETARY_DB_PATH` -- SQLite file path (default `~/.monetary_0.5/monetary.db`)
 - `MONETARY_CORS_ORIGINS` -- comma-separated allowed browser origins (default:
   none allowed). `*` is accepted for a public API, but credentialed requests
@@ -30,7 +30,7 @@ Config via environment variables (see `monetary/config.py`):
 - `MONETARY_APP_NAME` / `MONETARY_APP_TAGLINE` -- the user-facing product name and tagline (default
   `Monetary` / `Personal expense ledger`), served publicly by `GET /meta`.
 - `MONETARY_SEED_DEFAULTS_PATH` -- optional JSON file replacing the default categories and income
-  sources created at first-run setup (the bundled default is `monetary/seed_defaults.json`).
+  sources created at first-run setup (the bundled default is `backend/monetary/seed_defaults.json`).
 
 ## Wire format
 
@@ -186,17 +186,7 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
 
 ## Testing
 
-`./scripts/check.sh` runs the full test suite (unit + service + API-level,
-~490 tests) plus coverage. The web app's end-to-end suite (`npm run test:integration` in
+`./scripts/check.sh` runs the full backend test suite (unit, service, infrastructure and API-level tests,
+plus deployment-config and tooling checks) with coverage. The web app's end-to-end suite (`npm run test:integration` in
 `web/`) boots this API on a throw-away database and drives it from the real React app.
-The shared sample dataset every test layer uses is `tests/sample_data.py`.
-
-## What stayed identical
-
-Every validation rule, every posting strategy, the `STRICT`/`DIRECT` edit-policy dispatch, the
-currency cross-checks, the transfer safety rails, the FIFO settlement labeling -- all unchanged,
-because none of it lives in the API layer. The flat `/transactions` layer only translates between the
-web app's one-row-per-transaction shape and the existing services. The routers only translate HTTP
-calls into application-service calls; the domain and application layers have no idea whether they're
-being called from a socket or (previously) a terminal, which is the entire point of having kept them
-separate from day one.
+The shared sample dataset every test layer uses is `backend/tests/support/sample_data.py`.

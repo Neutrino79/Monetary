@@ -19,7 +19,7 @@ async function waitForHealth(timeoutMs = 30_000) {
     }
     await new Promise((r) => setTimeout(r, 250))
   }
-  throw new Error('The Python backend did not become healthy in time (is `pip install -r requirements.txt` done at the repo root?)')
+  throw new Error('The Python backend did not become healthy in time (is `pip install -r backend/requirements.txt` done at the repo root?)')
 }
 
 async function assertPortFree() {
@@ -35,7 +35,7 @@ export default async function setup() {
   await assertPortFree()
   dir = mkdtempSync(join(tmpdir(), 'monetary-it-'))
   server = spawn(process.env.PYTHON ?? 'python3', ['-m', 'uvicorn', 'monetary.presentation.api.app:app', '--port', String(PORT), '--log-level', 'warning'], {
-    cwd: resolve(__dirname, '../../../..'), // repo root
+    cwd: resolve(__dirname, '../../../../backend'), // the backend package root
     env: {
       ...process.env,
       MONETARY_DB_PATH: join(dir, 'integration.db'),

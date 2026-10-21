@@ -27,8 +27,8 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements-dev.txt
-      - run: python -m pip install -r requirements-dev.txt
+          cache-dependency-path: backend/requirements-dev.txt
+      - run: python -m pip install -r backend/requirements-dev.txt
       # web-lint runs in the frontend job (it needs node_modules); no-commit-to-branch is for local use
       - run: pre-commit run --all-files --show-diff-on-failure
         env:
@@ -48,16 +48,18 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: pip
-          cache-dependency-path: requirements-dev.txt
-      - run: python -m pip install -r requirements-dev.txt
+          cache-dependency-path: backend/requirements-dev.txt
+      - run: python -m pip install -r backend/requirements-dev.txt
       - run: python -m compileall -q monetary
+        working-directory: backend
       # coverage gate: the suite is at ~97%; fail the build if it drops below 95%
       - run: python -m pytest tests -q --cov=monetary --cov-report=term-missing --cov-report=xml --cov-fail-under=95
+        working-directory: backend
       - if: matrix.python-version == '3.12'
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: backend-coverage
-          path: coverage.xml
+          path: backend/coverage.xml
           retention-days: 14
 
   frontend:
@@ -77,7 +79,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0   (the integration suite boots the real backend)
         with:
           python-version: "3.12"
-      - run: python -m pip install -r ../requirements.txt
+      - run: python -m pip install -r ../backend/requirements.txt
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
@@ -94,7 +96,7 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-      - run: python -m pip install pip-audit && pip-audit -r requirements.txt
+      - run: python -m pip install pip-audit && pip-audit -r backend/requirements.txt
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22

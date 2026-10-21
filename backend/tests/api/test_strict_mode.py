@@ -1,7 +1,7 @@
 """STRICT ledger mode: nothing posted is edited or deleted; corrections are reversals."""
 import pytest
 
-from tests.sample_data import OPENING_BALANCE_POINTS as OPEN
+from tests.support.sample_data import OPENING_BALANCE_POINTS as OPEN
 
 
 @pytest.fixture()

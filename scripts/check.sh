@@ -15,11 +15,14 @@ if [ ! -d .venv ]; then
 fi
 # shellcheck disable=SC1091
 source .venv/bin/activate
-export PYTHONPATH="$PWD"
 
 echo "==> Installing dependencies"
 pip install --quiet --upgrade pip
-pip install --quiet -r requirements-dev.txt
+pip install --quiet -r backend/requirements-dev.txt
+
+# the backend package, its tests and its pytest/coverage config live in backend/
+cd backend
+export PYTHONPATH="$PWD"
 
 echo "==> Byte-compiling every module (catches syntax errors fast)"
 python -m compileall -q monetary
