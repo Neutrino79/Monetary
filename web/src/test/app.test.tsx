@@ -57,7 +57,7 @@ const PAGES: [string, string | RegExp][] = [
   ['/expenses', 'Expenses'],
   ['/income', 'Income'],
   ['/transfers', 'Transfers'],
-  ['/splits', 'Splits'],
+  ['/shared', 'Shared'],
   ['/friends', 'Friends'],
   ['/accounts', 'Accounts'],
   ['/categories', 'Categories'],

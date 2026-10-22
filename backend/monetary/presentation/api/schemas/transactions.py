@@ -231,6 +231,7 @@ class TransactionOut(ApiModel):
     replaced_by: int | None = Field(description="STRICT mode: the entry that replaced this one")
     created_at: str
     updated_at: str
+    unpaid: MoneyOut | None = Field(default=None, description="Friend-fronted only: the part not repaid to the friend yet")
     group_key: str | None = Field(default=None, description="Only when listed with `groupBy`: the group this row is in")
 
 

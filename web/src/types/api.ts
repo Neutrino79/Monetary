@@ -85,6 +85,8 @@ export interface TransactionDto {
   replacedBy: number | null;
   createdAt: string;
   updatedAt: string;
+  /** Friend-fronted only: the part not repaid to the friend yet. */
+  unpaid: MoneyDto | null;
   /** Present only when listed with `groupBy`. */
   groupKey: string | null;
 }

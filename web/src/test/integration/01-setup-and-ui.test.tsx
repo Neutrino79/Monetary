@@ -75,7 +75,7 @@ describe('adding a transaction through the UI', () => {
     const dialog = await screen.findByRole('dialog')
     await user.type(within(dialog).getByLabelText('Description'), 'Coffee beans')
     await user.selectOptions(within(dialog).getByLabelText('Category'), within(dialog).getByRole('option', { name: /Groceries/ }))
-    await user.selectOptions(within(dialog).getByLabelText('Paid from'), await within(dialog).findByRole('option', { name: 'Main Bank' }))
+    await user.selectOptions(within(dialog).getByLabelText('Pay from'), await within(dialog).findByRole('option', { name: 'Main Bank' }))
     await user.type(within(dialog).getByPlaceholderText('0.00'), '12.50')
     await user.click(within(dialog).getByRole('button', { name: /Add|Save/ }))
 

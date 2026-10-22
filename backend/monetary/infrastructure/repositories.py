@@ -482,6 +482,20 @@ def friend_open_balance_accounts(conn) -> list[dict]:
     ).fetchall())
 
 
+def posted_fronted_entries(conn) -> list[dict]:
+    """Every POSTED friend-fronted entry with the amount credited to that friend's DUE account (what the
+    friend paid on the owner's behalf), oldest first."""
+    return _rows(conn.execute(
+        """SELECT je.id, je.entry_date, je.category_id, p.account_id AS due_account_id,
+                  a.counterparty_user_id AS friend_id, p.credit_amount AS amount
+           FROM journal_entry je
+           JOIN posting p ON p.journal_entry_id = je.id AND p.credit_amount > 0
+           JOIN account a ON a.id = p.account_id AND a.account_type = 'DUE'
+           WHERE je.entry_type = 'FRONTED' AND je.status = 'POSTED'
+           ORDER BY je.entry_date, je.id"""
+    ).fetchall())
+
+
 def due_account_increase_entries(conn, due_account_id, increase_column: str) -> list[dict]:
     """Every POSTED entry that increased what's owed in one direction on this DUE
     account (increase_column = 'debit_amount' means 'friend owes more';

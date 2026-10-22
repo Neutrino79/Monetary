@@ -19,6 +19,7 @@ which accounts the postings touch:
 
 from __future__ import annotations
 
+from monetary.application import statement_service
 from monetary.domain.time_utils import utc_iso_to_local_date
 from monetary.infrastructure import transaction_queries as q
 
@@ -89,10 +90,15 @@ def to_views(conn, owner: dict, entries: list[dict]) -> list[dict]:
         ).fetchall()
         cat_types = {r["id"]: r["account_type"] for r in rows}
 
+    unpaid: dict[int, int] = {}
+    if any(e["entry_type"] == "FRONTED" for e in entries):
+        unpaid = {f["entry_id"]: f["unpaid_points"] for f in statement_service.fronted_unpaid(conn)}
+
     tz = owner["timezone"]
     views = []
     for e in entries:
         v = _derive(e, postings.get(e["id"], []), cat_types.get(e["category_id"]))
+        v["unpaid_points"] = unpaid.get(e["id"]) if e["entry_type"] == "FRONTED" and e["status"] == "POSTED" else None
         v.update({
             "id": e["id"], "description": e["description"], "memo": e["memo"] or None,
             "date": utc_iso_to_local_date(e["entry_date"], tz), "currency": e["currency_code"],

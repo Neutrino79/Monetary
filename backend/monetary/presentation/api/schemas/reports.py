@@ -22,6 +22,7 @@ class BudgetStatusOut(ApiModel):
     remaining: MoneyOut
     percentage_used: float
     over_budget: bool
+    not_paid_back: MoneyOut  # friend-fronted spend this month that you have not repaid yet
 
 
 class CategoryChildTotalOut(ApiModel):

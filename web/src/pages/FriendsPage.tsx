@@ -3,21 +3,21 @@ import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, Mail, Phone, HandCoins, Pencil, Trash2 } from "lucide-react";
 import type { Friend } from "@/types";
 import { useFriendBalances, useFriends } from "@/hooks/queries";
-import { useCreateFriend, useUpdateFriend, useDeleteFriend, useSettleFriend } from "@/hooks/mutations";
+import { useCreateFriend, useUpdateFriend, useDeleteFriend } from "@/hooks/mutations";
 import { ApiError } from "@/lib/api/errors";
-import { useAccounts } from "@/hooks/queries";
+import { SettleForm } from "@/components/domain/SettleForm";
 import { useToast } from "@/components/ui/Toast";
 import { Card, Avatar, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
 import { Modal, ConfirmDialog } from "@/components/ui/Dialog";
-import { Input, Select, AmountInput, Textarea, FormField } from "@/components/ui/form";
+import { Input, FormField } from "@/components/ui/form";
 import { formatCurrency } from "@/lib/utils/format";
-import { today } from "@/lib/utils/clock";
 
 export function FriendsPage() {
   const { data: friends = [], isLoading } = useFriends();
   const { data: balances = [] } = useFriendBalances();
   const balanceOf = (id: number) => balances.find((b) => b.friendId === id)?.balance ?? 0;
+  const frontedUnpaidOf = (id: number) => balances.find((b) => b.friendId === id)?.frontedUnpaid ?? 0;
   const [search, setSearch] = useState("");
   const [addOpen, setAddOpen] = useState(false);
   const [editingFriend, setEditingFriend] = useState<Friend | null>(null);
@@ -77,6 +77,7 @@ export function FriendsPage() {
         <div className="grid grid-cols-3 gap-4 max-[1100px]:grid-cols-2 max-[640px]:grid-cols-1">
           {filtered.map((f) => {
             const bal = balanceOf(f.id); // computed by the backend; positive = they owe you
+            const pending = frontedUnpaidOf(f.id); // what they paid for you that you have not repaid
             return (
               <Card key={f.id} className="flex flex-col gap-3">
                 <div className="flex items-start justify-between gap-2">
@@ -107,10 +108,15 @@ export function FriendsPage() {
                 <div className="rounded-[10px] bg-paper-sunken p-3">
                   <div className="text-[11px] text-ink-faint">{bal === 0 ? "Settled up" : bal > 0 ? "Owes you" : "You owe"}</div>
                   <div className={`ledger-figure text-[18px] ${bal > 0 ? "text-accent" : bal < 0 ? "text-negative" : ""}`}>{formatCurrency(Math.abs(bal), true)}</div>
+                  {pending > 0 && (
+                    <div className="mt-1.5 inline-flex items-center rounded-full bg-info-soft px-2 py-0.5 text-[11.5px] font-semibold text-info">
+                      Paid for you, not paid back: {formatCurrency(pending, true)}
+                    </div>
+                  )}
                 </div>
 
-                <Button variant="secondary" size="sm" onClick={() => setSettlingFriend(f)} disabled={bal === 0}>
-                  <HandCoins size={14} /> Settle up
+                <Button variant={bal < 0 ? "primary" : "secondary"} size="sm" onClick={() => setSettlingFriend(f)} disabled={bal === 0}>
+                  <HandCoins size={14} /> {bal < 0 ? `Pay back ${formatCurrency(Math.abs(bal), true)}` : "Settle up"}
                 </Button>
               </Card>
             );
@@ -207,101 +213,6 @@ function FriendForm({ open, onOpenChange, editingFriend = null }: { open: boolea
         </FormField>
         <FormField label="Phone (optional)" error={errors.phone}>
           <Input value={phone ?? ""} onChange={(e) => setPhone(e.target.value)} placeholder="+91 …" />
-        </FormField>
-      </div>
-    </Modal>
-  );
-}
-
-function SettleForm({ friend, open, onOpenChange }: { friend: Friend | null; open: boolean; onOpenChange: (o: boolean) => void }) {
-  const { data: accounts = [] } = useAccounts();
-  const { data: balances = [] } = useFriendBalances();
-  const settle = useSettleFriend();
-  const toast = useToast();
-  const [accountId, setAccountId] = useState<number | "">("");
-  const [amount, setAmount] = useState("");
-  const [date, setDate] = useState(today());
-  const [memo, setMemo] = useState("");
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (!open) return;
-    setAccountId("");
-    setAmount("");
-    setDate(today());
-    setMemo("");
-    setErrors({});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, friend?.id]);
-
-  if (!friend) return null;
-  // the server derives (and verifies) the real direction from this balance; shown here for the user
-  const bal = balances.find((b) => b.friendId === friend.id)?.balance ?? 0;
-  const direction: "receive" | "pay" = bal > 0 ? "receive" : "pay";
-
-  async function submit() {
-    if (accountId === "") return setErrors({ account: "Select an account." });
-    const amt = Number(amount);
-    if (!(amt > 0)) return setErrors({ amount: "Enter an amount greater than 0." });
-    if (amt > Math.abs(bal)) return setErrors({ amount: `That's more than the ${formatCurrency(Math.abs(bal), true)} outstanding.` });
-    setSaving(true);
-    try {
-      await settle.mutateAsync({ friendId: friend!.id, accountId, amount: amt, direction, memo: memo.trim() || null, date });
-      toast.show("Settlement recorded.", { variant: "success" });
-      onOpenChange(false);
-      setAmount("");
-      setMemo("");
-      setAccountId("");
-      setErrors({});
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Something went wrong.";
-      if (ApiError.isApiError(e) && e.status < 500 && e.status !== 0) setErrors({ amount: message });
-      toast.show(message, { variant: "error" });
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Modal
-      open={open}
-      onOpenChange={onOpenChange}
-      title={`Settle up with ${friend.name}`}
-      subtitle={direction === "receive" ? `They owe you ${formatCurrency(Math.abs(bal), true)}` : `You owe them ${formatCurrency(Math.abs(bal), true)}`}
-      size="sm"
-      footer={
-        <>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={submit} disabled={saving}>
-            {saving ? "Recording…" : "Record settlement"}
-          </Button>
-        </>
-      }
-    >
-      <div className="flex flex-col gap-4">
-        <FormField label={direction === "receive" ? "Deposit to account" : "Pay from account"} error={errors.account}>
-          <Select value={accountId} onChange={(e) => setAccountId(e.target.value === "" ? "" : Number(e.target.value))}>
-            <option value="" disabled>
-              Select account…
-            </option>
-            {accounts.filter((a) => a.isActive).map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </Select>
-        </FormField>
-        <FormField label="Amount" error={errors.amount}>
-          <AmountInput value={amount} max={Math.abs(bal)} onChange={(e) => setAmount(e.target.value)} placeholder={Math.abs(bal).toFixed(2)} />
-        </FormField>
-        <FormField label="Date">
-          <Input type="date" max={today()} value={date} onChange={(e) => setDate(e.target.value)} />
-        </FormField>
-        <FormField label="Memo (optional)">
-          <Textarea rows={2} value={memo} onChange={(e) => setMemo(e.target.value)} />
         </FormField>
       </div>
     </Modal>

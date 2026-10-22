@@ -32,6 +32,7 @@ class FriendBalanceOut(ApiModel):
     friend_id: int
     friend_name: str
     balance: MoneyOut  # positive = they owe you; negative = you owe them
+    fronted_unpaid: MoneyOut  # what they paid for you that you have not repaid yet
 
 
 class StatementRowOut(ApiModel):

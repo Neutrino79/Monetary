@@ -83,6 +83,8 @@ export interface Transaction {
   /** STRICT mode: the entry this one replaced / the entry that replaced this one. */
   correctionOf?: Id;
   replacedBy?: Id;
+  /** Friend-fronted only: how much of it you have not repaid yet. */
+  unpaid?: number;
   /** Set only on rows listed with `groupBy`. */
   groupKey?: string;
 }
@@ -137,6 +139,8 @@ export interface BudgetStatus {
   remaining: number;
   percentageUsed: number;
   overBudget: boolean;
+  /** Friend-fronted spend this month that you have not repaid yet. */
+  notPaidBack: number;
 }
 
 export interface CategoryTotal {
@@ -151,6 +155,8 @@ export interface FriendBalance {
   friendName: string;
   /** positive = they owe you; negative = you owe them */
   balance: number;
+  /** What they paid for you that you have not repaid yet. */
+  frontedUnpaid: number;
 }
 
 export interface Dashboard {

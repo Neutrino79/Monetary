@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/form";
 import { LineChart, DonutChart } from "@/components/charts/charts";
 import { TxnIconChip, TxnAmount } from "@/components/domain/chips";
+import { BudgetBar } from "@/components/domain/BudgetBar";
 import { TransactionForm } from "@/components/domain/TransactionForm";
 import { TxnDetailDrawer } from "@/components/domain/TxnDetailDrawer";
 import { useCashflow, useDashboard, useSpending, useTransactions } from "@/hooks/queries";
@@ -173,18 +174,7 @@ export function DashboardPage() {
             {budgets.length ? (
               budgets.map((b) => (
                 <div key={b.categoryId} className="mb-3.5 last:mb-0">
-                  <div className="mb-1.5 flex justify-between text-[12.5px]">
-                    <span>{b.categoryName}</span>
-                    <span className={b.overBudget ? "text-negative" : "text-ink-soft"}>
-                      {formatCurrency(b.spent)} / {formatCurrency(b.budget)}
-                    </span>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-paper-sunken">
-                    <div
-                      className="h-full rounded-full"
-                      style={{ width: `${Math.min(100, b.percentageUsed)}%`, background: b.overBudget ? "var(--negative)" : b.percentageUsed > 80 ? "var(--warn)" : "var(--accent)" }}
-                    />
-                  </div>
+                  <BudgetBar b={b} />
                 </div>
               ))
             ) : (

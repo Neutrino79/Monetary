@@ -13,6 +13,7 @@ import { useToast } from "@/components/ui/Toast";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { today } from "@/lib/utils/clock";
 import { TransactionForm } from "./TransactionForm";
+import { SettleForm } from "./SettleForm";
 import { Landmark, Tag, Banknote, HandCoins, TrendingDown, Scale, SlidersHorizontal, Calendar, Edit, Check } from "lucide-react";
 
 function MetaRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: React.ReactNode }) {
@@ -55,6 +56,7 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);
+  const [payBackOpen, setPayBackOpen] = useState(false);
   /** Deleting a split friends have settled against needs an explicit OK. */
   const [forceDelete, setForceDelete] = useState<string | null>(null);
 
@@ -67,7 +69,7 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
   // Linked transactions, fetched by id / by link rather than filtered out of a full in-browser list.
   const related = [...(refundsQuery.data?.items ?? []), refundOf.data, correctionOf.data, replacedBy.data].filter((t): t is Transaction => !!t && t.id !== txn.id);
 
-  const editable = ["income", "expense", "transfer", "split"].includes(txn.type) && txn.status === "posted";
+  const editable = ["income", "expense", "transfer", "split", "fronted"].includes(txn.type) && txn.status === "posted";
 
   async function handleDelete(force = false) {
     if (!txn) return;
@@ -191,8 +193,18 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
             <div className="rounded-[10px] border border-line bg-paper-sunken px-4">
               <MetaRow icon={HandCoins} label="Paid by" value={friend?.name ?? "—"} />
               <MetaRow icon={Tag} label="Category" value={category?.name ?? "—"} />
-              <MetaRow icon={Banknote} label="You owe them" value={formatCurrency(txn.amount, true)} />
+              <MetaRow icon={Banknote} label="Your share (you owe them)" value={formatCurrency(txn.amount, true)} />
+              <MetaRow
+                icon={HandCoins}
+                label="Paid back"
+                value={txn.unpaid == null ? "—" : txn.unpaid === 0 ? "Yes, fully paid back" : `Not yet: ${formatCurrency(txn.unpaid, true)} still owed`}
+              />
             </div>
+            {txn.unpaid != null && txn.unpaid > 0 && friend && (
+              <Button className="mt-3" variant="secondary" onClick={() => setPayBackOpen(true)}>
+                Pay back {friend.name}
+              </Button>
+            )}
           </DetailSection>
         )}
 
@@ -312,6 +324,7 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
 
       {editable && <TransactionForm open={editOpen} onOpenChange={setEditOpen} editingTxn={txn} onSaved={() => onOpenChange(false)} />}
 
+      {txn.type === "fronted" && friend && <SettleForm friend={friend} open={payBackOpen} onOpenChange={setPayBackOpen} defaultAmount={txn.unpaid} />}
       {txn.type === "expense" && <RefundForm original={txn} open={refundOpen} onOpenChange={setRefundOpen} onDone={() => onOpenChange(false)} />}
     </>
   );
