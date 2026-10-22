@@ -13,8 +13,8 @@ interface BaseProps {
   footer?: ReactNode;
 }
 
-export function Modal({ open, onOpenChange, title, subtitle, children, footer, size = "md" }: BaseProps & { size?: "sm" | "md" | "lg" }) {
-  const sizeClass = { sm: "max-w-[400px]", md: "max-w-[560px]", lg: "max-w-[760px]" }[size];
+export function Modal({ open, onOpenChange, title, subtitle, children, footer, size = "md" }: BaseProps & { size?: "sm" | "md" | "lg" | "xl" }) {
+  const sizeClass = { sm: "max-w-[400px]", md: "max-w-[560px]", lg: "max-w-[760px]", xl: "max-w-[900px]" }[size];
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
