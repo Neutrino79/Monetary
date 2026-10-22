@@ -19,7 +19,10 @@ from monetary.presentation.api.schemas.transactions import (
     IncomeCreate,
     PostingOut,
     RefundCreate,
+    GroupTotalOut,
     TransactionCreate,
+    TransactionGroupOut,
+    TransactionGroupsOut,
     TransactionOut,
     TransactionPatch,
 )
@@ -115,6 +118,9 @@ def create_transaction(
     return transaction_out(flat.view_of(conn, owner, entry))
 
 
+_GROUP_BY = "^(date|month|category|account|type)$"
+
+
 @router.get("", response_model=Page[TransactionOut])
 def list_transactions(
     account_id: int | None = Query(default=None, alias="accountId"),
@@ -129,6 +135,9 @@ def list_transactions(
     date_to: str | None = Query(default=None, alias="dateTo", description="'YYYY-MM-DD', inclusive"),
     sort: str = Query(default="date", pattern="^(date|amount|description)$"),
     direction: str = Query(default="desc", pattern="^(asc|desc)$"),
+    group_by: str | None = Query(default=None, alias="groupBy", pattern=_GROUP_BY,
+                                 description="Cluster rows by group (date, month, category, account, type); "
+                                             "`sort`/`direction` then order rows inside each group"),
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
     conn: sqlite3.Connection = DB,
@@ -137,8 +146,37 @@ def list_transactions(
     views, total = flat.list_views(
         conn, owner, account_id=account_id, category_id=category_id, friend_id=friend_id, refund_of_id=refund_of_id, types=types,
         search=search, status=status, date_from=date_from, date_to=date_to, sort=sort,
-        direction=direction, limit=limit, offset=offset)
+        direction=direction, limit=limit, offset=offset, group_by=group_by)
     return Page(items=[transaction_out(v) for v in views], total=total, limit=limit, offset=offset)
+
+
+@router.get("/groups", response_model=TransactionGroupsOut)
+def list_transaction_groups(
+    group_by: str = Query(alias="groupBy", pattern=_GROUP_BY),
+    account_id: int | None = Query(default=None, alias="accountId"),
+    category_id: int | None = Query(default=None, alias="categoryId",
+                                    description="Includes the category's subcategories"),
+    friend_id: int | None = Query(default=None, alias="friendId"),
+    types: list[str] | None = Query(default=None, alias="type", description="Repeatable"),
+    search: str | None = Query(default=None, description="Matches description or memo"),
+    status: str = Query(default="posted", pattern="^(posted|reversed|all)$"),
+    date_from: str | None = Query(default=None, alias="dateFrom", description="'YYYY-MM-DD', inclusive"),
+    date_to: str | None = Query(default=None, alias="dateTo", description="'YYYY-MM-DD', inclusive"),
+    direction: str = Query(default="desc", pattern="^(asc|desc)$", description="Order of date/month groups"),
+    conn: sqlite3.Connection = DB,
+    owner: dict = Depends(get_current_owner),
+):
+    """Header data for a grouped list: the same filters as `GET /transactions`, one entry per group with its
+    count and money in/out per currency. Group order matches the list's row order."""
+    groups = flat.group_summaries(
+        conn, owner, group_by=group_by, direction=direction, account_id=account_id, category_id=category_id,
+        friend_id=friend_id, types=types, search=search, status=status, date_from=date_from, date_to=date_to)
+    return TransactionGroupsOut(group_by=group_by, groups=[
+        TransactionGroupOut(key=g["key"], label=g["label"], count=g["count"], totals=[
+            GroupTotalOut(currency=t["currency"], money_in=money_out(t["in_points"], t["currency"]),
+                          money_out=money_out(t["out_points"], t["currency"]))
+            for t in g["totals"]])
+        for g in groups])
 
 
 @router.get("/{entry_id}", response_model=TransactionOut)

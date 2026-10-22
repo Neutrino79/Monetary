@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from monetary.domain.time_utils import utc_iso_to_local_date
+
 # Flat type of an entry. NORMAL entries are expense or income depending on the
 # category they were booked against; every other entry type maps 1:1.
 FLAT_TYPE_SQL = (
@@ -24,9 +26,41 @@ _SORTS = {
 }
 
 
-def search_entries(conn, *, account_id=None, category_ids=None, friend_id=None, refund_of_id=None, flat_types=None,
-                   search=None, status="posted", date_from=None, date_to_exclusive=None,
-                   sort="date", direction="desc", limit=50, offset=0) -> tuple[list[dict], int]:
+# The real (asset/liability) account a flat row is shown against: the debited-from leg of a transfer,
+# otherwise the first real leg -- the same choice transaction_view._derive makes.
+GROUP_ACCOUNT_ID_SQL = (
+    "(SELECT p.account_id FROM posting p JOIN account a ON a.id = p.account_id "
+    "WHERE p.journal_entry_id = je.id AND a.account_type IN ('ASSET','LIABILITY') "
+    "AND (je.entry_type != 'TRANSFER' OR p.credit_amount > 0) ORDER BY p.id LIMIT 1)"
+)
+GROUP_BYS = ("date", "month", "category", "account", "type")
+
+
+def _group_sql(group_by: str) -> tuple[str, str, str]:
+    """(key, label, order) SQL for a grouping. Dates group on the owner's *local* day, which SQLite
+    cannot compute, so the `local_day(entry_date)` function registered by `_register_local_day` is used."""
+    if group_by == "date":
+        return "local_day(je.entry_date)", "local_day(je.entry_date)", "{k}"
+    if group_by == "month":
+        return "substr(local_day(je.entry_date), 1, 7)", "substr(local_day(je.entry_date), 1, 7)", "{k}"
+    if group_by == "category":
+        return ("COALESCE(CAST(je.category_id AS TEXT), '')", "COALESCE(c.name, 'No category')",
+                "LOWER({l}), {k}")
+    if group_by == "type":
+        return FLAT_TYPE_SQL, FLAT_TYPE_SQL, "{k}"
+    if group_by == "account":
+        return (f"COALESCE(CAST({GROUP_ACCOUNT_ID_SQL} AS TEXT), '')",
+                f"COALESCE((SELECT name FROM account WHERE id = {GROUP_ACCOUNT_ID_SQL}), 'No account')",
+                "LOWER({l}), {k}")
+    raise ValueError(f"unknown group_by {group_by!r}")
+
+
+def _register_local_day(conn, tz_name: str | None) -> None:
+    conn.create_function("local_day", 1, lambda iso: utc_iso_to_local_date(iso, tz_name), deterministic=True)
+
+
+def _where(*, account_id, category_ids, friend_id, refund_of_id, flat_types, search, status,
+           date_from, date_to_exclusive) -> tuple[list[str], list[Any]]:
     where = ["je.entry_type != 'REVERSAL'"]
     params: list[Any] = []
     if status == "posted":
@@ -59,13 +93,57 @@ def search_entries(conn, *, account_id=None, category_ids=None, friend_id=None, 
         where.append("(je.description LIKE ? OR je.memo LIKE ?)")
         like = f"%{search}%"
         params.extend([like, like])
+    return where, params
 
-    base = "FROM journal_entry je LEFT JOIN account c ON c.id = je.category_id WHERE " + " AND ".join(where)
+
+_FROM = "FROM journal_entry je LEFT JOIN account c ON c.id = je.category_id WHERE "
+
+
+def search_entries(conn, *, account_id=None, category_ids=None, friend_id=None, refund_of_id=None, flat_types=None,
+                   search=None, status="posted", date_from=None, date_to_exclusive=None,
+                   sort="date", direction="desc", limit=50, offset=0,
+                   group_by=None, tz_name=None) -> tuple[list[dict], int]:
+    """With `group_by`, rows come back clustered by group (so a group is contiguous across pages) and
+    each carries `group_key`; `sort`/`direction` then order the rows inside a group."""
+    where, params = _where(
+        account_id=account_id, category_ids=category_ids, friend_id=friend_id, refund_of_id=refund_of_id,
+        flat_types=flat_types, search=search, status=status, date_from=date_from, date_to_exclusive=date_to_exclusive)
+    base = _FROM + " AND ".join(where)
     total = conn.execute(f"SELECT COUNT(*) AS n {base}", params).fetchone()["n"]
     order = _SORTS[sort].format(d="ASC" if direction == "asc" else "DESC")
-    rows = conn.execute(f"SELECT je.* {base} ORDER BY {order} LIMIT ? OFFSET ?",
+    select = "je.*"
+    if group_by:
+        _register_local_day(conn, tz_name)
+        key, label, group_order = _group_sql(group_by)
+        # date/month groups follow the sort direction (newest first by default); the rest are alphabetical
+        group_order = group_order.format(k="group_key", l="group_label")     # by alias: ORDER BY can't nest je refs
+        if group_by in ("date", "month"):
+            group_order += " ASC" if direction == "asc" else " DESC"
+        select = f"je.*, {key} AS group_key, {label} AS group_label"
+        order = f"{group_order}, {order}"
+    rows = conn.execute(f"SELECT {select} {base} ORDER BY {order} LIMIT ? OFFSET ?",
                         [*params, limit, offset]).fetchall()
     return [dict(r) for r in rows], total
+
+
+def group_summary(conn, *, group_by, tz_name, account_id=None, category_ids=None, friend_id=None,
+                  refund_of_id=None, flat_types=None, search=None, status="posted", date_from=None,
+                  date_to_exclusive=None, direction="desc") -> list[dict]:
+    """One row per group and currency: key, label, count and the money in/out (income+refund vs expenses)."""
+    where, params = _where(
+        account_id=account_id, category_ids=category_ids, friend_id=friend_id, refund_of_id=refund_of_id,
+        flat_types=flat_types, search=search, status=status, date_from=date_from, date_to_exclusive=date_to_exclusive)
+    _register_local_day(conn, tz_name)
+    key, label, group_order = _group_sql(group_by)
+    group_order = group_order.format(k="group_key", l="group_label")
+    if group_by in ("date", "month"):
+        group_order += " ASC" if direction == "asc" else " DESC"
+    ftype = FLAT_TYPE_SQL
+    sql = (f"SELECT {key} AS group_key, {label} AS group_label, je.currency_code AS currency, COUNT(*) AS n, "
+           f"COALESCE(SUM(CASE WHEN {ftype} IN ('income','refund') THEN {AMOUNT_SQL} END), 0) AS in_points, "
+           f"COALESCE(SUM(CASE WHEN {ftype} = 'expense' THEN {AMOUNT_SQL} END), 0) AS out_points "
+           f"{_FROM}{' AND '.join(where)} GROUP BY group_key, je.currency_code ORDER BY {group_order}, currency")
+    return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
 
 def postings_with_accounts(conn, entry_ids: list[int]) -> dict[int, list[dict]]:

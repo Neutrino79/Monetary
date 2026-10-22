@@ -39,6 +39,7 @@ def transaction_out(view: dict):
                 if view["splits"] is not None else None),
         refund_of_id=view["refund_of_id"], correction_of=view["correction_of"],
         replaced_by=view["replaced_by"], created_at=view["created_at"], updated_at=view["updated_at"],
+        group_key=view.get("group_key"),
     )
 
 
