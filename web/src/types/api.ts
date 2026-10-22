@@ -85,6 +85,22 @@ export interface TransactionDto {
   replacedBy: number | null;
   createdAt: string;
   updatedAt: string;
+  /** Present only when listed with `groupBy`. */
+  groupKey: string | null;
+}
+
+export type TransactionGroupBy = "date" | "month" | "category" | "account" | "type";
+
+export interface TransactionGroupDto {
+  key: string;
+  label: string;
+  count: number;
+  totals: { currency: string; moneyIn: MoneyDto; moneyOut: MoneyDto }[];
+}
+
+export interface TransactionGroupsDto {
+  groupBy: TransactionGroupBy;
+  groups: TransactionGroupDto[];
 }
 
 // -------------------------------------------------------------- requests
@@ -165,6 +181,8 @@ export interface TransactionFilters {
   sort?: "date" | "amount" | "description";
   direction?: "asc" | "desc";
   status?: "posted" | "reversed" | "all";
+  /** Cluster rows by group; rows then carry `groupKey`. */
+  groupBy?: TransactionGroupBy;
   limit?: number;
   offset?: number;
 }

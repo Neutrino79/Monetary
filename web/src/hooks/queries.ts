@@ -23,6 +23,7 @@ export const qk = {
   friends: ["friends"] as const,
   friendBalances: ["friends", "balances"] as const,
   transactions: (f: TransactionFilters) => ["transactions", f] as const,
+  transactionGroups: (f: TransactionFilters) => ["transactions", "groups", f] as const,
   transaction: (id: Id) => ["transaction", id] as const,
   dashboard: (month?: string) => ["reports", "dashboard", month ?? "current"] as const,
   cashflow: (months: number) => ["reports", "cashflow", months] as const,
@@ -75,6 +76,15 @@ export function useTransactions(filters: TransactionFilters = {}, enabled = true
   return useQuery({
     queryKey: qk.transactions(filters), queryFn: () => transactionsService.list(filters),
     placeholderData: keepPreviousData, enabled,
+  });
+}
+
+/** Group headers for a grouped list (pass the same filters as `useTransactions`). */
+export function useTransactionGroups(filters: TransactionFilters & { groupBy?: NonNullable<TransactionFilters["groupBy"]> }, enabled = true) {
+  const { groupBy } = filters;
+  return useQuery({
+    queryKey: qk.transactionGroups(filters), enabled: enabled && !!groupBy, placeholderData: keepPreviousData,
+    queryFn: () => transactionsService.groups({ ...filters, groupBy: groupBy! }),
   });
 }
 

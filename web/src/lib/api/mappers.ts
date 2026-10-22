@@ -6,9 +6,9 @@
  * remains the authority for every calculation.
  */
 import type {
-  Account, BudgetStatus, CashflowPoint, Category, CategoryTotal, Dashboard, Friend, FriendBalance, Page, Transaction, User,
+  Account, BudgetStatus, CashflowPoint, Category, CategoryTotal, Dashboard, Friend, FriendBalance, Page, Transaction, TransactionGroup, User,
 } from "@/types";
-import type { AccountDto, CategoryDto, FriendDto, MoneyDto, OwnerDto, PageDto, TransactionDto } from "@/types/api";
+import type { AccountDto, CategoryDto, FriendDto, MoneyDto, OwnerDto, PageDto, TransactionDto, TransactionGroupDto } from "@/types/api";
 import { colorForId } from "@/lib/utils/entityVisuals";
 import { initialsOf } from "@/lib/utils/format";
 
@@ -55,6 +55,14 @@ export function toTransaction(t: TransactionDto): Transaction {
     yourShare: t.yourShare ? fromMoney(t.yourShare) : undefined,
     splits: t.splits?.map((s) => ({ friendId: s.friendId, share: fromMoney(s.share) })),
     refundOfId: undef(t.refundOfId), correctionOf: undef(t.correctionOf), replacedBy: undef(t.replacedBy),
+    groupKey: undef(t.groupKey),
+  };
+}
+
+export function toTransactionGroup(g: TransactionGroupDto): TransactionGroup {
+  return {
+    key: g.key, label: g.label, count: g.count,
+    totals: g.totals.map((t) => ({ currency: t.currency, moneyIn: fromMoney(t.moneyIn), moneyOut: fromMoney(t.moneyOut) })),
   };
 }
 

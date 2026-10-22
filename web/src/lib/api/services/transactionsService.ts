@@ -1,9 +1,9 @@
-import type { Id, Page, Transaction } from "@/types";
+import type { Id, Page, Transaction, TransactionGroup } from "@/types";
 import type {
-  NewTransactionInput, PageDto, SettlementInput, TransactionDto, TransactionFilters, TransactionPatch, TransactionWriteOptions,
+  NewTransactionInput, PageDto, SettlementInput, TransactionDto, TransactionFilters, TransactionGroupsDto, TransactionPatch, TransactionWriteOptions,
 } from "@/types/api";
 import { http } from "@/lib/api/http";
-import { toMajor, toPage, toTransaction } from "@/lib/api/mappers";
+import { toMajor, toPage, toTransaction, toTransactionGroup } from "@/lib/api/mappers";
 
 function body(input: Partial<NewTransactionInput>) {
   const { amount, yourShare, splits, ...rest } = input;
@@ -20,6 +20,13 @@ export const transactionsService = {
   async list(filters: TransactionFilters = {}): Promise<Page<Transaction>> {
     const page = await http.get<PageDto<TransactionDto>>("/transactions", { ...filters });
     return toPage(page, toTransaction);
+  },
+
+  /** Header data (count, money in/out) for each group of a grouped list; same filters as `list`. */
+  async groups(filters: TransactionFilters & { groupBy: NonNullable<TransactionFilters["groupBy"]> }): Promise<TransactionGroup[]> {
+    const { limit: _l, offset: _o, sort: _s, ...rest } = filters;
+    const res = await http.get<TransactionGroupsDto>("/transactions/groups", { ...rest });
+    return res.groups.map(toTransactionGroup);
   },
 
   async get(id: Id): Promise<Transaction> {

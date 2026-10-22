@@ -83,6 +83,16 @@ export interface Transaction {
   /** STRICT mode: the entry this one replaced / the entry that replaced this one. */
   correctionOf?: Id;
   replacedBy?: Id;
+  /** Set only on rows listed with `groupBy`. */
+  groupKey?: string;
+}
+
+/** A group header of a grouped transaction list. Totals are per currency. */
+export interface TransactionGroup {
+  key: string;
+  label: string;
+  count: number;
+  totals: { currency: string; moneyIn: number; moneyOut: number }[];
 }
 
 export type LedgerMode = "STRICT" | "DIRECT";

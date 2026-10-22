@@ -1,3 +1,4 @@
+import { ListToolbar } from "@/components/list/ListToolbar";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, Pencil, Archive, ArchiveRestore } from "lucide-react";
 import type { Account, AccountSubtype, AccountType } from "@/types";
@@ -85,10 +86,7 @@ export function AccountsPage() {
         </Button>
       </div>
 
-      <div className="mb-5 flex items-center gap-2 rounded-[10px] bg-paper-raised border border-line px-3 py-2 max-w-sm">
-        <Search size={15} className="text-ink-faint" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search accounts…" className="flex-1 bg-transparent text-[13.3px] outline-none" />
-      </div>
+      <ListToolbar search={{ value: search, onChange: setSearch, placeholder: "Search accounts…" }} />
 
       {active.length === 0 && archived.length === 0 ? (
         <Card>

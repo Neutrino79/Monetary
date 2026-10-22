@@ -55,7 +55,7 @@ describe('money mapping', () => {
       id: 7, type: 'split', description: 'Dinner', memo: null, date: '2026-03-10', currency: 'INR', status: 'posted',
       amount: money(50000), accountId: 1, toAccountId: null, categoryId: 4, friendId: null, direction: null,
       yourShare: money(15000), splits: [{ friendId: 9, share: money(35000) }], refundOfId: null, correctionOf: null,
-      replacedBy: 12, createdAt: 'x', updatedAt: 'y',
+      replacedBy: 12, createdAt: 'x', updatedAt: 'y', groupKey: null,
     }
     const t = toTransaction(dto)
     expect(t).toMatchObject({ id: 7, amount: 500, yourShare: 150, splits: [{ friendId: 9, share: 350 }], replacedBy: 12, memo: null })
