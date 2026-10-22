@@ -44,7 +44,7 @@ export const NAV_SECTIONS: NavSection[] = [
   {
     section: "Shared",
     items: [
-      { path: "/splits", label: "Splits", icon: Users },
+      { path: "/shared", label: "Shared", icon: Users },
       { path: "/friends", label: "Friends", icon: User },
     ],
   },

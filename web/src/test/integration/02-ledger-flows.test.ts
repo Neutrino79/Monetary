@@ -223,6 +223,31 @@ describe('categories, income sources and friends', () => {
   })
 })
 
+describe('friend-paid (fronted) expenses', () => {
+  it('counts as spending at once, touches no account, and tracks what is still unpaid', async () => {
+    const dev = await friendsService.create({ name: 'Dev', email: 'dev@example.com' })
+    const bankBefore = await bal(bank.id)
+    const fronted = await transactionsService.create({
+      type: 'fronted', description: 'Dinner (Dev paid)', date: D, amount: 100, categoryId: groceries, friendId: dev.id,
+    })
+    expect(fronted).toMatchObject({ type: 'fronted', friendId: dev.id, amount: 100, unpaid: 100 })
+    expect(fronted.accountId).toBeUndefined()
+    expect(await bal(bank.id)).toBe(bankBefore) // Dev paid, so none of your accounts moves
+
+    const owed = (await friendsService.balances()).find((b) => b.friendId === dev.id)!
+    expect(owed).toMatchObject({ balance: -100, frontedUnpaid: 100 })
+
+    // paying back 40 leaves 60 of that expense unpaid; the repayment is not spending again
+    await transactionsService.settle({ friendId: dev.id, accountId: bank.id, amount: 40, direction: 'pay', date: D })
+    expect((await transactionsService.get(fronted.id)).unpaid).toBe(60)
+    expect((await friendsService.balances()).find((b) => b.friendId === dev.id)).toMatchObject({ balance: -60, frontedUnpaid: 60 })
+    expect(await bal(bank.id)).toBe(bankBefore - 40)
+
+    await transactionsService.settle({ friendId: dev.id, accountId: bank.id, amount: 60, direction: 'pay', date: D })
+    expect((await transactionsService.get(fronted.id)).unpaid).toBe(0)
+  })
+})
+
 describe('sessions', () => {
   it('a session revoked on the server logs the app out on the next call', async () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(true)

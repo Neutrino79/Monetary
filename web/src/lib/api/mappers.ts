@@ -55,6 +55,7 @@ export function toTransaction(t: TransactionDto): Transaction {
     yourShare: t.yourShare ? fromMoney(t.yourShare) : undefined,
     splits: t.splits?.map((s) => ({ friendId: s.friendId, share: fromMoney(s.share) })),
     refundOfId: undef(t.refundOfId), correctionOf: undef(t.correctionOf), replacedBy: undef(t.replacedBy),
+    unpaid: t.unpaid ? fromMoney(t.unpaid) : undefined,
     groupKey: undef(t.groupKey),
   };
 }
@@ -71,9 +72,9 @@ export function toPage<D, T>(page: PageDto<D>, map: (d: D) => T): Page<T> {
 }
 
 // ----------------------------------------------------------------- reports
-interface BudgetDto { categoryId: number; categoryName: string; budget: MoneyDto; spent: MoneyDto; remaining: MoneyDto; percentageUsed: number; overBudget: boolean }
+interface BudgetDto { categoryId: number; categoryName: string; budget: MoneyDto; spent: MoneyDto; remaining: MoneyDto; percentageUsed: number; overBudget: boolean; notPaidBack: MoneyDto }
 interface CategoryTotalDto { categoryId: number; categoryName: string; total: MoneyDto; children: { categoryId: number; categoryName: string; total: MoneyDto }[] }
-interface FriendBalanceDto { friendId: number; friendName: string; balance: MoneyDto }
+interface FriendBalanceDto { friendId: number; friendName: string; balance: MoneyDto; frontedUnpaid: MoneyDto }
 interface NetWorthDto { currency: string; assets: MoneyDto; liabilities: MoneyDto; netWorth: MoneyDto }
 interface SummaryDto { currency: string; income: MoneyDto; expense: MoneyDto; savings: MoneyDto }
 interface FriendTotalsDto { currency: string; owedToYou: MoneyDto; youOwe: MoneyDto }
@@ -85,6 +86,7 @@ export interface DashboardDto {
 export const toBudget = (b: BudgetDto): BudgetStatus => ({
   categoryId: b.categoryId, categoryName: b.categoryName, budget: fromMoney(b.budget), spent: fromMoney(b.spent),
   remaining: fromMoney(b.remaining), percentageUsed: b.percentageUsed, overBudget: b.overBudget,
+  notPaidBack: fromMoney(b.notPaidBack),
 });
 
 export const toCategoryTotal = (c: CategoryTotalDto): CategoryTotal => ({
@@ -93,7 +95,7 @@ export const toCategoryTotal = (c: CategoryTotalDto): CategoryTotal => ({
 });
 
 export const toFriendBalance = (f: FriendBalanceDto): FriendBalance => ({
-  friendId: f.friendId, friendName: f.friendName, balance: fromMoney(f.balance),
+  friendId: f.friendId, friendName: f.friendName, balance: fromMoney(f.balance), frontedUnpaid: fromMoney(f.frontedUnpaid),
 });
 
 /** Reports are per currency; the app is single-currency, so pick the owner's home currency (first bucket as a fallback). */

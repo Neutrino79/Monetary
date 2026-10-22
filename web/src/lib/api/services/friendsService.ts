@@ -23,7 +23,7 @@ export const friendsService = {
 
   /** Positive = they owe you; negative = you owe them. Computed by the backend. */
   async balances(): Promise<FriendBalance[]> {
-    const rows = await http.get<{ friendId: number; friendName: string; balance: { points: number; major: string; currency: string } }[]>("/friends/balances");
+    const rows = await http.get<Parameters<typeof toFriendBalance>[0][]>("/friends/balances");
     return rows.map(toFriendBalance);
   },
 };

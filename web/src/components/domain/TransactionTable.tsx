@@ -60,6 +60,7 @@ export function TransactionTable({
   emptyTitle = "No transactions found",
   emptyDescription = "Try adjusting your filters, or add a new transaction.",
   pageSize = 12,
+  headerExtra,
 }: {
   allowedTypes: TransactionType[];
   title: string;
@@ -72,6 +73,8 @@ export function TransactionTable({
   emptyTitle?: string;
   emptyDescription?: string;
   pageSize?: number;
+  /** Page-specific controls shown between the title and the toolbar (e.g. Shared's "Paid by"). */
+  headerExtra?: React.ReactNode;
 }) {
   const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
@@ -124,6 +127,10 @@ export function TransactionTable({
   useEffect(() => {
     if (query.data && page > totalPages) setPage(totalPages);
   }, [query.data, page, totalPages]);
+
+  // a different set of allowed types (e.g. Shared's "Paid by") starts again from page 1
+  const typesKey = allowedTypes.join(",");
+  useEffect(() => setPage(1), [typesKey]);
 
   function updateFilter<K extends keyof FilterState>(key: K, value: FilterState[K]) {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -185,9 +192,11 @@ export function TransactionTable({
           <p className="mt-1 text-[13.5px] text-ink-soft">{description}</p>
         </div>
         <Button onClick={() => setAddOpen(true)}>
-          <Plus size={15} /> Add {title === "Transactions" ? "transaction" : addType}
+          <Plus size={15} /> Add {title === "Transactions" ? "transaction" : addType === "fronted" ? "friend-paid expense" : addType}
         </Button>
       </div>
+
+      {headerExtra}
 
       <ListToolbar
         search={{ value: filters.search, onChange: (v) => updateFilter("search", v), placeholder: "Search description or memo" }}

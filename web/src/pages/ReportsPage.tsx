@@ -1,3 +1,4 @@
+import { BudgetBar } from "@/components/domain/BudgetBar";
 import { useState } from "react";
 import { Card } from "@/components/ui/primitives";
 import { Tabs, TabPanel } from "@/components/ui/Tabs";
@@ -130,18 +131,7 @@ export function ReportsPage() {
             {budgets.length ? (
               budgets.map((b) => (
                 <div key={b.categoryId} className="mb-4 last:mb-0">
-                  <div className="mb-1.5 flex justify-between text-[13px]">
-                    <span className="font-medium">{b.categoryName}</span>
-                    <span className={b.overBudget ? "text-negative" : "text-ink-soft"}>
-                      {formatCurrency(b.spent)} / {formatCurrency(b.budget)} ({Math.round(b.percentageUsed)}%)
-                    </span>
-                  </div>
-                  <div className="h-2.5 overflow-hidden rounded-full bg-paper-sunken">
-                    <div
-                      className="h-full rounded-full transition-[width]"
-                      style={{ width: `${Math.min(100, b.percentageUsed)}%`, background: b.overBudget ? "var(--negative)" : b.percentageUsed > 80 ? "var(--warn)" : "var(--accent)" }}
-                    />
-                  </div>
+                  <BudgetBar b={b} showPercent large />
                 </div>
               ))
             ) : (

@@ -1,17 +1,32 @@
-import { Users } from "lucide-react";
+import { useState } from "react";
+import { HandCoins, Users } from "lucide-react";
+import type { Friend, TransactionType } from "@/types";
 import { Card, Avatar, EmptyState } from "@/components/ui/primitives";
+import { Button } from "@/components/ui/Button";
 import { useFriendBalances } from "@/hooks/queries";
 import { useLookups } from "@/hooks/useLookups";
 import { formatCurrency } from "@/lib/utils/format";
+import { cn } from "@/lib/utils/cn";
 import { TransactionTable } from "@/components/domain/TransactionTable";
+import { SettleForm } from "@/components/domain/SettleForm";
 
-export function SplitsPage() {
+type PaidBy = "all" | "me" | "friend";
+const PAID_BY: { value: PaidBy; label: string; types: TransactionType[] }[] = [
+  { value: "all", label: "All", types: ["split", "fronted"] },
+  { value: "me", label: "You paid", types: ["split"] },
+  { value: "friend", label: "Friend paid", types: ["fronted"] },
+];
+
+/** Everything shared with friends: bills you split, and expenses a friend paid for you. */
+export function SharedPage() {
   const { data: friendBalances = [] } = useFriendBalances();
   const lookups = useLookups();
+  const [paidBy, setPaidBy] = useState<PaidBy>("all");
+  const [settling, setSettling] = useState<Friend | null>(null);
   // Balances are computed by the backend (running per-friend statement); only non-zero ones are listed.
   const balances = friendBalances
     .filter((b) => b.balance !== 0)
-    .map((b) => ({ friend: lookups.getFriend(b.friendId), name: b.friendName, bal: b.balance, id: b.friendId }))
+    .map((b) => ({ friend: lookups.getFriend(b.friendId), name: b.friendName, bal: b.balance, pending: b.frontedUnpaid, id: b.friendId }))
     .sort((a, b) => Math.abs(b.bal) - Math.abs(a.bal));
 
   return (
@@ -20,13 +35,25 @@ export function SplitsPage() {
         <div className="mb-3 text-[14.5px] font-semibold">Who owes what</div>
         {balances.length ? (
           <div className="flex flex-wrap gap-3">
-            {balances.map(({ friend, name, bal, id }) => (
-              <div key={id} className="flex min-w-50 flex-1 items-center gap-3 rounded-[10px] border border-line p-3">
-                <Avatar name={name} color={friend?.color ?? "#5A5A5A"} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13.3px] font-semibold">{name}</div>
-                  <div className={`text-[12px] ${bal > 0 ? "text-accent" : "text-negative"}`}>{bal > 0 ? "owes you" : "you owe"} {formatCurrency(Math.abs(bal), true)}</div>
+            {balances.map(({ friend, name, bal, pending, id }) => (
+              <div key={id} className="flex min-w-60 flex-1 flex-col gap-2.5 rounded-[10px] border border-line p-3">
+                <div className="flex items-center gap-3">
+                  <Avatar name={name} color={friend?.color ?? "#5A5A5A"} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[13.3px] font-semibold">{name}</div>
+                    <div className={`text-[12px] ${bal > 0 ? "text-accent" : "text-negative"}`}>{bal > 0 ? "owes you" : "you owe"} {formatCurrency(Math.abs(bal), true)}</div>
+                  </div>
+                  {friend && (
+                    <Button size="sm" variant={bal < 0 ? "primary" : "secondary"} onClick={() => setSettling(friend)}>
+                      <HandCoins size={14} /> {bal < 0 ? "Pay back" : "Settle up"}
+                    </Button>
+                  )}
                 </div>
+                {pending > 0 && (
+                  <div className="rounded-full bg-info-soft px-2.5 py-1 text-[11.5px] font-semibold text-info">
+                    Paid for you, not paid back: {formatCurrency(pending, true)}
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -36,15 +63,38 @@ export function SplitsPage() {
       </Card>
 
       <TransactionTable
-        allowedTypes={["split"]}
-        title="Splits"
-        description="Shared bills — your share, and what each friend owes toward it."
+        allowedTypes={PAID_BY.find((p) => p.value === paidBy)!.types}
+        title="Shared"
+        description="Bills you split with friends, and expenses a friend paid for you."
         showTypeFilter={false}
         showFriendFilter
-        addType="split"
-        emptyTitle="No split expenses"
-        emptyDescription="Try widening your date range, or split your first bill with a friend."
+        addType={paidBy === "friend" ? "fronted" : "split"}
+        emptyTitle="Nothing shared yet"
+        emptyDescription="Try widening your date range, or add a split bill or an expense a friend paid for."
+        headerExtra={
+          <div role="group" aria-label="Paid by" className="mb-4 inline-flex items-center gap-2">
+            <span className="text-[12.5px] font-semibold text-ink-soft">Paid by</span>
+            <span className="inline-flex overflow-hidden rounded-[10px] border border-line-strong">
+              {PAID_BY.map((p, i) => (
+                <button
+                  key={p.value}
+                  type="button"
+                  aria-pressed={paidBy === p.value}
+                  onClick={() => setPaidBy(p.value)}
+                  className={cn(
+                    "px-3.5 py-1.5 text-[13px] font-medium",
+                    i > 0 && "border-l border-line-strong",
+                    paidBy === p.value ? "bg-ink text-paper dark:bg-accent dark:text-accent-ink" : "bg-paper-raised text-ink hover:bg-paper-sunken",
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </span>
+          </div>
+        }
       />
+      <SettleForm friend={settling} open={!!settling} onOpenChange={(o) => !o && setSettling(null)} />
     </div>
   );
 }
