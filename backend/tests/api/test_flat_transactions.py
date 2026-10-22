@@ -347,6 +347,68 @@ def test_groups_honour_filters_and_validate_group_by(populated):
     assert populated.api.get("/transactions/groups", params={"groupBy": "bogus"}).status_code == 422
 
 
+# ------------------------------------------------------- friend-fronted: unpaid ---
+def fronted(world, amount, date, friend="rahul", cat="food"):
+    return ok(post(world, **base(world, "fronted", amount=amount, date=date, categoryId=world.cat[cat],
+                                 friendId=world.friend[friend])))
+
+
+def pay_back(world, amount, friend="rahul"):
+    return ok(post(world, **base(world, "settlement", amount=amount, friendId=world.friend[friend],
+                                 accountId=world.acct["bank"])))
+
+
+def unpaid(world, entry):
+    return world.api.get(f"/transactions/{entry['id']}").json()["unpaid"]
+
+
+def test_fronted_is_unpaid_until_paid_back(world):
+    f = fronted(world, "80.00", "2026-03-10")
+    assert f["unpaid"]["points"] == 8_000
+    pay_back(world, "30.00")
+    assert unpaid(world, f)["points"] == 5_000
+    pay_back(world, "50.00")
+    assert unpaid(world, f)["points"] == 0
+
+
+def test_repayments_clear_the_oldest_fronted_first(world):
+    old = fronted(world, "100.00", "2026-03-01")
+    new = fronted(world, "60.00", "2026-03-20")
+    pay_back(world, "120.00")                                    # clears the old one and part of the new one
+    assert unpaid(world, old)["points"] == 0 and unpaid(world, new)["points"] == 4_000
+    listed = {i["id"]: i["unpaid"] for i in world.api.get("/transactions", params={"type": "fronted"}).json()["items"]}
+    assert listed[old["id"]]["points"] == 0 and listed[new["id"]]["points"] == 4_000
+
+
+def test_only_fronted_rows_have_unpaid_and_balances_are_per_friend(world):
+    world.split()                                                # Rahul owes you 350 -> nets against what you owe
+    fronted(world, "100.00", "2026-03-01", friend="rahul")
+    fronted(world, "40.00", "2026-03-02", friend="priya")
+    assert all(i["unpaid"] is None for i in world.api.get("/transactions", params={"type": "split"}).json()["items"])
+    bal = {b["friendId"]: b for b in world.api.get("/friends/balances").json()}
+    rahul, priya = bal[world.friend["rahul"]], bal[world.friend["priya"]]
+    assert rahul["balance"]["points"] == 25_000 and rahul["frontedUnpaid"]["points"] == 0   # net: he owes you
+    assert priya["balance"]["points"] == -4_000 and priya["frontedUnpaid"]["points"] == 4_000
+
+
+def test_budget_marks_fronted_spend_not_paid_back(world):
+    fronted(world, "80.00", "2026-03-10")
+    fronted(world, "50.00", "2026-04-02")
+    pay_back(world, "50.00")                                     # 130 fronted, 50 repaid oldest-first: 80 still owed
+    food = lambda month: next(b for b in world.api.get("/reports/budget", params={"month": month}).json()
+                              if b["categoryId"] == world.cat["food"])
+    # the 50 repaid clears part of March's 80, so 30 of March and all of April's 50 are still unpaid
+    assert food("2026-04")["notPaidBack"]["points"] == 5_000
+    assert food("2026-03")["notPaidBack"]["points"] == 3_000
+    assert food("2026-05")["notPaidBack"]["points"] == 0
+
+
+def test_deleting_a_fronted_expense_drops_it_from_unpaid(world):
+    f = fronted(world, "80.00", "2026-03-10")
+    assert world.api.delete(f"/transactions/{f['id']}").status_code == 200
+    assert world.api.get("/friends/balances").json()[0]["frontedUnpaid"]["points"] == 0
+
+
 # --------------------------------------------------------------------- edit ---
 def test_patch_expense_fields_and_clear_memo(world):
     e = ok(post(world, **base(world, "expense", accountId=world.acct["bank"], categoryId=world.cat["food"],

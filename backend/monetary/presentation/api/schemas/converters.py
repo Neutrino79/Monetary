@@ -39,6 +39,7 @@ def transaction_out(view: dict):
                 if view["splits"] is not None else None),
         refund_of_id=view["refund_of_id"], correction_of=view["correction_of"],
         replaced_by=view["replaced_by"], created_at=view["created_at"], updated_at=view["updated_at"],
+        unpaid=money_out(view["unpaid_points"], cur) if view.get("unpaid_points") is not None else None,
         group_key=view.get("group_key"),
     )
 
@@ -57,7 +58,7 @@ def budget_status_out(r: dict) -> BudgetStatusOut:
         category_id=r["category_id"], category_name=r["category_name"], year=r["year"], month=r["month"],
         budget=money_out(r["budget"].points, cur), spent=money_out(r["spent"].points, cur),
         remaining=money_out(r["remaining_points"], cur), percentage_used=r["percentage_used"],
-        over_budget=r["over_budget"])
+        over_budget=r["over_budget"], not_paid_back=money_out(r["not_paid_back_points"], cur))
 
 
 def net_worth_out(r: dict) -> NetWorthOut:
@@ -78,4 +79,5 @@ def category_total_out(r: dict) -> CategoryTotalOut:
 
 def friend_balance_out(r: dict) -> FriendBalanceOut:
     return FriendBalanceOut(
-        friend_id=r["friend_id"], friend_name=r["friend_name"], balance=money_out(r["points"], r["currency"]))
+        friend_id=r["friend_id"], friend_name=r["friend_name"], balance=money_out(r["points"], r["currency"]),
+        fronted_unpaid=money_out(r.get("fronted_unpaid_points", 0), r["currency"]))

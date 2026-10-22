@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from monetary.domain.money import Money
 from monetary.domain.time_utils import current_year_month, month_bounds_utc_iso
+from monetary.application import statement_service
 from monetary.infrastructure import repositories as repo
 
 
@@ -17,6 +18,7 @@ def budget_status(conn, owner, *, year=None, month=None) -> list[dict]:
         year, month = current_year_month(tz)
     start_iso, end_iso = month_bounds_utc_iso(tz, year, month)
 
+    fronted = statement_service.fronted_unpaid(conn)
     results = []
     for root in repo.budgeted_root_accounts(conn):
         child_ids = repo.child_account_ids(conn, root["id"])
@@ -30,6 +32,10 @@ def budget_status(conn, owner, *, year=None, month=None) -> list[dict]:
         remaining_points = budget.points - spent_points
         pct = (spent_points / budget.points * 100) if budget.points else 0.0
 
+        # friend-fronted spend in this category (and its subcategories) this month that is not repaid yet
+        not_paid_back = sum(
+            f["unpaid_points"] for f in fronted
+            if f["category_id"] in account_ids and start_iso <= f["entry_date"] < end_iso)
         results.append({
             "category_id": root["id"],
             "category_name": root["name"],
@@ -41,5 +47,6 @@ def budget_status(conn, owner, *, year=None, month=None) -> list[dict]:
             "currency": currency,
             "percentage_used": pct,
             "over_budget": spent_points > budget.points,
+            "not_paid_back_points": not_paid_back,
         })
     return results

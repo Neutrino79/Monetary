@@ -168,6 +168,12 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
   `{groupBy, groups: [{key, label, count, totals: [{currency, moneyIn, moneyOut}]}]}` in the same group
   order, for the group headers. `moneyIn` sums income and refunds, `moneyOut` expenses; the other types
   count but add to neither. Totals are per currency.
+- **Friend-fronted expenses** (`type: fronted`, a friend paid; the amount is your share): they count as
+  spending, and against the category budget, on the purchase date, exactly like any expense. What you
+  still owe the friend is tracked per expense: repayments are not tied to an expense, so they clear the
+  oldest fronted expenses first. A fronted `TransactionOut` has `unpaid` (the part not repaid yet),
+  `GET /friends/balances` adds `frontedUnpaid` per friend, and `GET /reports/budget` adds `notPaidBack`
+  (fronted spend in that category and month that is not repaid). Rows of any other type have `unpaid: null`.
 - **Creating a transaction**: `type`, `description`, `amount` (a split's total bill), `date`, plus the
   fields that type needs (`accountId`, `categoryId`, `toAccountId`, `friendId`, `yourShare` and `splits`
   for a split, `refundOfId`, `direction`). A settlement's direction is derived from the friend's balance;

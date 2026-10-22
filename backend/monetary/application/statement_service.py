@@ -28,7 +28,16 @@ def account_balances(conn, include_inactive=False) -> list[dict]:
 
 def friend_balances(conn) -> list[dict]:
     """Every friend's current DUE balance. Positive = they owe you; negative =
-    you owe them; zero = settled up."""
+    you owe them; zero = settled up. `fronted_unpaid_points` is the part of what they paid for you
+    that you have not repaid (see fronted_unpaid)."""
+    rows = _due_balances(conn)
+    unpaid: dict[int, int] = {}
+    for f in fronted_unpaid(conn, rows):
+        unpaid[f["friend_id"]] = unpaid.get(f["friend_id"], 0) + f["unpaid_points"]
+    return [{**r, "fronted_unpaid_points": unpaid.get(r["friend_id"], 0)} for r in rows]
+
+
+def _due_balances(conn) -> list[dict]:
     due_accounts = repo.friend_open_balance_accounts(conn)
     results = []
     for acc in due_accounts:
@@ -61,3 +70,24 @@ def friend_statement(conn, due_account_id) -> list[dict]:
                 "running_balance_points": running,
             })
     return rows
+
+
+def fronted_unpaid(conn, balances: list[dict] | None = None) -> list[dict]:
+    """How much of each friend-fronted expense is still unpaid.
+
+    A friend's repayments are not tied to a particular expense, so they are applied oldest-first (FIFO):
+    what the owner still owes a friend (their negative DUE balance) is the part of their *most recent*
+    fronted expenses that is unpaid. Repayment beyond the fronted total -- or a positive balance -- leaves
+    every expense fully paid. Each row: entry id, friend, category, date, amount and unpaid (points).
+    """
+    owed = {r["due_account_id"]: max(-r["points"], 0) for r in (balances if balances is not None else _due_balances(conn))}
+    entries = repo.posted_fronted_entries(conn)
+    rows = []
+    for e in reversed(entries):                         # newest first: they are the last to be repaid
+        take = min(e["amount"], owed.get(e["due_account_id"], 0))
+        owed[e["due_account_id"]] = owed.get(e["due_account_id"], 0) - take
+        rows.append({
+            "entry_id": e["id"], "friend_id": e["friend_id"], "category_id": e["category_id"],
+            "entry_date": e["entry_date"], "amount_points": e["amount"], "unpaid_points": take,
+        })
+    return rows[::-1]
