@@ -145,7 +145,7 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
 | `accounts` | `POST /accounts` (optional `openingBalance`, LIABILITY-only `creditLimit` / `statementDay`), `GET /accounts` (includes `balance`), `PATCH /accounts/{id}`, `GET /accounts/{id}/balance`, `POST /accounts/{id}/{deactivate,reactivate}` |
 | `categories` | `POST /categories`, `GET /categories` (`?type=EXPENSE\|INCOME` -- income sources are INCOME categories), `PATCH /categories/{id}` (name, colour, budget, parent), `POST /categories/{id}/{deactivate,reactivate}` |
 | `friends` | `POST /friends`, `GET /friends`, `PATCH /friends/{id}` (name, email, phone), `DELETE /friends/{id}`, `GET /friends/balances`, `GET /friends/{id}/statement` |
-| `transactions` | **Flat API:** `POST /transactions` (one body for every type -- income, expense, transfer, split, fronted, settlement, refund, adjustment), `GET /transactions` (server-side filter / sort / paging), `GET/PATCH/DELETE /transactions/{id}`, `GET /transactions/{id}/postings` (the raw double-entry view). Typed creates `POST /transactions/{expense,income,refund,adjustment}` remain. |
+| `transactions` | **Flat API:** `POST /transactions` (one body for every type -- income, expense, transfer, split, fronted, settlement, refund, adjustment), `GET /transactions` (server-side filter / sort / group / paging), `GET /transactions/groups` (group headers), `GET/PATCH/DELETE /transactions/{id}`, `GET /transactions/{id}/postings` (the raw double-entry view). Typed creates `POST /transactions/{expense,income,refund,adjustment}` remain. |
 | `splits` | `POST /splits`, `POST /splits/fronted`, `GET /splits`, `GET/PATCH/DELETE /splits/{id}` |
 | `transfers` | `POST /transfers`, `GET /transfers`, `PATCH/DELETE /transfers/{id}` |
 | `settlements` | `POST /settlements`, `GET /settlements`, `PATCH/DELETE /settlements/{id}` |
@@ -159,6 +159,15 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
   `offset`. The response is a `{items, total, limit, offset}` envelope. STRICT-mode system reversal
   rows are never listed; a corrected entry links to the one it replaced via `correctionOf`, and the
   original reports `replacedBy`.
+- **Grouping** -- `GET /transactions?groupBy=date|month|category|account|type` clusters rows by group
+  before paging, so a group is contiguous across pages; `sort`/`direction` then order the rows inside a
+  group. Date and month groups are on the owner's local calendar and follow `direction` (newest first by
+  default); category, account and type groups are alphabetical. Every row carries `groupKey` (`null`
+  when ungrouped): `YYYY-MM-DD`, `YYYY-MM`, the category or account id (`""` = none) or the flat type.
+  `GET /transactions/groups` takes the same filters plus a required `groupBy` and returns
+  `{groupBy, groups: [{key, label, count, totals: [{currency, moneyIn, moneyOut}]}]}` in the same group
+  order, for the group headers. `moneyIn` sums income and refunds, `moneyOut` expenses; the other types
+  count but add to neither. Totals are per currency.
 - **Creating a transaction**: `type`, `description`, `amount` (a split's total bill), `date`, plus the
   fields that type needs (`accountId`, `categoryId`, `toAccountId`, `friendId`, `yourShare` and `splits`
   for a split, `refundOfId`, `direction`). A settlement's direction is derived from the friend's balance;

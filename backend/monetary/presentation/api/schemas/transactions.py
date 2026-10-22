@@ -231,3 +231,23 @@ class TransactionOut(ApiModel):
     replaced_by: int | None = Field(description="STRICT mode: the entry that replaced this one")
     created_at: str
     updated_at: str
+    group_key: str | None = Field(default=None, description="Only when listed with `groupBy`: the group this row is in")
+
+
+class GroupTotalOut(ApiModel):
+    currency: str
+    money_in: MoneyOut = Field(description="Income and refunds in the group")
+    money_out: MoneyOut = Field(description="Expenses in the group")
+
+
+class TransactionGroupOut(ApiModel):
+    key: str = Field(description="Matches `groupKey` on the rows. date: YYYY-MM-DD, month: YYYY-MM, "
+                                 "type: the flat type, category/account: the id ('' = none)")
+    label: str = Field(description="Display name; for date/month/type the key itself")
+    count: int
+    totals: list[GroupTotalOut] = Field(description="One entry per currency")
+
+
+class TransactionGroupsOut(ApiModel):
+    group_by: str
+    groups: list[TransactionGroupOut]

@@ -267,6 +267,86 @@ def test_paging_is_stable(populated):
     assert len(seen) == 7 and len(set(seen)) == 7
 
 
+# ------------------------------------------------------------------ grouping ---
+PAST = {"dateFrom": "2026-01-01", "dateTo": "2026-02-28"}     # leaves out the opening salary (posted "now")
+
+
+def grouped(world, group_by, **params):
+    r = world.api.get("/transactions", params={"groupBy": group_by, **PAST, **params})
+    assert r.status_code == 200, r.text
+    return r.json()["items"]
+
+
+def groups(world, group_by, **params):
+    r = world.api.get("/transactions/groups", params={"groupBy": group_by, **PAST, **params})
+    assert r.status_code == 200, r.text
+    return r.json()["groups"]
+
+
+def test_ungrouped_rows_have_no_group_key(populated):
+    assert all(i["groupKey"] is None for i in populated.api.get("/transactions").json()["items"])
+
+
+def test_group_by_date_clusters_newest_first(populated):
+    items = grouped(populated, "date")
+    assert [i["groupKey"] for i in items] == [i["date"] for i in items]
+    assert [i["groupKey"] for i in items] == sorted((i["groupKey"] for i in items), reverse=True)
+    older = grouped(populated, "date", direction="asc")
+    assert [i["groupKey"] for i in older] == sorted(i["groupKey"] for i in older)
+
+
+def test_group_by_month_and_summary_totals(populated):
+    assert {i["groupKey"] for i in grouped(populated, "month")} == {"2026-01", "2026-02"}
+    feb, jan = groups(populated, "month")                       # newest month first
+    assert (feb["key"], jan["key"]) == ("2026-02", "2026-01")
+    assert (feb["count"], jan["count"]) == (5, 1)
+    assert feb["totals"][0]["moneyIn"]["points"] == 90_000       # Freelance gig
+    assert feb["totals"][0]["moneyOut"]["points"] == 32_000      # Bus 20 + Petrol 300 (split/transfer excluded)
+    assert jan["totals"][0]["moneyOut"]["points"] == 1_000
+
+
+def test_group_by_category_is_alphabetical_with_labels(populated):
+    items = grouped(populated, "category", type=["expense", "split"])
+    assert [i["groupKey"] for i in items].count(str(populated.cat["food"])) == 2     # Coffee beans + Dinner
+    labels = [g["label"] for g in groups(populated, "category", type=["expense", "split"])]
+    assert labels == sorted(labels, key=str.lower)
+    none = {g["key"]: g for g in groups(populated, "category")}[""]                  # the transfer has no category
+    assert none["label"] == "No category" and none["count"] == 1
+
+
+def test_group_by_account_uses_the_row_account(populated):
+    keys = {i["description"]: i["groupKey"] for i in grouped(populated, "account")}
+    assert keys["Bus ticket"] == str(populated.acct["wallet"])
+    assert keys["To wallet"] == str(populated.acct["bank"])        # a transfer sits under the account it leaves
+    assert all(keys[n] == str(populated.acct["bank"]) for n in ("Coffee beans", "Petrol", "Dinner"))
+    assert {g["key"]: g["count"] for g in groups(populated, "account")} == {
+        str(populated.acct["bank"]): 5, str(populated.acct["wallet"]): 1}
+    assert "Wallet" in {g["label"] for g in groups(populated, "account")} or len(groups(populated, "account")) == 2
+
+
+def test_group_by_type_and_rows_sorted_inside_a_group(populated):
+    assert {g["key"]: g["count"] for g in groups(populated, "type")} == {
+        "expense": 3, "income": 1, "transfer": 1, "split": 1}
+    exp = [i["description"] for i in grouped(populated, "type", type="expense", sort="amount", direction="asc")]
+    assert exp == ["Coffee beans", "Bus ticket", "Petrol"]
+
+
+def test_grouped_paging_keeps_groups_contiguous(populated):
+    seen = []
+    for off in range(0, 6, 2):
+        seen += [i["groupKey"] for i in populated.api.get(
+            "/transactions", params={"groupBy": "month", "limit": 2, "offset": off, **PAST}).json()["items"]]
+    assert seen == ["2026-02"] * 5 + ["2026-01"]
+
+
+def test_groups_honour_filters_and_validate_group_by(populated):
+    assert [(g["key"], g["count"]) for g in groups(populated, "month", search="coffee")] == [("2026-01", 1)]
+    assert groups(populated, "month", search="zzz") == []
+    assert populated.api.get("/transactions", params={"groupBy": "bogus"}).status_code == 422
+    assert populated.api.get("/transactions/groups").status_code == 422
+    assert populated.api.get("/transactions/groups", params={"groupBy": "bogus"}).status_code == 422
+
+
 # --------------------------------------------------------------------- edit ---
 def test_patch_expense_fields_and_clear_memo(world):
     e = ok(post(world, **base(world, "expense", accountId=world.acct["bank"], categoryId=world.cat["food"],

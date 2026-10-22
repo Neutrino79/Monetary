@@ -176,24 +176,62 @@ def view_of(conn, owner: dict, entry: dict) -> dict:
 
 def list_views(conn, owner: dict, *, account_id=None, category_id=None, friend_id=None, refund_of_id=None, types=None,
                search=None, status="posted", date_from=None, date_to=None, sort="date",
-               direction="desc", limit=50, offset=0) -> tuple[list[dict], int]:
+               direction="desc", limit=50, offset=0, group_by=None) -> tuple[list[dict], int]:
+    """With `group_by`, rows are clustered by group and each view carries `group_key`."""
+    filters = _filters(conn, owner, account_id=account_id, category_id=category_id, friend_id=friend_id,
+                       refund_of_id=refund_of_id, types=types, search=search, status=status,
+                       date_from=date_from, date_to=date_to)
+    if sort not in SORT_FIELDS:
+        raise ValidationError(f"sort must be one of: {', '.join(SORT_FIELDS)}.")
+    _check_group_by(group_by)
+    rows, total = q.search_entries(conn, **filters, sort=sort, direction=direction, limit=limit, offset=offset,
+                                   group_by=group_by, tz_name=owner["timezone"])
+    views = to_views(conn, owner, rows)
+    if group_by:
+        for view, row in zip(views, rows):          # to_views keeps the order of `rows`
+            view["group_key"] = row["group_key"]
+    return views, total
+
+
+def group_summaries(conn, owner: dict, *, group_by, direction="desc", account_id=None, category_id=None,
+                    friend_id=None, refund_of_id=None, types=None, search=None, status="posted",
+                    date_from=None, date_to=None) -> list[dict]:
+    """Header data for each group of a grouped list: key, label, count, money in and out (in points)."""
+    _check_group_by(group_by)
+    if not group_by:
+        raise ValidationError(f"groupBy is required; expected one of: {', '.join(q.GROUP_BYS)}.")
+    filters = _filters(conn, owner, account_id=account_id, category_id=category_id, friend_id=friend_id,
+                       refund_of_id=refund_of_id, types=types, search=search, status=status,
+                       date_from=date_from, date_to=date_to)
+    groups: dict[str, dict] = {}
+    for r in q.group_summary(conn, group_by=group_by, tz_name=owner["timezone"], direction=direction, **filters):
+        g = groups.setdefault(r["group_key"], {"key": r["group_key"], "label": r["group_label"], "count": 0, "totals": []})
+        g["count"] += r["n"]
+        g["totals"].append({"currency": r["currency"], "in_points": r["in_points"], "out_points": r["out_points"]})
+    return list(groups.values())
+
+
+def _check_group_by(group_by) -> None:
+    if group_by is not None and group_by not in q.GROUP_BYS:
+        raise ValidationError(f"groupBy must be one of: {', '.join(q.GROUP_BYS)}.")
+
+
+def _filters(conn, owner: dict, *, account_id, category_id, friend_id, refund_of_id, types, search, status,
+             date_from, date_to) -> dict:
+    """The filter arguments shared by the list and the group summary, translated for the query layer."""
     for t in types or []:
         if t not in FLAT_TYPES:
             raise ValidationError(f"Unknown transaction type {t!r}; expected one of: {', '.join(FLAT_TYPES)}.")
-    if sort not in SORT_FIELDS:
-        raise ValidationError(f"sort must be one of: {', '.join(SORT_FIELDS)}.")
     tz = owner["timezone"]
     category_ids = None
     if category_id is not None:
         # a parent category includes its subcategories, like every report does
         category_ids = [category_id, *repo.child_account_ids(conn, category_id)]
-    rows, total = q.search_entries(
-        conn, account_id=account_id, category_ids=category_ids, friend_id=friend_id,
-        refund_of_id=refund_of_id, flat_types=types or None, search=search, status=status,
+    return dict(
+        account_id=account_id, category_ids=category_ids, friend_id=friend_id, refund_of_id=refund_of_id,
+        flat_types=types or None, search=search, status=status,
         date_from=parse_local_to_utc_iso(date_from, tz) if date_from else None,
-        date_to_exclusive=next_local_day_start_utc_iso(date_to, tz) if date_to else None,
-        sort=sort, direction=direction, limit=limit, offset=offset)
-    return to_views(conn, owner, rows), total
+        date_to_exclusive=next_local_day_start_utc_iso(date_to, tz) if date_to else None)
 
 
 # --------------------------------------------------------------------------- #
