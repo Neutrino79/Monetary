@@ -176,11 +176,12 @@ def view_of(conn, owner: dict, entry: dict) -> dict:
 
 def list_views(conn, owner: dict, *, account_id=None, category_id=None, friend_id=None, refund_of_id=None, types=None,
                search=None, status="posted", date_from=None, date_to=None, sort="date",
-               direction="desc", limit=50, offset=0, group_by=None) -> tuple[list[dict], int]:
+               direction="desc", limit=50, offset=0, group_by=None,
+               settlement_direction=None) -> tuple[list[dict], int]:
     """With `group_by`, rows are clustered by group and each view carries `group_key`."""
     filters = _filters(conn, owner, account_id=account_id, category_id=category_id, friend_id=friend_id,
                        refund_of_id=refund_of_id, types=types, search=search, status=status,
-                       date_from=date_from, date_to=date_to)
+                       date_from=date_from, date_to=date_to, settlement_direction=settlement_direction)
     if sort not in SORT_FIELDS:
         raise ValidationError(f"sort must be one of: {', '.join(SORT_FIELDS)}.")
     _check_group_by(group_by)
@@ -195,14 +196,14 @@ def list_views(conn, owner: dict, *, account_id=None, category_id=None, friend_i
 
 def group_summaries(conn, owner: dict, *, group_by, direction="desc", account_id=None, category_id=None,
                     friend_id=None, refund_of_id=None, types=None, search=None, status="posted",
-                    date_from=None, date_to=None) -> list[dict]:
+                    date_from=None, date_to=None, settlement_direction=None) -> list[dict]:
     """Header data for each group of a grouped list: key, label, count, money in and out (in points)."""
     _check_group_by(group_by)
     if not group_by:
         raise ValidationError(f"groupBy is required; expected one of: {', '.join(q.GROUP_BYS)}.")
     filters = _filters(conn, owner, account_id=account_id, category_id=category_id, friend_id=friend_id,
                        refund_of_id=refund_of_id, types=types, search=search, status=status,
-                       date_from=date_from, date_to=date_to)
+                       date_from=date_from, date_to=date_to, settlement_direction=settlement_direction)
     groups: dict[str, dict] = {}
     for r in q.group_summary(conn, group_by=group_by, tz_name=owner["timezone"], direction=direction, **filters):
         g = groups.setdefault(r["group_key"], {"key": r["group_key"], "label": r["group_label"], "count": 0, "totals": []})
@@ -217,11 +218,13 @@ def _check_group_by(group_by) -> None:
 
 
 def _filters(conn, owner: dict, *, account_id, category_id, friend_id, refund_of_id, types, search, status,
-             date_from, date_to) -> dict:
+             date_from, date_to, settlement_direction=None) -> dict:
     """The filter arguments shared by the list and the group summary, translated for the query layer."""
     for t in types or []:
         if t not in FLAT_TYPES:
             raise ValidationError(f"Unknown transaction type {t!r}; expected one of: {', '.join(FLAT_TYPES)}.")
+    if settlement_direction not in (None, "receive", "pay"):
+        raise ValidationError("settlementDirection must be 'receive' or 'pay'.")
     tz = owner["timezone"]
     category_ids = None
     if category_id is not None:
@@ -229,7 +232,7 @@ def _filters(conn, owner: dict, *, account_id, category_id, friend_id, refund_of
         category_ids = [category_id, *repo.child_account_ids(conn, category_id)]
     return dict(
         account_id=account_id, category_ids=category_ids, friend_id=friend_id, refund_of_id=refund_of_id,
-        flat_types=types or None, search=search, status=status,
+        flat_types=types or None, search=search, status=status, settlement_direction=settlement_direction,
         date_from=parse_local_to_utc_iso(date_from, tz) if date_from else None,
         date_to_exclusive=next_local_day_start_utc_iso(date_to, tz) if date_to else None)
 
@@ -250,6 +253,24 @@ def update(conn, owner: dict, entry_id: int, fields: dict, *, force=False, remov
     note = None
     if "memo" in fields:
         note = _clean_memo(fields["memo"]) or ""        # "" clears; None would mean "unchanged"
+
+    if etype == "NORMAL" and fields.get("splits"):
+        # an existing expense edited into a split with friends
+        account_id = fields.get("account_id") or view_of(conn, owner, entry)["account_id"]
+        currency = repo.get_account(conn, account_id)["currency_code"]
+        current_total = Money(view_of(conn, owner, entry)["amount_points"], currency).to_major_units_str()
+        parts = _validated_split(currency, amount or current_total, fields.get("your_share"), fields["splits"])
+        return split_service.convert_expense_to_split(
+            conn, owner, entry_id, account_id=fields.get("account_id"), category_id=fields.get("category_id"),
+            owner_share_major=fields.get("your_share") or "0", friend_shares=parts,
+            description=description, date_str=date_str, note=note)
+
+    if etype == "SPLIT" and fields.get("splits") == []:
+        # every friend removed: the split goes back to a plain expense for the whole bill
+        return split_service.convert_split_to_expense(
+            conn, owner, entry_id, account_id=fields.get("account_id"), category_id=fields.get("category_id"),
+            amount_major=amount, description=description, date_str=date_str, note=note,
+            force=force, remove_settlements=remove_settlements)
 
     if etype in ("NORMAL", "REFUND", "ADJUSTMENT"):
         if etype == "ADJUSTMENT" and fields.get("direction"):

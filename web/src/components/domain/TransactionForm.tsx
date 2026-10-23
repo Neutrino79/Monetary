@@ -137,6 +137,7 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
 
   function toggleFriend(fid: Id) {
     setCheckedFriends((prev) => (prev.includes(fid) ? prev.filter((x) => x !== fid) : [...prev, fid]));
+    setSplitMode("equal"); // a changed group is re-divided equally; "Custom" is one tap away
   }
 
   function applyServerError(e: unknown) {
@@ -189,6 +190,8 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
       if (!categoryId) newErrors.category = "Select a category.";
       if (!accountId) newErrors.account = "Select an account.";
       input = { type: "expense", ...common, accountId: accountId || undefined, categoryId: categoryId || undefined };
+      // every friend taken off a split turns it back into a plain expense for the whole bill
+      if (isEdit && editingType === "split") input = { ...input, splits: [] };
     }
 
     if (Object.keys(newErrors).length) {
@@ -430,7 +433,7 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
                 friends={friends}
                 checked={checkedFriends}
                 onToggle={toggleFriend}
-                locked={isEdit}
+                locked={false}
                 mode={splitMode}
                 onMode={setSplitMode}
                 yourShare={yourShare}
@@ -493,7 +496,7 @@ function PayerChip({ active, children, ...rest }: { active: boolean; children: R
   );
 }
 
-/** "Split with" -- pick friends and set shares. Locked (read-only friends) when editing an existing entry. */
+/** "Split with" -- pick friends and set shares. Also used when editing: an expense can be split later, or un-split. */
 function SplitCard({
   friends, checked, onToggle, locked, mode, onMode, yourShare, onYourShare, friendShares, onFriendShare, amount, shareTotal, shareDiff, error,
 }: {

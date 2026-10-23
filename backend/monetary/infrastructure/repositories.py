@@ -374,7 +374,7 @@ def count_journal_entries(conn, *, account_id=None, category_id=None, entry_type
 
 def update_journal_entry_fields(conn, entry_id, *, description=None, memo=None,
                                  entry_date=None, category_id=None, category_id_set=False,
-                                 now) -> dict:
+                                 entry_type=None, now) -> dict:
     """category_id_set=True means 'apply category_id even if it's None' (clearing
     it), vs the default 'None means unchanged', matching the other fields' convention
     for the common case but allowing an explicit clear when needed."""
@@ -382,12 +382,12 @@ def update_journal_entry_fields(conn, entry_id, *, description=None, memo=None,
     new_category_id = category_id if (category_id is not None or category_id_set) else entry["category_id"]
     conn.execute(
         "UPDATE journal_entry SET description = ?, memo = ?, entry_date = ?, category_id = ?, "
-        "updated_at = ? WHERE id = ?",
+        "entry_type = ?, updated_at = ? WHERE id = ?",
         (
             description if description is not None else entry["description"],
             memo if memo is not None else entry["memo"],
             entry_date if entry_date is not None else entry["entry_date"],
-            new_category_id, now, entry_id,
+            new_category_id, entry_type or entry["entry_type"], now, entry_id,
         ),
     )
     return get_journal_entry(conn, entry_id)
