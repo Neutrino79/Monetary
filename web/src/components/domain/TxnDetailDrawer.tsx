@@ -71,6 +71,9 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
 
   const editable = ["income", "expense", "transfer", "split", "fronted"].includes(txn.type) && txn.status === "posted";
 
+  // settlements are delete-only: undoing one makes the friend owe (or you owe) that amount again
+  const deletable = editable || (txn.type === "settlement" && txn.status === "posted");
+
   async function handleDelete(force = false) {
     if (!txn) return;
     try {
@@ -104,14 +107,14 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
               </Button>
             )}
             {editable && (
-              <>
-                <Button variant="secondary" onClick={() => setEditOpen(true)}>
-                  Edit
-                </Button>
-                <Button variant="danger" onClick={() => setConfirmDelete(true)}>
-                  Delete
-                </Button>
-              </>
+              <Button variant="secondary" onClick={() => setEditOpen(true)}>
+                Edit
+              </Button>
+            )}
+            {deletable && (
+              <Button variant="danger" onClick={() => setConfirmDelete(true)}>
+                Delete
+              </Button>
             )}
           </>
         }
@@ -301,9 +304,11 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title="Delete this transaction?"
+        title={txn.type === "settlement" ? "Delete this settlement?" : "Delete this transaction?"}
         message={
-          ledgerMode === "STRICT"
+          txn.type === "settlement"
+            ? `${friend?.name ?? "This friend"}'s balance goes back to what it was before this ${txn.direction === "receive" ? "payment" : "repayment"}, and ${account?.name ?? "the account"} is ${txn.direction === "receive" ? "reduced" : "increased"} by ${formatCurrency(txn.amount, true)}. ${ledgerMode === "STRICT" ? "A reversal stays in history." : "It is removed permanently."}`
+            : ledgerMode === "STRICT"
             ? "In STRICT mode this posts a reversal — the original stays in history but no longer affects balances."
             : "In DIRECT mode this permanently removes the entry with no trace left behind."
         }

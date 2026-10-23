@@ -178,6 +178,8 @@ export interface TransactionFilters {
   /** Refunds recorded against this expense. */
   refundOfId?: Id;
   search?: string;
+  /** Narrows settlements only: money you received or paid. Other rows are untouched. */
+  settlementDirection?: SettlementDirection;
   dateFrom?: string;
   dateTo?: string;
   sort?: "date" | "amount" | "description";

@@ -248,6 +248,34 @@ describe('friend-paid (fronted) expenses', () => {
   })
 })
 
+describe('edit an expense into a split, and delete a settlement', () => {
+  it('splits an existing expense later, then removes a repayment', async () => {
+    const mia = await friendsService.create({ name: 'Mia', email: 'mia@example.com' })
+    const bankBefore = await bal(bank.id)
+    const plain = await transactionsService.create({
+      type: 'expense', description: 'Cab', date: D, amount: 100, accountId: bank.id, categoryId: groceries,
+    })
+    const split = await transactionsService.update(plain.id, { yourShare: 40, splits: [{ friendId: mia.id, share: 60 }] })
+    expect(split).toMatchObject({ type: 'split', amount: 100, yourShare: 40 })
+    expect(await bal(bank.id)).toBe(bankBefore - 100) // you still paid the whole bill
+    expect((await friendsService.balances()).find((b) => b.friendId === mia.id)?.balance).toBe(60)
+
+    const settle = await transactionsService.settle({ friendId: mia.id, accountId: bank.id, amount: 60, direction: 'receive', date: D })
+    const received = await transactionsService.list({ type: ['income', 'settlement'], settlementDirection: 'receive' })
+    expect(received.items.some((t) => t.id === settle.id)).toBe(true)
+    const paid = await transactionsService.list({ type: ['expense', 'settlement'], settlementDirection: 'pay' })
+    expect(paid.items.some((t) => t.id === settle.id)).toBe(false)
+
+    await transactionsService.remove(settle.id)
+    expect((await friendsService.balances()).find((b) => b.friendId === mia.id)?.balance).toBe(60)
+    expect(await bal(bank.id)).toBe(bankBefore - 100)
+
+    const back = await transactionsService.update(split.id, { splits: [] })
+    expect(back).toMatchObject({ type: 'expense', amount: 100 })
+    expect((await friendsService.balances()).find((b) => b.friendId === mia.id)?.balance).toBe(0)
+  })
+})
+
 describe('sessions', () => {
   it('a session revoked on the server logs the app out on the next call', async () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(true)
