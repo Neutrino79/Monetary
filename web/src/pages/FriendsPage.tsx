@@ -1,11 +1,12 @@
 import { ListToolbar } from "@/components/list/ListToolbar";
 import { useEffect, useMemo, useState } from "react";
-import { Plus, Search, Mail, Phone, HandCoins, Pencil, Trash2 } from "lucide-react";
+import { Plus, Search, Mail, Phone, HandCoins, Pencil, Trash2, ScrollText } from "lucide-react";
 import type { Friend } from "@/types";
 import { useFriendBalances, useFriends } from "@/hooks/queries";
 import { useCreateFriend, useUpdateFriend, useDeleteFriend } from "@/hooks/mutations";
 import { ApiError } from "@/lib/api/errors";
 import { SettleForm } from "@/components/domain/SettleForm";
+import { FriendStatement } from "@/components/domain/FriendStatement";
 import { useToast } from "@/components/ui/Toast";
 import { Card, Avatar, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
@@ -22,6 +23,7 @@ export function FriendsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [editingFriend, setEditingFriend] = useState<Friend | null>(null);
   const [settlingFriend, setSettlingFriend] = useState<Friend | null>(null);
+  const [statementFriend, setStatementFriend] = useState<Friend | null>(null);
   const [deletingFriend, setDeletingFriend] = useState<Friend | null>(null);
   const deleteFriend = useDeleteFriend();
   const toast = useToast();
@@ -115,9 +117,14 @@ export function FriendsPage() {
                   )}
                 </div>
 
-                <Button variant={bal < 0 ? "primary" : "secondary"} size="sm" onClick={() => setSettlingFriend(f)} disabled={bal === 0}>
-                  <HandCoins size={14} /> {bal < 0 ? `Pay back ${formatCurrency(Math.abs(bal), true)}` : "Settle up"}
-                </Button>
+                <div className="flex gap-2">
+                  <Button className="flex-1" variant={bal < 0 ? "primary" : "secondary"} size="sm" onClick={() => setSettlingFriend(f)} disabled={bal === 0}>
+                    <HandCoins size={14} /> {bal < 0 ? `Pay back ${formatCurrency(Math.abs(bal), true)}` : "Settle up"}
+                  </Button>
+                  <Button variant="ghost" size="sm" aria-label={`Statement with ${f.name}`} onClick={() => setStatementFriend(f)}>
+                    <ScrollText size={14} /> Statement
+                  </Button>
+                </div>
               </Card>
             );
           })}
@@ -126,6 +133,7 @@ export function FriendsPage() {
 
       <FriendForm open={addOpen} onOpenChange={setAddOpen} />
       <FriendForm open={!!editingFriend} onOpenChange={(o) => !o && setEditingFriend(null)} editingFriend={editingFriend} />
+      <FriendStatement friend={statementFriend} open={!!statementFriend} onOpenChange={(o) => !o && setStatementFriend(null)} />
       <SettleForm friend={settlingFriend} open={!!settlingFriend} onOpenChange={(o) => !o && setSettlingFriend(null)} />
       <ConfirmDialog
         open={!!deletingFriend}

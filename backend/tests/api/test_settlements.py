@@ -110,6 +110,13 @@ def test_friend_statement_running_balance(world):
     assert world.friend_balance("rahul") == 20_000
 
 
+def test_statement_rows_carry_the_owners_local_date(world):
+    world.split(date="2026-03-05")
+    world.settle(amount="100.00", date="2026-03-12")
+    rows = world.api.get(f"/friends/{world.friend['rahul']}/statement").json()
+    assert [r["date"] for r in rows] == ["2026-03-05", "2026-03-12"]
+
+
 def test_statement_for_unknown_friend_or_owner_is_404(world):
     assert world.api.get("/friends/99999/statement").status_code == 404
     assert world.api.get(f"/friends/{world.api.get('/owner').json()['id']}/statement").status_code == 404

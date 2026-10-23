@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends
 from monetary.application import statement_service, user_service
 from monetary.config import API_PREFIX
 from monetary.domain.exceptions import ConflictError, NotFoundError
+from monetary.domain.time_utils import utc_iso_to_local_date
 from monetary.infrastructure import repositories as repo
 from monetary.presentation.api.deps import get_current_owner, DB
 from monetary.presentation.api.schemas.common import MessageOut
@@ -91,7 +92,8 @@ def friend_statement(
     rows = statement_service.friend_statement(conn, due["id"])
     return [StatementRowOut(
         entry_id=r["entry_id"], description=r["description"], entry_type=r["entry_type"],
-        entry_date=r["entry_date"], status=r["status"],
+        entry_date=r["entry_date"], date=utc_iso_to_local_date(r["entry_date"], owner["timezone"]),
+        status=r["status"],
         delta=money_out(r["delta_points"], due["currency_code"]),
         running_balance=money_out(r["running_balance_points"], due["currency_code"]),
     ) for r in rows]

@@ -1,7 +1,7 @@
-import type { Friend, FriendBalance, Id } from "@/types";
+import type { Friend, FriendBalance, Id, StatementRow } from "@/types";
 import type { FriendDto, FriendPatch, NewFriendInput } from "@/types/api";
 import { http } from "@/lib/api/http";
-import { toFriend, toFriendBalance } from "@/lib/api/mappers";
+import { toFriend, toFriendBalance, toStatementRows, type StatementRowDto } from "@/lib/api/mappers";
 
 export const friendsService = {
   async list(): Promise<Friend[]> {
@@ -25,5 +25,10 @@ export const friendsService = {
   async balances(): Promise<FriendBalance[]> {
     const rows = await http.get<Parameters<typeof toFriendBalance>[0][]>("/friends/balances");
     return rows.map(toFriendBalance);
+  },
+
+  /** Every shared expense and settlement with one friend, oldest first, each with the balance after it. */
+  async statement(id: Id): Promise<StatementRow[]> {
+    return toStatementRows(await http.get<StatementRowDto[]>(`/friends/${id}/statement`));
   },
 };

@@ -22,6 +22,7 @@ export const qk = {
   incomeSources: ["income-sources"] as const,
   friends: ["friends"] as const,
   friendBalances: ["friends", "balances"] as const,
+  friendStatement: (id: Id) => ["friends", "statement", id] as const,
   transactions: (f: TransactionFilters) => ["transactions", f] as const,
   transactionGroups: (f: TransactionFilters) => ["transactions", "groups", f] as const,
   transaction: (id: Id) => ["transaction", id] as const,
@@ -69,6 +70,10 @@ export function useFriends() {
 
 export function useFriendBalances() {
   return useQuery({ queryKey: qk.friendBalances, queryFn: friendsService.balances });
+}
+
+export function useFriendStatement(id: Id | undefined) {
+  return useQuery({ queryKey: qk.friendStatement(id ?? 0), queryFn: () => friendsService.statement(id!), enabled: id != null });
 }
 
 /** A server-filtered, server-sorted, server-paged page of transactions. */
