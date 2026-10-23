@@ -133,6 +133,8 @@ def list_transactions(
     status: str = Query(default="posted", pattern="^(posted|reversed|all)$"),
     date_from: str | None = Query(default=None, alias="dateFrom", description="'YYYY-MM-DD', inclusive"),
     date_to: str | None = Query(default=None, alias="dateTo", description="'YYYY-MM-DD', inclusive"),
+    settlement_direction: str | None = Query(default=None, alias="settlementDirection", pattern="^(receive|pay)$",
+                                             description="Narrows settlements only: money you received or paid"),
     sort: str = Query(default="date", pattern="^(date|amount|description)$"),
     direction: str = Query(default="desc", pattern="^(asc|desc)$"),
     group_by: str | None = Query(default=None, alias="groupBy", pattern=_GROUP_BY,
@@ -146,7 +148,8 @@ def list_transactions(
     views, total = flat.list_views(
         conn, owner, account_id=account_id, category_id=category_id, friend_id=friend_id, refund_of_id=refund_of_id, types=types,
         search=search, status=status, date_from=date_from, date_to=date_to, sort=sort,
-        direction=direction, limit=limit, offset=offset, group_by=group_by)
+        direction=direction, limit=limit, offset=offset, group_by=group_by,
+        settlement_direction=settlement_direction)
     return Page(items=[transaction_out(v) for v in views], total=total, limit=limit, offset=offset)
 
 
@@ -162,6 +165,8 @@ def list_transaction_groups(
     status: str = Query(default="posted", pattern="^(posted|reversed|all)$"),
     date_from: str | None = Query(default=None, alias="dateFrom", description="'YYYY-MM-DD', inclusive"),
     date_to: str | None = Query(default=None, alias="dateTo", description="'YYYY-MM-DD', inclusive"),
+    settlement_direction: str | None = Query(default=None, alias="settlementDirection", pattern="^(receive|pay)$",
+                                             description="Narrows settlements only: money you received or paid"),
     direction: str = Query(default="desc", pattern="^(asc|desc)$", description="Order of date/month groups"),
     conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
@@ -170,7 +175,8 @@ def list_transaction_groups(
     count and money in/out per currency. Group order matches the list's row order."""
     groups = flat.group_summaries(
         conn, owner, group_by=group_by, direction=direction, account_id=account_id, category_id=category_id,
-        friend_id=friend_id, types=types, search=search, status=status, date_from=date_from, date_to=date_to)
+        friend_id=friend_id, types=types, search=search, status=status, date_from=date_from, date_to=date_to,
+        settlement_direction=settlement_direction)
     return TransactionGroupsOut(group_by=group_by, groups=[
         TransactionGroupOut(key=g["key"], label=g["label"], count=g["count"], totals=[
             GroupTotalOut(currency=t["currency"], money_in=money_out(t["in_points"], t["currency"]),

@@ -18,6 +18,7 @@ from __future__ import annotations
 
 from monetary.application import ledger_service
 from monetary.application.edit_policies import get_edit_policy
+from monetary.application.posting_strategies import simple as simple_strategy
 from monetary.application.posting_strategies import split as split_strategy
 from monetary.domain.enums import AccountType, EntryType
 from monetary.domain.exceptions import ConflictError, NotFoundError, ValidationError
@@ -318,6 +319,79 @@ def edit_fronted_expense(conn, owner, entry_id, *, category_id=None, friend_id=N
     )
     policy = get_edit_policy(owner["ledger_mode"])
     return policy.correct(conn, entry_id, new_intent)
+
+
+def convert_expense_to_split(conn, owner, entry_id, *, account_id=None, category_id=None,
+                              total_major=None, owner_share_major, friend_shares: list[tuple[int, str]],
+                              description=None, date_str=None, note=None) -> dict:
+    """Turn an existing plain expense into a split with friends. The bill, account
+    and category carry over (any of them may be changed in the same edit); only
+    your share stays as spend and each friend's share becomes money they owe you."""
+    entry = repo.get_journal_entry(conn, entry_id)
+    if entry is None:
+        raise NotFoundError(f"Entry {entry_id} not found.")
+    if entry["entry_type"] != EntryType.NORMAL.value or entry["category_id"] is None:
+        raise ValidationError(f"Entry {entry_id} isn't a plain expense, so it can't be split.")
+    category = repo.get_account(conn, entry["category_id"])
+    if category["account_type"] != AccountType.EXPENSE.value:
+        raise ValidationError("Only an expense can be split with friends; income can't.")
+    if entry["status"] == "REVERSED":
+        raise ConflictError(f"Entry {entry_id} has already been reversed/replaced.")
+    if repo.refunded_total_points(conn, entry_id) > 0:
+        raise ConflictError("This expense has refunds against it. Delete the refund(s) before splitting it.")
+
+    legs = ledger_service.legs_for_entry(conn, entry_id)
+    real_leg = next(l for l in legs if repo.get_account(conn, l.account_id)["account_type"]
+                     in (AccountType.ASSET.value, AccountType.LIABILITY.value))
+    resolved_account_id = account_id or real_leg.account_id
+    account = _require_real_account(conn, resolved_account_id)
+    currency = account["currency_code"]
+    resolved_category_id = category_id or entry["category_id"]
+    _require_expense_category(conn, resolved_category_id, currency_to_match=currency)
+
+    owner_share = Money.from_major_units(owner_share_major, currency, allow_zero=True)
+    resolved_shares = _resolve_friend_shares(conn, currency, friend_shares)
+    if not resolved_shares:
+        raise ValidationError("A split needs at least one friend share.")
+    entry_date = _resolve_entry_date(date_str, owner["timezone"]) if date_str else entry["entry_date"]
+    new_intent = split_strategy.build_split_expense(
+        real_account_id=resolved_account_id, expense_account_id=resolved_category_id,
+        owner_share=owner_share, friend_shares=resolved_shares,
+        description=(description or entry["description"]).strip(), entry_date=entry_date,
+        memo=note if note is not None else entry["memo"],
+    )
+    return get_edit_policy(owner["ledger_mode"]).correct(conn, entry_id, new_intent)
+
+
+def convert_split_to_expense(conn, owner, entry_id, *, account_id=None, category_id=None,
+                              amount_major=None, description=None, date_str=None, note=None,
+                              force=False, remove_settlements=False) -> dict:
+    """Undo a split: the entry becomes a plain expense for the whole bill and the friends' shares
+    stop being owed. Guarded like any split edit when those friends already settled."""
+    entry = _require_split_entry(conn, entry_id)
+    if entry["entry_type"] != EntryType.SPLIT.value:
+        raise ValidationError(f"Entry {entry_id} isn't a split.")
+    if entry["status"] == "REVERSED":
+        raise ConflictError(f"Entry {entry_id} has already been reversed/replaced.")
+    composition = split_composition(conn, entry_id)
+    _check_settlement_conflicts(conn, owner, [f["due_account_id"] for f in composition["friends"]],
+                                force=force, remove_settlements=remove_settlements)
+    legs = ledger_service.legs_for_entry(conn, entry_id)
+    real_leg = next(l for l in legs if repo.get_account(conn, l.account_id)["account_type"]
+                     in (AccountType.ASSET.value, AccountType.LIABILITY.value))
+    resolved_account_id = account_id or real_leg.account_id
+    account = _require_real_account(conn, resolved_account_id)
+    currency = account["currency_code"]
+    resolved_category_id = category_id or entry["category_id"]
+    _require_expense_category(conn, resolved_category_id, currency_to_match=currency)
+    money = Money.from_major_units(amount_major, currency) if amount_major else real_leg.amount
+    entry_date = _resolve_entry_date(date_str, owner["timezone"]) if date_str else entry["entry_date"]
+    new_intent = simple_strategy.build_expense(
+        real_account_id=resolved_account_id, expense_account_id=resolved_category_id, amount=money,
+        description=(description or entry["description"]).strip(), entry_date=entry_date,
+        memo=note if note is not None else entry["memo"],
+    )
+    return get_edit_policy(owner["ledger_mode"]).correct(conn, entry_id, new_intent)
 
 
 def edit(conn, owner, entry_id, **kwargs) -> dict:

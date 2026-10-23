@@ -158,7 +158,11 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
   `reversed`, `all`); `sort` (`date`, `amount`, `description`) with `direction`; `limit` (max 500) /
   `offset`. The response is a `{items, total, limit, offset}` envelope. STRICT-mode system reversal
   rows are never listed; a corrected entry links to the one it replaced via `correctionOf`, and the
-  original reports `replacedBy`.
+  original reports `replacedBy`. `settlementDirection=receive|pay` narrows *settlements only* to the
+  money you received or paid (other rows are untouched), so Income can list
+  `type=income&type=settlement&settlementDirection=receive` and Expenses
+  `type=expense&type=refund&type=settlement&settlementDirection=pay`. `GET /transactions/groups` accepts it too.
+  Settlements are never counted in `moneyIn` / `moneyOut`.
 - **Grouping** -- `GET /transactions?groupBy=date|month|category|account|type` clusters rows by group
   before paging, so a group is contiguous across pages; `sort`/`direction` then order the rows inside a
   group. Date and month groups are on the owner's local calendar and follow `direction` (newest first by
@@ -178,6 +182,14 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
   fields that type needs (`accountId`, `categoryId`, `toAccountId`, `friendId`, `yourShare` and `splits`
   for a split, `refundOfId`, `direction`). A settlement's direction is derived from the friend's balance;
   sending one that disagrees is a `422`. A split's shares must add up to the total exactly.
+- **Splitting later / un-splitting** -- `PATCH /transactions/{id}` on a plain *expense* with `yourShare` and
+  a non-empty `splits` turns it into a split (`amount`, `accountId`, `categoryId` may change in the same call;
+  the shares must add up to the bill exactly). Income can't be split, and an expense that has refunds is a
+  `409`. `PATCH` on a split with `splits: []` turns it back into a plain expense for the whole bill; like any
+  split edit it is a `409` when friends already settled, unless `force` / `removeSettlements` is sent.
+  The entry keeps its id in DIRECT mode and is replaced (`correctionOf`) in STRICT mode.
+- **Deleting a settlement** -- `DELETE /transactions/{id}` (or `DELETE /settlements/{id}`) on a settlement
+  restores the friend's balance and the account; settlements have no edit in the web app.
 - **`GET /reports/dashboard?month=YYYY-MM`** -- everything a dashboard needs computed server-side:
   net worth, income / spending / savings for the month, budgets, per-category spend with its
   subcategories, account balances and what friends owe you (or you owe them).

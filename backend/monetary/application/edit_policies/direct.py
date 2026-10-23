@@ -23,7 +23,8 @@ class DirectEditPolicy:
         return repo.update_journal_entry_fields(
             conn, entry_id, description=new_intent.description, memo=new_intent.memo,
             entry_date=new_intent.entry_date, category_id=new_intent.category_id,
-            category_id_set=True, now=now,
+            category_id_set=True,
+            entry_type=new_intent.entry_type.value, now=now,
         )
 
     def delete(self, conn, entry_id: int) -> None:
