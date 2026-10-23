@@ -159,6 +159,18 @@ export interface FriendBalance {
   frontedUnpaid: number;
 }
 
+/** One line of a friend's statement: what moved the balance, and the balance after it. */
+export interface StatementRow {
+  entryId: Id;
+  description: string;
+  /** The ledger entry type: SPLIT, FRONTED, SETTLEMENT, ... */
+  entryType: string;
+  date: string;
+  /** positive = they owe you more; negative = they owe you less (or you owe them more) */
+  delta: number;
+  runningBalance: number;
+}
+
 export interface Dashboard {
   year: number;
   month: number;

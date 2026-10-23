@@ -6,7 +6,7 @@
  * remains the authority for every calculation.
  */
 import type {
-  Account, BudgetStatus, CashflowPoint, Category, CategoryTotal, Dashboard, Friend, FriendBalance, Page, Transaction, TransactionGroup, User,
+  Account, BudgetStatus, CashflowPoint, Category, CategoryTotal, Dashboard, Friend, FriendBalance, Page, StatementRow, Transaction, TransactionGroup, User,
 } from "@/types";
 import type { AccountDto, CategoryDto, FriendDto, MoneyDto, OwnerDto, PageDto, TransactionDto, TransactionGroupDto } from "@/types/api";
 import { colorForId } from "@/lib/utils/entityVisuals";
@@ -93,6 +93,19 @@ export const toCategoryTotal = (c: CategoryTotalDto): CategoryTotal => ({
   categoryId: c.categoryId, categoryName: c.categoryName, total: fromMoney(c.total),
   children: c.children.map((k) => ({ categoryId: k.categoryId, categoryName: k.categoryName, total: fromMoney(k.total) })),
 });
+
+export interface StatementRowDto {
+  entryId: number; description: string; entryType: string; date: string; status: string; delta: MoneyDto; runningBalance: MoneyDto;
+}
+
+/** Reversed originals and their reversal entries cancel out, so they are dropped from what the person reads. */
+export const toStatementRows = (rows: StatementRowDto[]): StatementRow[] =>
+  rows
+    .filter((r) => r.status.toUpperCase() === "POSTED" && r.entryType !== "REVERSAL")
+    .map((r) => ({
+      entryId: r.entryId, description: r.description, entryType: r.entryType, date: r.date,
+      delta: fromMoney(r.delta), runningBalance: fromMoney(r.runningBalance),
+    }));
 
 export const toFriendBalance = (f: FriendBalanceDto): FriendBalance => ({
   friendId: f.friendId, friendName: f.friendName, balance: fromMoney(f.balance), frontedUnpaid: fromMoney(f.frontedUnpaid),

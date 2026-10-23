@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { HandCoins, Users } from "lucide-react";
+import { HandCoins, ScrollText, Users } from "lucide-react";
 import type { Friend, TransactionType } from "@/types";
 import { Card, Avatar, EmptyState } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +9,7 @@ import { formatCurrency } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
 import { TransactionTable } from "@/components/domain/TransactionTable";
 import { SettleForm } from "@/components/domain/SettleForm";
+import { FriendStatement } from "@/components/domain/FriendStatement";
 
 type PaidBy = "all" | "me" | "friend";
 const PAID_BY: { value: PaidBy; label: string; types: TransactionType[] }[] = [
@@ -23,6 +24,7 @@ export function SharedPage() {
   const lookups = useLookups();
   const [paidBy, setPaidBy] = useState<PaidBy>("all");
   const [settling, setSettling] = useState<Friend | null>(null);
+  const [statementOf, setStatementOf] = useState<Friend | null>(null);
   // Balances are computed by the backend (running per-friend statement); only non-zero ones are listed.
   const balances = friendBalances
     .filter((b) => b.balance !== 0)
@@ -44,9 +46,14 @@ export function SharedPage() {
                     <div className={`text-[12px] ${bal > 0 ? "text-accent" : "text-negative"}`}>{bal > 0 ? "owes you" : "you owe"} {formatCurrency(Math.abs(bal), true)}</div>
                   </div>
                   {friend && (
-                    <Button size="sm" variant={bal < 0 ? "primary" : "secondary"} onClick={() => setSettling(friend)}>
-                      <HandCoins size={14} /> {bal < 0 ? "Pay back" : "Settle up"}
-                    </Button>
+                    <>
+                      <Button size="sm" variant="ghost" aria-label={`Statement with ${name}`} onClick={() => setStatementOf(friend)}>
+                        <ScrollText size={14} />
+                      </Button>
+                      <Button size="sm" variant={bal < 0 ? "primary" : "secondary"} onClick={() => setSettling(friend)}>
+                        <HandCoins size={14} /> {bal < 0 ? "Pay back" : "Settle up"}
+                      </Button>
+                    </>
                   )}
                 </div>
                 {pending > 0 && (
@@ -94,6 +101,7 @@ export function SharedPage() {
           </div>
         }
       />
+      <FriendStatement friend={statementOf} open={!!statementOf} onOpenChange={(o) => !o && setStatementOf(null)} />
       <SettleForm friend={settling} open={!!settling} onOpenChange={(o) => !o && setSettling(null)} />
     </div>
   );

@@ -40,6 +40,7 @@ class StatementRowOut(ApiModel):
     description: str
     entry_type: str
     entry_date: str
+    date: str = Field(description="'YYYY-MM-DD' in the owner's timezone")
     status: str
     delta: MoneyOut
     running_balance: MoneyOut

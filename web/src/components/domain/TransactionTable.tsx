@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { Plus, Search } from "lucide-react";
-import type { SettlementDirection, Transaction, TransactionGroup, TransactionType } from "@/types";
+import type { Transaction, TransactionGroup, TransactionType } from "@/types";
 import type { TransactionGroupBy } from "@/types/api";
 import { useAccounts, useCategories, useFriends, useTransactionGroups, useTransactions } from "@/hooks/queries";
 import { useLookups } from "@/hooks/useLookups";
@@ -57,7 +57,6 @@ export function TransactionTable({
   showAccountFilter = true,
   showFriendFilter = false,
   addType = "expense",
-  settlementDirection,
   emptyTitle = "No transactions found",
   emptyDescription = "Try adjusting your filters, or add a new transaction.",
   pageSize = 12,
@@ -71,8 +70,6 @@ export function TransactionTable({
   showAccountFilter?: boolean;
   showFriendFilter?: boolean;
   addType?: TransactionType;
-  /** With "settlement" in `allowedTypes`: show only the money you received (Income) or paid (Expenses). */
-  settlementDirection?: SettlementDirection;
   emptyTitle?: string;
   emptyDescription?: string;
   pageSize?: number;
@@ -104,7 +101,6 @@ export function TransactionTable({
   const baseFilters = {
     type: filters.type ? [filters.type as TransactionType] : allowedTypes,
     search: search || undefined,
-    settlementDirection,
     ...rangeToFilters(filters.range),
     accountId: filters.accountId ? Number(filters.accountId) : undefined,
     categoryId: filters.categoryId ? Number(filters.categoryId) : undefined,

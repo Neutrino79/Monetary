@@ -1,5 +1,4 @@
-"""Editing a plain expense into a split (and back), and settlements showing up on the Income/Expense lists
-(filtered by which way the money moved) with the delete-only settlement action."""
+"""Editing a plain expense into a split (and back), settlements staying out of the money in/out totals, and deleting a settlement."""
 from __future__ import annotations
 
 import pytest
@@ -107,32 +106,7 @@ def test_unsplitting_is_guarded_when_the_friend_already_settled(world):
     assert r.status_code == 200 and r.json()["type"] == "expense"
 
 
-# ------------------------------------------- settlements on Income / Expense lists ---
-def test_settlement_direction_filter_separates_money_in_from_money_out(world):
-    split(world)                                           # Rahul owes you
-    got = settle(world, amount="100.00")
-    fronted(world, friend="priya", amount="50.00")           # you owe Priya
-    paid = settle(world, friend="priya", amount="50.00")
-    assert got["direction"] == "receive" and paid["direction"] == "pay"
-
-    def ids(**params):
-        r = world.api.get("/transactions", params=params)
-        assert r.status_code == 200, r.text
-        return {i["id"] for i in r.json()["items"]}
-
-    income_side = ids(type=["income", "settlement"], settlementDirection="receive")
-    assert got["id"] in income_side and paid["id"] not in income_side
-    expense_side = ids(type=["expense", "refund", "settlement"], settlementDirection="pay")
-    assert paid["id"] in expense_side and got["id"] not in expense_side
-    # only settlements are narrowed: income and expenses still come through
-    inc = income(world)
-    exp = expense(world)
-    assert inc["id"] in ids(type=["income", "settlement"], settlementDirection="receive")
-    assert exp["id"] in ids(type=["expense", "refund", "settlement"], settlementDirection="pay")
-    assert inc["id"] not in expense_side and exp["id"] not in income_side
-    assert world.api.get("/transactions", params={"settlementDirection": "sideways"}).status_code == 422
-
-
+# ------------------------------------------------------- settlements in the totals ---
 def test_settlements_do_not_count_as_income_or_spending_in_group_totals(world):
     split(world)
     settle(world, amount="100.00")
