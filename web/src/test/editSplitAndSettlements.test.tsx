@@ -1,4 +1,4 @@
-/** Editing an expense into a split (and back), settlements on the Income/Expense pages, and deleting a settlement. */
+/** Editing an expense into a split (and back), and deleting a settlement. */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -6,8 +6,6 @@ import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { TransactionForm } from '@/components/domain/TransactionForm'
 import { TxnDetailDrawer } from '@/components/domain/TxnDetailDrawer'
-import { IncomePage } from '@/pages/IncomePage'
-import { ExpensesPage } from '@/pages/ExpensesPage'
 import { ToastProvider } from '@/components/ui/Toast'
 import { useAuthStore } from '@/store/authStore'
 import { queryClient } from '@/lib/queryClient'
@@ -111,24 +109,6 @@ describe('editing an expense into a split', () => {
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(patched).toHaveLength(1))
     expect(patched[0].body).toMatchObject({ amount: '100.00', splits: [] })
-  })
-})
-
-describe('settlements next to income and expenses', () => {
-  it('Income asks for settlements you received, Expenses for the ones you paid', async () => {
-    wrap(<IncomePage />)
-    await waitFor(() => expect(listed.length).toBeGreaterThan(0))
-    const q = listed[listed.length - 1].searchParams
-    expect(q.getAll('type')).toEqual(['income', 'settlement'])
-    expect(q.get('settlementDirection')).toBe('receive')
-  })
-
-  it('Expenses asks for settlements you paid', async () => {
-    wrap(<ExpensesPage />)
-    await waitFor(() => expect(listed.length).toBeGreaterThan(0))
-    const q = listed[listed.length - 1].searchParams
-    expect(q.getAll('type')).toEqual(['expense', 'refund', 'settlement'])
-    expect(q.get('settlementDirection')).toBe('pay')
   })
 })
 

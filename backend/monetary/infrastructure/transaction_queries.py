@@ -59,15 +59,8 @@ def _register_local_day(conn, tz_name: str | None) -> None:
     conn.create_function("local_day", 1, lambda iso: utc_iso_to_local_date(iso, tz_name), deterministic=True)
 
 
-# 1 when the owner's real account was debited (money came in) -- same rule as transaction_view
-SETTLEMENT_RECEIVES_SQL = (
-    "(SELECT p.debit_amount > 0 FROM posting p JOIN account a ON a.id = p.account_id "
-    "WHERE p.journal_entry_id = je.id AND a.account_type IN ('ASSET','LIABILITY') ORDER BY p.id LIMIT 1)"
-)
-
-
 def _where(*, account_id, category_ids, friend_id, refund_of_id, flat_types, search, status,
-           date_from, date_to_exclusive, settlement_direction=None) -> tuple[list[str], list[Any]]:
+           date_from, date_to_exclusive) -> tuple[list[str], list[Any]]:
     where = ["je.entry_type != 'REVERSAL'"]
     params: list[Any] = []
     if status == "posted":
@@ -90,10 +83,6 @@ def _where(*, account_id, category_ids, friend_id, refund_of_id, flat_types, sea
     if flat_types:
         where.append(f"({FLAT_TYPE_SQL}) IN ({','.join('?' for _ in flat_types)})")
         params.extend(flat_types)
-    if settlement_direction:
-        # only narrows settlements: every other kind of row is untouched
-        where.append(f"(je.entry_type != 'SETTLEMENT' OR {SETTLEMENT_RECEIVES_SQL} = ?)")
-        params.append(1 if settlement_direction == "receive" else 0)
     if date_from is not None:
         where.append("je.entry_date >= ?")
         params.append(date_from)
@@ -113,13 +102,12 @@ _FROM = "FROM journal_entry je LEFT JOIN account c ON c.id = je.category_id WHER
 def search_entries(conn, *, account_id=None, category_ids=None, friend_id=None, refund_of_id=None, flat_types=None,
                    search=None, status="posted", date_from=None, date_to_exclusive=None,
                    sort="date", direction="desc", limit=50, offset=0,
-                   group_by=None, tz_name=None, settlement_direction=None) -> tuple[list[dict], int]:
+                   group_by=None, tz_name=None) -> tuple[list[dict], int]:
     """With `group_by`, rows come back clustered by group (so a group is contiguous across pages) and
     each carries `group_key`; `sort`/`direction` then order the rows inside a group."""
     where, params = _where(
         account_id=account_id, category_ids=category_ids, friend_id=friend_id, refund_of_id=refund_of_id,
-        flat_types=flat_types, search=search, status=status, date_from=date_from, date_to_exclusive=date_to_exclusive,
-        settlement_direction=settlement_direction)
+        flat_types=flat_types, search=search, status=status, date_from=date_from, date_to_exclusive=date_to_exclusive)
     base = _FROM + " AND ".join(where)
     total = conn.execute(f"SELECT COUNT(*) AS n {base}", params).fetchone()["n"]
     order = _SORTS[sort].format(d="ASC" if direction == "asc" else "DESC")
@@ -140,12 +128,11 @@ def search_entries(conn, *, account_id=None, category_ids=None, friend_id=None, 
 
 def group_summary(conn, *, group_by, tz_name, account_id=None, category_ids=None, friend_id=None,
                   refund_of_id=None, flat_types=None, search=None, status="posted", date_from=None,
-                  date_to_exclusive=None, direction="desc", settlement_direction=None) -> list[dict]:
+                  date_to_exclusive=None, direction="desc") -> list[dict]:
     """One row per group and currency: key, label, count and the money in/out (income+refund vs expenses)."""
     where, params = _where(
         account_id=account_id, category_ids=category_ids, friend_id=friend_id, refund_of_id=refund_of_id,
-        flat_types=flat_types, search=search, status=status, date_from=date_from, date_to_exclusive=date_to_exclusive,
-        settlement_direction=settlement_direction)
+        flat_types=flat_types, search=search, status=status, date_from=date_from, date_to_exclusive=date_to_exclusive)
     _register_local_day(conn, tz_name)
     key, label, group_order = _group_sql(group_by)
     group_order = group_order.format(k="group_key", l="group_label")

@@ -261,11 +261,6 @@ describe('edit an expense into a split, and delete a settlement', () => {
     expect((await friendsService.balances()).find((b) => b.friendId === mia.id)?.balance).toBe(60)
 
     const settle = await transactionsService.settle({ friendId: mia.id, accountId: bank.id, amount: 60, direction: 'receive', date: D })
-    const received = await transactionsService.list({ type: ['income', 'settlement'], settlementDirection: 'receive' })
-    expect(received.items.some((t) => t.id === settle.id)).toBe(true)
-    const paid = await transactionsService.list({ type: ['expense', 'settlement'], settlementDirection: 'pay' })
-    expect(paid.items.some((t) => t.id === settle.id)).toBe(false)
-
     await transactionsService.remove(settle.id)
     expect((await friendsService.balances()).find((b) => b.friendId === mia.id)?.balance).toBe(60)
     expect(await bal(bank.id)).toBe(bankBefore - 100)

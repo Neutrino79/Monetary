@@ -158,11 +158,7 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
   `reversed`, `all`); `sort` (`date`, `amount`, `description`) with `direction`; `limit` (max 500) /
   `offset`. The response is a `{items, total, limit, offset}` envelope. STRICT-mode system reversal
   rows are never listed; a corrected entry links to the one it replaced via `correctionOf`, and the
-  original reports `replacedBy`. `settlementDirection=receive|pay` narrows *settlements only* to the
-  money you received or paid (other rows are untouched), so Income can list
-  `type=income&type=settlement&settlementDirection=receive` and Expenses
-  `type=expense&type=refund&type=settlement&settlementDirection=pay`. `GET /transactions/groups` accepts it too.
-  Settlements are never counted in `moneyIn` / `moneyOut`.
+  original reports `replacedBy`.
 - **Grouping** -- `GET /transactions?groupBy=date|month|category|account|type` clusters rows by group
   before paging, so a group is contiguous across pages; `sort`/`direction` then order the rows inside a
   group. Date and month groups are on the owner's local calendar and follow `direction` (newest first by
