@@ -21,15 +21,30 @@ const budget = (over: Partial<BudgetStatus> = {}): BudgetStatus => ({
   categoryId: 7, categoryName: 'Food', budget: 5000, spent: 2000, remaining: 3000, percentageUsed: 40, overBudget: false, notPaidBack: 0, ...over,
 })
 
+const renderBar = (b: BudgetStatus, month = '2026-09') =>
+  render(<MemoryRouter><BudgetBar b={b} month={month} /></MemoryRouter>)
+
 describe('budget bar', () => {
+  it('says how much is left, the percentage, and links to that month\'s expenses', () => {
+    renderBar(budget())
+    expect(screen.getByText(/₹3,000 left/)).toBeInTheDocument()
+    expect(screen.getByText(/₹2,000 of ₹5,000 · 40%/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /Food expenses/ })).toHaveAttribute('href', '/expenses?category=7&month=2026-09')
+  })
+
+  it('says how much it is over when the budget is exceeded', () => {
+    renderBar(budget({ spent: 5600, percentageUsed: 112, overBudget: true }))
+    expect(screen.getByText(/₹600 over/, { selector: 'span.ledger-figure' })).toBeInTheDocument()
+  })
+
   it('shows no marker when everything is paid back', () => {
-    render(<BudgetBar b={budget()} />)
+    renderBar(budget())
     expect(screen.queryByTestId('not-paid-back-slice')).not.toBeInTheDocument()
     expect(screen.queryByText(/not paid back yet/)).not.toBeInTheDocument()
   })
 
   it('marks the fronted spend that is not paid back yet', () => {
-    render(<BudgetBar b={budget({ notPaidBack: 1240 })} />)
+    renderBar(budget({ notPaidBack: 1240 }))
     expect(screen.getByTestId('not-paid-back-slice')).toBeInTheDocument()
     expect(screen.getByText(/of this is not paid back yet/)).toBeInTheDocument()
     expect(screen.getByRole('img')).toHaveAccessibleName(/not paid back yet/)

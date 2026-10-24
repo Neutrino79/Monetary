@@ -1,3 +1,4 @@
+import { BudgetSuggestions } from "@/components/domain/BudgetSuggestions";
 import { BudgetBar } from "@/components/domain/BudgetBar";
 import { useState } from "react";
 import { Card } from "@/components/ui/primitives";
@@ -131,13 +132,14 @@ export function ReportsPage() {
             {budgets.length ? (
               budgets.map((b) => (
                 <div key={b.categoryId} className="mb-4 last:mb-0">
-                  <BudgetBar b={b} showPercent large />
+                  <BudgetBar b={b} month={month} large />
                 </div>
               ))
             ) : (
               <div className="py-10 text-center text-[13px] text-ink-faint">No budgets set up yet — add one from the Categories page.</div>
             )}
           </Card>
+          <BudgetSuggestions month={month} />
         </TabPanel>
       </Tabs>
     </div>
