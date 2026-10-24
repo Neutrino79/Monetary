@@ -82,6 +82,17 @@ describe('table toolbar', () => {
     expect(lastList().searchParams.has('dateTo')).toBe(false)
   })
 
+  it('shows period totals for the current filters, and Category and Account columns', async () => {
+    renderTable()
+    await screen.findByText('Coffee')
+    const bar = await screen.findByLabelText('Period totals')
+    expect(bar).toHaveTextContent(/Out\s*\u2212/)
+    expect(bar).toHaveTextContent(/Net/)
+    expect(urls.some((u) => u.pathname.endsWith('/transactions/groups') && u.searchParams.get('groupBy') === 'type')).toBe(true)
+    expect(screen.getByRole('columnheader', { name: 'Category' })).toBeInTheDocument()
+    expect(screen.getByRole('columnheader', { name: 'Account' })).toBeInTheDocument()
+  })
+
   it('supports a custom date range', async () => {
     const user = userEvent.setup()
     renderTable()
