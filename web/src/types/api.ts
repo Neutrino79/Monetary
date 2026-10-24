@@ -191,7 +191,8 @@ export interface TransactionFilters {
 
 export interface NewTransactionInput {
   type: TransactionType;
-  description: string;
+  /** Required for everything except a settlement, which the server titles from what it covers. */
+  description?: string;
   date: string;
   amount: number;
   memo?: string | null;

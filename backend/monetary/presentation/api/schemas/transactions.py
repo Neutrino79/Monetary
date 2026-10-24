@@ -177,7 +177,9 @@ class SplitShareOut(ApiModel):
 
 class TransactionCreate(ApiModel):
     type: str = Field(description="income | expense | transfer | split | fronted | settlement | refund | adjustment")
-    description: str = Field(min_length=1, max_length=500, validation_alias=AliasChoices("description", "title"))
+    description: str | None = Field(default=None, min_length=1, max_length=500,
+                                    validation_alias=AliasChoices("description", "title"),
+                                    description="Required except for a settlement, which is titled from who it covers")
     amount: str = Field(description="Major units. For a split this is the TOTAL bill.")
     date: str | None = Field(default=None, description="'YYYY-MM-DD' (owner's local date); defaults to now")
     memo: str | None = Field(default=None, max_length=2000, validation_alias=AliasChoices("memo", "note"))

@@ -120,3 +120,21 @@ def test_statement_rows_carry_the_owners_local_date(world):
 def test_statement_for_unknown_friend_or_owner_is_404(world):
     assert world.api.get("/friends/99999/statement").status_code == 404
     assert world.api.get(f"/friends/{world.api.get('/owner').json()['id']}/statement").status_code == 404
+
+
+def test_a_settlement_without_a_description_is_titled_from_what_it_covers(world):
+    d = world.api.post("/transactions", json={
+        "type": "split", "description": "Goa hotel", "amount": "90.00", "date": "2026-03-10", "accountId": world.acct["bank"],
+        "categoryId": world.cat["food"], "yourShare": "30.00",
+        "splits": [{"friendId": world.friend["rahul"], "share": "60.00"}]}).json()
+    r = world.api.post("/transactions", json={
+        "type": "settlement", "amount": "20.00", "date": "2026-03-11", "friendId": world.friend["rahul"],
+        "accountId": world.acct["bank"]})
+    assert r.status_code == 201, r.text
+    assert r.json()["description"] == f"Settlement from Rahul Sharma — Goa hotel (#{d['id']})"
+
+
+def test_other_transactions_still_need_a_description(world):
+    r = world.api.post("/transactions", json={"type": "expense", "amount": "5.00", "date": "2026-03-10",
+                                              "accountId": world.acct["bank"], "categoryId": world.cat["food"]})
+    assert r.status_code == 422 and "description" in r.json()["detail"]

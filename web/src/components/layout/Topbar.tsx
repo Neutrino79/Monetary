@@ -1,5 +1,5 @@
 import { useLocation } from "react-router-dom";
-import { Menu, Search, Sun, Moon, Bell, Plus, LogOut } from "lucide-react";
+import { Menu, Search, Sun, Moon, Plus, LogOut } from "lucide-react";
 import { ALL_NAV_ITEMS } from "@/config/nav";
 import { useBranding } from "@/hooks/queries";
 import { useUiStore } from "@/store/uiStore";
@@ -8,6 +8,7 @@ import { IconButton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
 import { useState } from "react";
+import { NotificationsMenu } from "@/components/layout/NotificationsMenu";
 
 export function Topbar({
   onOpenMobileNav,
@@ -51,9 +52,7 @@ export function Topbar({
         <IconButton aria-label="Toggle theme" onClick={toggleTheme}>
           {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
         </IconButton>
-        <IconButton aria-label="Notifications">
-          <Bell size={18} />
-        </IconButton>
+        <NotificationsMenu />
         <Button size="sm" onClick={onOpenQuickAdd} className="max-[980px]:hidden">
           <Plus size={14} /> Add
         </Button>

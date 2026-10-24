@@ -3,6 +3,7 @@ import { Plus, Search } from "lucide-react";
 import type { Transaction, TransactionGroup, TransactionType } from "@/types";
 import type { TransactionGroupBy } from "@/types/api";
 import { useAccounts, useCategories, useFriends, useTransactionGroups, useTransactions } from "@/hooks/queries";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useLookups } from "@/hooks/useLookups";
 import { formatDate, formatSigned, clamp } from "@/lib/utils/format";
 import { currentMonthRange, isDefaultRange, monthLabel, rangeLabel, rangeToFilters, type DateRange } from "@/lib/utils/dateRange";
@@ -80,6 +81,7 @@ export function TransactionTable({
   const { data: categories = [] } = useCategories();
   const { data: friends = [] } = useFriends();
   const lookups = useLookups();
+  const isPhone = useMediaQuery("(max-width: 640px)");
 
   // The date filter starts on the current month; "All time" is a deliberate choice in the filters.
   const [filters, setFilters] = useState<FilterState>(defaultFilters);
@@ -293,6 +295,7 @@ export function TransactionTable({
           <EmptyState icon={Search} title={emptyTitle} description={emptyDescription} />
         ) : (
           <>
+            {!isPhone && (
             <div className="overflow-x-auto">
               <table className="w-full min-w-160 border-collapse text-[13.3px]">
                 <thead>
@@ -341,6 +344,40 @@ export function TransactionTable({
                 </tbody>
               </table>
             </div>
+            )}
+            {/* phones: one card-like row per transaction, so the amount is never off-screen */}
+            {isPhone && (
+            <ul aria-label="Transactions">
+              {pageRows.map((t, i) => {
+                const startsGroup = grouped && (i === 0 || pageRows[i - 1].groupKey !== t.groupKey);
+                const g = t.groupKey != null ? groupsByKey.get(t.groupKey) : undefined;
+                return (
+                  <Fragment key={t.id}>
+                    {startsGroup && (
+                      <li className="-mx-1 mt-2 flex items-baseline justify-between gap-2 rounded-[8px] bg-paper-sunken px-3 py-2">
+                        <span className="text-[13px] font-semibold">{groupTitle(t.groupKey ?? "", g?.label ?? "")}</span>
+                        {g && <span className="text-[12px] text-ink-soft"><GroupTotals group={g} /></span>}
+                      </li>
+                    )}
+                    <li className="border-b border-line last:border-b-0">
+                      <button type="button" onClick={() => setSelectedTxn(t)} className="flex w-full items-start gap-3 py-3 text-left">
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[14px] font-semibold">{t.description}</div>
+                          <div className="truncate text-[12px] text-ink-soft">
+                            {formatDate(t.date, "short")} · {rowSubtext(t)}
+                          </div>
+                        </div>
+                        <div className="flex flex-none flex-col items-end gap-1">
+                          <TxnAmount txn={t} />
+                          <TxnBadge txn={t} />
+                        </div>
+                      </button>
+                    </li>
+                  </Fragment>
+                );
+              })}
+            </ul>
+            )}
             <div className="mt-3.5 flex items-center justify-between">
               <span className="text-[12.5px] text-ink-soft">
                 {total} transaction{total === 1 ? "" : "s"}

@@ -91,7 +91,9 @@ def create(conn, owner: dict, data: dict) -> dict:
     ftype = data["type"]
     if ftype not in FLAT_TYPES:
         raise ValidationError(f"Unknown transaction type {ftype!r}; expected one of: {', '.join(FLAT_TYPES)}.")
-    description = (data["description"] or "").strip()
+    description = (data.get("description") or "").strip()
+    if ftype != "settlement":
+        _need({"description": description}, ftype, "description")
     date_str = data.get("date")
     _check_date(date_str, owner)
     memo = _clean_memo(data.get("memo"))

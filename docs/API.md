@@ -177,7 +177,8 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
 - **Creating a transaction**: `type`, `description`, `amount` (a split's total bill), `date`, plus the
   fields that type needs (`accountId`, `categoryId`, `toAccountId`, `friendId`, `yourShare` and `splits`
   for a split, `refundOfId`, `direction`). A settlement's direction is derived from the friend's balance;
-  sending one that disagrees is a `422`. A split's shares must add up to the total exactly.
+  sending one that disagrees is a `422`. `description` is required for every type except a settlement, which is titled from
+  what it covers (e.g. `Settlement from Rahul — Goa hotel (#12)`) when none is sent. A split's shares must add up to the total exactly.
 - **Splitting later / un-splitting** -- `PATCH /transactions/{id}` on a plain *expense* with `yourShare` and
   a non-empty `splits` turns it into a split (`amount`, `accountId`, `categoryId` may change in the same call;
   the shares must add up to the bill exactly). Income can't be split, and an expense that has refunds is a
