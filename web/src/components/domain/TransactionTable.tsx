@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { Plus, Search } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import type { Transaction, TransactionGroup, TransactionType } from "@/types";
 import type { TransactionGroupBy } from "@/types/api";
 import { useAccounts, useCategories, useFriends, useTransactionGroups, useTransactions } from "@/hooks/queries";
@@ -84,7 +85,16 @@ export function TransactionTable({
   const isPhone = useMediaQuery("(max-width: 640px)");
 
   // The date filter starts on the current month; "All time" is a deliberate choice in the filters.
-  const [filters, setFilters] = useState<FilterState>(defaultFilters);
+  // Links from elsewhere (a budget on the Dashboard) can open the list on a category and month.
+  const [params] = useSearchParams();
+  const [filters, setFilters] = useState<FilterState>(() => {
+    const f = defaultFilters();
+    const category = params.get("category");
+    const month = params.get("month");
+    if (category && /^\d+$/.test(category)) f.categoryId = category;
+    if (month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month)) f.range = { mode: "month", month };
+    return f;
+  });
   const [groupBy, setGroupBy] = useState<"none" | TransactionGroupBy>("none");
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");

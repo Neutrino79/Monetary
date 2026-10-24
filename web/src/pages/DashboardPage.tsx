@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { MonthStepper } from "@/components/ui/MonthStepper";
 import { LineChart, DonutChart } from "@/components/charts/charts";
 import { TxnIconChip, TxnAmount } from "@/components/domain/chips";
+import { VsLastMonth } from "@/components/domain/VsLastMonth";
 import { BudgetBar } from "@/components/domain/BudgetBar";
 import { TransactionForm } from "@/components/domain/TransactionForm";
 import { TxnDetailDrawer } from "@/components/domain/TxnDetailDrawer";
@@ -14,6 +15,7 @@ import { useLookups } from "@/hooks/useLookups";
 import { useAuthStore } from "@/store/authStore";
 import { currencySymbol, formatCurrency, formatDate } from "@/lib/utils/format";
 import { toMonthKey } from "@/lib/utils/clock";
+import { shiftMonth } from "@/lib/utils/dateRange";
 import { appConfig } from "@/config/app";
 import type { Transaction } from "@/types";
 
@@ -22,6 +24,8 @@ export function DashboardPage() {
   const currentMonth = toMonthKey(new Date());
   const [month, setMonth] = useState(currentMonth);
   const dashboard = useDashboard(month);
+  const previousMonth = shiftMonth(month, -1);
+  const previous = useDashboard(previousMonth);
   const cashflow = useCashflow(6);
   const spending = useSpending(month);
   const recentQuery = useTransactions({ limit: 6, sort: "date", direction: "desc" });
@@ -75,6 +79,7 @@ export function DashboardPage() {
             <TrendingUp size={14} /> Income
           </div>
           <div className="ledger-figure text-accent text-[27px]">{formatCurrency(income)}</div>
+          <VsLastMonth current={income} previous={previous.data?.income} previousMonth={previousMonth} upIsGood />
           <span className="w-fit rounded-full bg-accent-soft px-2 py-0.5 text-[12px] text-accent">{topIncome ? `Top: ${topIncome.categoryName}` : "No income yet"}</span>
         </Card>
         <Card className="flex flex-col gap-2">
@@ -82,6 +87,7 @@ export function DashboardPage() {
             <TrendingDown size={14} /> Expenses
           </div>
           <div className="ledger-figure text-negative text-[27px]">{formatCurrency(expenses)}</div>
+          <VsLastMonth current={expenses} previous={previous.data?.expense} previousMonth={previousMonth} upIsGood={false} />
           <span className="w-fit rounded-full bg-negative-soft px-2 py-0.5 text-[12px] text-negative">{topCat ? `Top: ${topCat.categoryName}` : "No spend yet"}</span>
         </Card>
         <Card className="flex flex-col gap-2">
@@ -174,7 +180,7 @@ export function DashboardPage() {
             {budgets.length ? (
               budgets.map((b) => (
                 <div key={b.categoryId} className="mb-3.5 last:mb-0">
-                  <BudgetBar b={b} />
+                  <BudgetBar b={b} month={month} />
                 </div>
               ))
             ) : (

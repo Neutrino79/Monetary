@@ -42,11 +42,11 @@ beforeEach(() => {
 })
 afterEach(() => vi.unstubAllGlobals())
 
-function renderTable() {
+function renderTable(at = '/') {
   return render(
     <QueryClientProvider client={queryClient}>
       <ToastProvider>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[at]}>
           <TransactionTable allowedTypes={['expense']} title="Expenses" description="d" />
         </MemoryRouter>
       </ToastProvider>
@@ -91,6 +91,14 @@ describe('table toolbar', () => {
     expect(urls.some((u) => u.pathname.endsWith('/transactions/groups') && u.searchParams.get('groupBy') === 'type')).toBe(true)
     expect(screen.getByRole('columnheader', { name: 'Category' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Account' })).toBeInTheDocument()
+  })
+
+  it('opens on the category and month given in the link (from a budget)', async () => {
+    renderTable('/expenses?category=7&month=2026-09')
+    await screen.findByText('Coffee')
+    expect(lastList().searchParams.get('categoryId')).toBe('7')
+    expect(lastList().searchParams.get('dateFrom')).toBe('2026-09-01')
+    expect(lastList().searchParams.get('dateTo')).toBe('2026-09-30')
   })
 
   it('supports a custom date range', async () => {
