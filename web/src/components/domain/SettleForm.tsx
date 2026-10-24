@@ -6,7 +6,8 @@ import { ApiError } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Dialog";
-import { Input, Select, AmountInput, Textarea, FormField } from "@/components/ui/form";
+import { Select, AmountInput, Textarea, FormField } from "@/components/ui/form";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { formatCurrency } from "@/lib/utils/format";
 import { today } from "@/lib/utils/clock";
 
@@ -105,7 +106,7 @@ export function SettleForm({ friend, open, onOpenChange, defaultAmount }: { frie
           <AmountInput value={amount} max={Math.abs(bal)} onChange={(e) => setAmount(e.target.value)} placeholder={Math.abs(bal).toFixed(2)} />
         </FormField>
         <FormField label="Date">
-          <Input type="date" max={today()} value={date} onChange={(e) => setDate(e.target.value)} />
+          <DatePicker max={today()} value={date} onChange={setDate} />
         </FormField>
         <FormField label="Memo (optional)">
           <Textarea rows={2} value={memo} onChange={(e) => setMemo(e.target.value)} />

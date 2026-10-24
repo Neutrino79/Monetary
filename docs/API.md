@@ -166,7 +166,7 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
   when ungrouped): `YYYY-MM-DD`, `YYYY-MM`, the category or account id (`""` = none) or the flat type.
   `GET /transactions/groups` takes the same filters plus a required `groupBy` and returns
   `{groupBy, groups: [{key, label, count, totals: [{currency, moneyIn, moneyOut}]}]}` in the same group
-  order, for the group headers. `moneyIn` sums income and refunds, `moneyOut` expenses; the other types
+  order, for the group headers. `moneyIn` sums income and refunds, `moneyOut` expenses and friend-paid expenses; the other types
   count but add to neither. Totals are per currency.
 - **Friend-fronted expenses** (`type: fronted`, a friend paid; the amount is your share): they count as
   spending, and against the category budget, on the purchase date, exactly like any expense. What you

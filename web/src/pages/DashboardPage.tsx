@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { Plus, TrendingUp, TrendingDown, ChevronRight } from "lucide-react";
 import { Card, Skeleton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/form";
+import { MonthStepper } from "@/components/ui/MonthStepper";
 import { LineChart, DonutChart } from "@/components/charts/charts";
 import { TxnIconChip, TxnAmount } from "@/components/domain/chips";
 import { BudgetBar } from "@/components/domain/BudgetBar";
@@ -55,7 +55,7 @@ export function DashboardPage() {
           <p className="mt-1 text-[13.5px] text-ink-soft">Here's where things stand for {monthLabel}.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Input type="month" aria-label="Month" max={currentMonth} value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} className="w-40" />
+          <MonthStepper value={month} max={currentMonth} onChange={setMonth} />
           <Button onClick={() => setAddOpen(true)}>
             <Plus size={15} /> Add transaction
           </Button>

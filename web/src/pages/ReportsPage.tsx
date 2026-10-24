@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Card } from "@/components/ui/primitives";
 import { Tabs, TabPanel } from "@/components/ui/Tabs";
 import { LineChart, BarChart, DonutChart } from "@/components/charts/charts";
-import { Input } from "@/components/ui/form";
+import { MonthStepper } from "@/components/ui/MonthStepper";
 import { useCashflow, useDashboard, useSpending } from "@/hooks/queries";
 import { useLookups } from "@/hooks/useLookups";
 import { currencySymbol, formatCurrency, formatDate } from "@/lib/utils/format";
@@ -44,7 +44,7 @@ export function ReportsPage() {
       </div>
       <div className="mb-4 flex items-center gap-2 text-[12.5px] text-ink-soft">
         <span>Month for category and budget views</span>
-        <Input type="month" aria-label="Month" max={currentMonth} value={month} onChange={(e) => e.target.value && setMonth(e.target.value)} className="w-40" />
+        <MonthStepper value={month} max={currentMonth} onChange={setMonth} />
       </div>
 
       <Tabs tabs={TABS} value={tab} onValueChange={setTab}>

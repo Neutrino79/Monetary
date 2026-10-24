@@ -118,6 +118,9 @@ export function TransactionTable({
     offset: (page - 1) * pageSize,
   });
   const groupsQuery = useTransactionGroups({ ...baseFilters, direction: sortKey === "date" ? sortDir : "desc", groupBy: grouped ? groupBy : undefined });
+  // Period totals: the same filters, summed over every group (grouping by type keeps it to a handful of rows).
+  const totalsQuery = useTransactionGroups({ ...baseFilters, groupBy: "type" });
+  const periodTotals = sumTotals(totalsQuery.data ?? []);
   const groupsByKey = new Map((groupsQuery.data ?? []).map((g) => [g.key, g]));
 
   const pageRows = query.data?.items ?? [];
@@ -178,12 +181,19 @@ export function TransactionTable({
     return <span className="ml-1 opacity-60">{sortDir === "asc" ? "\u2191" : "\u2193"}</span>;
   }
 
-  function rowSubtext(t: Transaction): string {
+  function categoryText(t: Transaction): string {
+    if (t.type === "transfer") return "Transfer";
+    if (t.type === "settlement") return "Settlement";
+    return t.categoryId ? lookups.getCategory(t.categoryId)?.name ?? "\u2014" : "\u2014";
+  }
+  function accountText(t: Transaction): string {
     if (t.type === "transfer") return `${lookups.getAccount(t.accountId)?.name} \u2192 ${lookups.getAccount(t.toAccountId)?.name}`;
-    if (t.type === "settlement") return lookups.getFriend(t.friendId)?.name ?? "";
-    if (t.type === "fronted") return `${lookups.getFriend(t.friendId)?.name ?? ""} paid · ${lookups.getCategory(t.categoryId)?.name ?? "\u2014"}`;
-    if (t.categoryId) return lookups.getCategory(t.categoryId)?.name ?? "\u2014";
-    return lookups.getAccount(t.accountId)?.name ?? "";
+    if (t.type === "fronted") return `${lookups.getFriend(t.friendId)?.name ?? "A friend"} paid`;
+    return lookups.getAccount(t.accountId)?.name ?? "\u2014";
+  }
+  /** Phone rows have one line for both: "Food · HDFC Bank". */
+  function rowSubtext(t: Transaction): string {
+    return [categoryText(t), accountText(t)].filter((x) => x && x !== "\u2014").join(" \u00b7 ");
   }
 
   return (
@@ -199,6 +209,8 @@ export function TransactionTable({
       </div>
 
       {headerExtra}
+
+      <PeriodSummary label={rangeLabel(filters.range) || "All time"} totals={periodTotals} loading={totalsQuery.isLoading} />
 
       <ListToolbar
         search={{ value: filters.search, onChange: (v) => updateFilter("search", v), placeholder: "Search description or memo" }}
@@ -302,7 +314,8 @@ export function TransactionTable({
                   <tr>
                     <Th onClick={() => toggleSort("date")}>Date{sortArrow("date")}</Th>
                     <Th onClick={() => toggleSort("description")}>Description{sortArrow("description")}</Th>
-                    <Th>Category / Account</Th>
+                    <Th>Category</Th>
+                    <Th>Account</Th>
                     <Th>Type</Th>
                     <Th onClick={() => toggleSort("amount")} align="right">
                       Amount{sortArrow("amount")}
@@ -317,7 +330,7 @@ export function TransactionTable({
                       <Fragment key={t.id}>
                         {startsGroup && (
                           <tr data-testid="group-header" className="border-y border-line bg-paper-sunken">
-                            <td colSpan={4} className="px-3 py-2">
+                            <td colSpan={5} className="px-3 py-2">
                               <span className="text-[13px] font-semibold">{groupTitle(t.groupKey ?? "", g?.label ?? "")}</span>
                               {g && <span className="ml-2 text-[12px] text-ink-soft">{g.count} transaction{g.count === 1 ? "" : "s"}</span>}
                             </td>
@@ -330,7 +343,8 @@ export function TransactionTable({
                             <div className="font-semibold">{t.description}</div>
                             {t.memo && <div className="text-[12px] text-ink-soft">{t.memo}</div>}
                           </td>
-                          <td className="px-3 py-3">{rowSubtext(t)}</td>
+                          <td className="px-3 py-3">{categoryText(t)}</td>
+                          <td className="px-3 py-3">{accountText(t)}</td>
                           <td className="px-3 py-3">
                             <TxnBadge txn={t} />
                           </td>
@@ -421,5 +435,42 @@ function Th({ children, onClick, align }: { children: React.ReactNode; onClick?:
     >
       {children}
     </th>
+  );
+}
+
+interface PeriodTotal { currency: string; moneyIn: number; moneyOut: number }
+
+function sumTotals(groups: TransactionGroup[]): { count: number; byCurrency: PeriodTotal[] } {
+  const by = new Map<string, PeriodTotal>();
+  let count = 0;
+  for (const g of groups) {
+    count += g.count;
+    for (const t of g.totals) {
+      const cur = by.get(t.currency) ?? { currency: t.currency, moneyIn: 0, moneyOut: 0 };
+      cur.moneyIn += t.moneyIn;
+      cur.moneyOut += t.moneyOut;
+      by.set(t.currency, cur);
+    }
+  }
+  return { count, byCurrency: [...by.values()] };
+}
+
+/** "October 2026: in ₹85,000 · out ₹38,000 · net +₹47,000" for whatever the filters currently select. */
+function PeriodSummary({ label, totals, loading }: { label: string; totals: { count: number; byCurrency: PeriodTotal[] }; loading: boolean }) {
+  if (loading || totals.byCurrency.length === 0 || totals.byCurrency.every((t) => !t.moneyIn && !t.moneyOut)) return null;
+  return (
+    <div aria-label="Period totals" className="mb-4 flex flex-wrap items-baseline gap-x-5 gap-y-1 rounded-[12px] border border-line bg-paper-raised px-4 py-3 text-[13px]">
+      <span className="font-semibold">{label}</span>
+      {totals.byCurrency.map((t) => {
+        const net = t.moneyIn - t.moneyOut;
+        return (
+          <span key={t.currency} className="ledger-figure flex flex-wrap gap-x-4">
+            <span><span className="text-ink-soft">In </span>{formatSigned(t.moneyIn, "positive")}</span>
+            <span><span className="text-ink-soft">Out </span>{formatSigned(t.moneyOut, "negative")}</span>
+            <span><span className="text-ink-soft">Net </span>{formatSigned(net, net >= 0 ? "positive" : "negative")}</span>
+          </span>
+        );
+      })}
+    </div>
   );
 }

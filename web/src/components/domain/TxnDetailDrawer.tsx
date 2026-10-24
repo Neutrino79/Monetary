@@ -2,7 +2,8 @@ import { useState } from "react";
 import type { Transaction } from "@/types";
 import { Drawer, ConfirmDialog, Modal } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
-import { AmountInput, FormField, Textarea, Input } from "@/components/ui/form";
+import { AmountInput, FormField, Textarea } from "@/components/ui/form";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { Avatar } from "@/components/ui/primitives";
 import { AccountChip, TxnBadge, TxnAmount, TxnIconChip } from "./chips";
 import { useAccounts, useCategories, useFriendBalances, useFriends, useIncomeSources, useTransaction, useTransactions } from "@/hooks/queries";
@@ -402,7 +403,7 @@ function RefundForm({ original, open, onOpenChange, onDone }: { original: Transa
       </FormField>
       <div className="mt-3">
         <FormField label="Date">
-          <Input type="date" max={today()} value={date} onChange={(e) => setDate(e.target.value)} />
+          <DatePicker max={today()} value={date} onChange={setDate} />
         </FormField>
       </div>
       <div className="mt-3">
