@@ -129,7 +129,7 @@ def search_entries(conn, *, account_id=None, category_ids=None, friend_id=None, 
 def group_summary(conn, *, group_by, tz_name, account_id=None, category_ids=None, friend_id=None,
                   refund_of_id=None, flat_types=None, search=None, status="posted", date_from=None,
                   date_to_exclusive=None, direction="desc") -> list[dict]:
-    """One row per group and currency: key, label, count and the money in/out (income+refund vs expenses)."""
+    """One row per group and currency: key, label, count and the money in/out (income+refund vs expenses+friend-paid)."""
     where, params = _where(
         account_id=account_id, category_ids=category_ids, friend_id=friend_id, refund_of_id=refund_of_id,
         flat_types=flat_types, search=search, status=status, date_from=date_from, date_to_exclusive=date_to_exclusive)
@@ -141,7 +141,7 @@ def group_summary(conn, *, group_by, tz_name, account_id=None, category_ids=None
     ftype = FLAT_TYPE_SQL
     sql = (f"SELECT {key} AS group_key, {label} AS group_label, je.currency_code AS currency, COUNT(*) AS n, "
            f"COALESCE(SUM(CASE WHEN {ftype} IN ('income','refund') THEN {AMOUNT_SQL} END), 0) AS in_points, "
-           f"COALESCE(SUM(CASE WHEN {ftype} = 'expense' THEN {AMOUNT_SQL} END), 0) AS out_points "
+           f"COALESCE(SUM(CASE WHEN {ftype} IN ('expense','fronted') THEN {AMOUNT_SQL} END), 0) AS out_points "
            f"{_FROM}{' AND '.join(where)} GROUP BY group_key, je.currency_code ORDER BY {group_order}, currency")
     return [dict(r) for r in conn.execute(sql, params).fetchall()]
 

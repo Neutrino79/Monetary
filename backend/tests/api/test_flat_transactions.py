@@ -305,6 +305,13 @@ def test_group_by_month_and_summary_totals(populated):
     assert jan["totals"][0]["moneyOut"]["points"] == 1_000
 
 
+def test_friend_paid_expense_counts_as_money_out_in_group_totals(populated):
+    ok(post(populated, **base(populated, "fronted", description="Tea", amount="40.00", date="2026-01-12",
+                              categoryId=populated.cat["food"], friendId=populated.friend["rahul"])))
+    jan = next(g for g in groups(populated, "month") if g["key"] == "2026-01")
+    assert jan["count"] == 2 and jan["totals"][0]["moneyOut"]["points"] == 5_000    # coffee 10 + tea 40
+
+
 def test_group_by_category_is_alphabetical_with_labels(populated):
     items = grouped(populated, "category", type=["expense", "split"])
     assert [i["groupKey"] for i in items].count(str(populated.cat["food"])) == 2     # Coffee beans + Dinner
