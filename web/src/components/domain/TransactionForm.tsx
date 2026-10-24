@@ -4,6 +4,7 @@ import type { NewTransactionInput, TransactionPatch } from "@/types/api";
 import { Modal, ConfirmDialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input, Select, Textarea, AmountInput, FormField } from "@/components/ui/form";
+import { DatePicker } from "@/components/ui/DatePicker";
 import { Avatar } from "@/components/ui/primitives";
 import { useAccounts, useIncomeSources, useFriends, useDashboard } from "@/hooks/queries";
 import { useCreateTransaction, useUpdateTransaction } from "@/hooks/mutations";
@@ -425,7 +426,7 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
             )}
 
             <FormField label="Date" htmlFor="f-date" error={errors.date}>
-              <Input id="f-date" type="date" max={todayStr} value={date} onChange={(e) => setDate(e.target.value)} />
+              <DatePicker id="f-date" max={todayStr} value={date} onChange={setDate} />
             </FormField>
 
             {kind === "expense" && payer === "me" && (

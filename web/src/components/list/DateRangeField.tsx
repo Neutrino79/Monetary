@@ -1,8 +1,8 @@
-import { ChevronLeft, ChevronRight } from "lucide-react";
-import { today, toISODate } from "@/lib/utils/clock";
-import { currentMonthRange, monthLabel, shiftMonth, type DateRange } from "@/lib/utils/dateRange";
+import { today } from "@/lib/utils/clock";
+import { currentMonthRange, type DateRange } from "@/lib/utils/dateRange";
 import { cn } from "@/lib/utils/cn";
-import { Input } from "@/components/ui/form";
+import { DatePicker } from "@/components/ui/DatePicker";
+import { MonthStepper } from "@/components/ui/MonthStepper";
 
 const MODES: { value: DateRange["mode"]; label: string }[] = [
   { value: "month", label: "Month" },
@@ -12,7 +12,7 @@ const MODES: { value: DateRange["mode"]; label: string }[] = [
 
 /** Month / custom range / all-time picker for the filters popover. Months can't go past the current one. */
 export function DateRangeField({ value, onChange }: { value: DateRange; onChange: (r: DateRange) => void }) {
-  const nowMonth = toISODate(new Date()).slice(0, 7);
+  const nowMonth = today().slice(0, 7);
 
   function setMode(mode: DateRange["mode"]) {
     if (mode === value.mode) return;
@@ -42,27 +42,18 @@ export function DateRangeField({ value, onChange }: { value: DateRange; onChange
       </div>
 
       {value.mode === "month" && (
-        <div className="flex items-center gap-2">
-          <button type="button" aria-label="Previous month" onClick={() => onChange({ mode: "month", month: shiftMonth(value.month, -1) })} className="rounded-[8px] border border-line-strong p-2 hover:bg-paper-sunken">
-            <ChevronLeft size={15} />
-          </button>
-          <Input type="month" aria-label="Month" max={nowMonth} value={value.month} onChange={(e) => e.target.value && onChange({ mode: "month", month: e.target.value })} className="flex-1" />
-          <button type="button" aria-label="Next month" disabled={value.month >= nowMonth} onClick={() => onChange({ mode: "month", month: shiftMonth(value.month, 1) })} className="rounded-[8px] border border-line-strong p-2 hover:bg-paper-sunken disabled:opacity-40">
-            <ChevronRight size={15} />
-          </button>
-          <span className="sr-only">{monthLabel(value.month)}</span>
-        </div>
+        <MonthStepper value={value.month} max={nowMonth} onChange={(month) => onChange({ mode: "month", month })} className="self-start" />
       )}
 
       {value.mode === "custom" && (
         <div className="grid grid-cols-2 gap-3">
           <label className="flex flex-col gap-1 text-[12px] text-ink-soft">
             From
-            <Input type="date" max={value.to || today()} value={value.from} onChange={(e) => onChange({ ...value, from: e.target.value })} />
+            <DatePicker aria-label="From" clearable placeholder="Any date" max={value.to || today()} value={value.from} onChange={(from) => onChange({ ...value, from })} />
           </label>
           <label className="flex flex-col gap-1 text-[12px] text-ink-soft">
             To
-            <Input type="date" min={value.from || undefined} max={today()} value={value.to} onChange={(e) => onChange({ ...value, to: e.target.value })} />
+            <DatePicker aria-label="To" clearable placeholder="Any date" min={value.from || undefined} max={today()} value={value.to} onChange={(to) => onChange({ ...value, to })} />
           </label>
         </div>
       )}

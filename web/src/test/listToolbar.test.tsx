@@ -56,6 +56,16 @@ function renderTable() {
 const listCalls = () => urls.filter((u) => u.pathname.endsWith('/transactions'))
 const lastList = () => listCalls()[listCalls().length - 1]
 
+/** Opens a DatePicker and walks back to March 2026 (tests run in or after it), then picks the given day. */
+async function pickDate(user: ReturnType<typeof userEvent.setup>, label: string, day: string) {
+  await user.click(screen.getByRole('button', { name: label }))
+  const dayBtn = () => screen.queryByRole('gridcell', { name: day })
+  for (let i = 0; i < 60 && !dayBtn(); i++) {
+    await user.click(await screen.findByRole('button', { name: 'Previous month' }))
+  }
+  await user.click(dayBtn()!)
+}
+
 describe('table toolbar', () => {
   it('starts on the current month, and "All time" drops the date filter', async () => {
     const user = userEvent.setup()
@@ -78,8 +88,8 @@ describe('table toolbar', () => {
     await screen.findByText('Coffee')
     await user.click(screen.getByRole('button', { name: /Filters/ }))
     await user.click(await screen.findByRole('button', { name: 'Custom' }))
-    await user.type(screen.getByLabelText('From'), '2026-03-05')
-    await user.type(screen.getByLabelText('To'), '2026-03-09')
+    await pickDate(user, 'From', '5 Mar 2026')
+    await pickDate(user, 'To', '9 Mar 2026')
     await waitFor(() => expect(lastList().searchParams.get('dateFrom')).toBe('2026-03-05'))
     expect(lastList().searchParams.get('dateTo')).toBe('2026-03-09')
   })
