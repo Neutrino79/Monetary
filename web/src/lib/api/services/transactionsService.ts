@@ -49,7 +49,7 @@ export const transactionsService = {
   /** Settle up with a friend. The server derives the direction from the balance and rejects a mismatch. */
   async settle(input: SettlementInput): Promise<Transaction> {
     return transactionsService.create({
-      type: "settlement", description: "Settlement", date: input.date ?? "", amount: input.amount,
+      type: "settlement", date: input.date ?? "", amount: input.amount,
       friendId: input.friendId, accountId: input.accountId, direction: input.direction, memo: input.memo,
     });
   },
