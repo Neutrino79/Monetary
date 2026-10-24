@@ -14,7 +14,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
   return (
     <>
       <div
-        className={cn("fixed inset-0 z-50 hidden bg-black/45 max-[980px]:block", mobileOpen ? "block" : "hidden")}
+        className={cn("fixed inset-0 z-50 bg-black/45", mobileOpen ? "hidden max-[980px]:block" : "hidden")}
         onClick={onCloseMobile}
         aria-hidden="true"
       />
