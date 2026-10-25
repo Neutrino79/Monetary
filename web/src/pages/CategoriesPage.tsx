@@ -1,3 +1,6 @@
+import { useSearchParams } from "react-router-dom";
+import { Tabs, TabPanel } from "@/components/ui/Tabs";
+import { TagManager } from "@/components/domain/TagManager";
 import { ListToolbar } from "@/components/list/ListToolbar";
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Search, Pencil, Archive } from "lucide-react";
@@ -13,7 +16,34 @@ import { Modal, ConfirmDialog } from "@/components/ui/Dialog";
 import { Input, Select, AmountInput, FormField } from "@/components/ui/form";
 import { formatCurrency } from "@/lib/utils/format";
 
+const TABS = [
+  { value: "categories", label: "Categories" },
+  { value: "tags", label: "Tags" },
+];
+
+/** Two ways to organise spending: categories (with budgets) and tags (free-form labels you set up here). */
 export function CategoriesPage() {
+  const [params, setParams] = useSearchParams();
+  const tab = params.get("tab") === "tags" ? "tags" : "categories";
+  return (
+    <div>
+      <div className="mb-5">
+        <h1 className="text-2xl font-semibold">Categories &amp; tags</h1>
+        <p className="mt-1 text-[13.5px] text-ink-soft">Categories group your spending and carry the monthly budgets. Tags are labels you set up once, then pick on any transaction.</p>
+      </div>
+      <Tabs tabs={TABS} value={tab} onValueChange={(v) => setParams(v === "tags" ? { tab: "tags" } : {}, { replace: true })}>
+        <TabPanel value="categories">
+          <CategoriesPanel />
+        </TabPanel>
+        <TabPanel value="tags">
+          <TagManager />
+        </TabPanel>
+      </Tabs>
+    </div>
+  );
+}
+
+function CategoriesPanel() {
   const { data: categories = [], isLoading } = useCategories();
   const { data: incomeSources = [] } = useIncomeSources();
   const { data: dashboard } = useDashboard();
@@ -56,11 +86,8 @@ export function CategoriesPage() {
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">Categories</h1>
-          <p className="mt-1 text-[13.5px] text-ink-soft">Organize spending into categories, and set monthly budgets on the ones that matter. Budget progress is for the current calendar month.</p>
-        </div>
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <p className="text-[13px] text-ink-soft">Budget progress is for the current calendar month.</p>
         <Button onClick={() => setAddOpen(true)}>
           <Plus size={15} /> Add category
         </Button>

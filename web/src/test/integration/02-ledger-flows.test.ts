@@ -283,6 +283,12 @@ describe('edit an expense into a split, and delete a settlement', () => {
 describe('tags', () => {
   it('tags a transaction, filters and groups by the tag, and manages tags', async () => {
     const { tagsService } = await import('@/lib/api/services/tagsService')
+    await tagsService.create('  Goa Trip ')
+    await tagsService.create('Food')
+    await expect(tagsService.create('goa trip')).rejects.toMatchObject({ status: 409 })
+    await expect(transactionsService.create({
+      type: 'expense', description: 'Typo tag', date: D, amount: 1, accountId: bank.id, categoryId: groceries, tags: ['goa tirp'],
+    })).rejects.toMatchObject({ status: 422 })
     const tagged = await transactionsService.create({
       type: 'expense', description: 'Tagged groceries', date: D, amount: 40, accountId: bank.id, categoryId: groceries,
       tags: ['  Goa Trip ', 'food'],

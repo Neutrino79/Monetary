@@ -50,6 +50,7 @@ export const useSettleFriend = () => useLedgerMutation((s: SettlementInput) => t
 export const useCreateAccount = () => useLedgerMutation((p: NewAccountInput) => accountsService.create(p));
 export const useUpdateAccount = () => useLedgerMutation(({ id, patch }: { id: Id; patch: AccountPatch }) => accountsService.update(id, patch));
 // --------------------------------------------------------------------- tags
+export const useCreateTag = () => useLedgerMutation((name: string) => tagsService.create(name), [qk.tags]);
 export const useRenameTag = () => useLedgerMutation(({ id, name }: { id: Id; name: string }) => tagsService.rename(id, name), [qk.tags]);
 export const useDeleteTag = () => useLedgerMutation((id: Id) => tagsService.remove(id), [qk.tags]);
 

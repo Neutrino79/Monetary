@@ -52,7 +52,7 @@ export const NAV_SECTIONS: NavSection[] = [
     section: "Setup",
     items: [
       { path: "/accounts", label: "Accounts", icon: Landmark },
-      { path: "/categories", label: "Categories", icon: Tag },
+      { path: "/categories", label: "Categories & tags", icon: Tag },
       { path: "/settings", label: "Settings", icon: Settings },
     ],
   },

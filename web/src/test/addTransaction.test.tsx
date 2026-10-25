@@ -86,17 +86,19 @@ describe('add transaction form', () => {
     expect(posted[0]).toMatchObject({ type: 'expense', amount: '250.00', accountId: 1, categoryId: 7 })
   })
 
-  it('sends the tags typed or picked from the suggestions', async () => {
+  it('sends the tags picked from the dropdown', async () => {
     const user = userEvent.setup()
     renderForm()
     await fillBasics(user, '250')
     await screen.findByRole('option', { name: 'HDFC Savings' })
     await user.selectOptions(screen.getByLabelText('Pay from'), '1')
-    await user.type(screen.getByLabelText('Add a tag'), '#Trip Home{enter}')
-    await user.click(await screen.findByRole('button', { name: '+ work' }))
+    await user.click(screen.getByRole('button', { name: 'Tags' }))
+    await user.click(await screen.findByRole('option', { name: 'work' }))
+    await user.click(screen.getByRole('option', { name: 'goa trip' }))
+    await user.keyboard('{Escape}')
     await user.click(screen.getByRole('button', { name: 'Add transaction' }))
     await waitFor(() => expect(posted).toHaveLength(1))
-    expect(posted[0]).toMatchObject({ type: 'expense', tags: ['trip home', 'work'] })
+    expect(posted[0]).toMatchObject({ type: 'expense', tags: ['work', 'goa trip'] })
   })
 
   it('records an expense a friend paid as a fronted entry with no account', async () => {

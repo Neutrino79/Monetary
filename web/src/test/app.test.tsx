@@ -60,7 +60,7 @@ const PAGES: [string, string | RegExp][] = [
   ['/shared', 'Shared'],
   ['/friends', 'Friends'],
   ['/accounts', 'Accounts'],
-  ['/categories', 'Categories'],
+  ['/categories', 'Categories & tags'],
   ['/reports', 'Reports & Trends'],
   ['/settings', 'Settings'],
 ]

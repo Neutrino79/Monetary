@@ -4,7 +4,6 @@ import { useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
 import { useToast } from "@/components/ui/Toast";
 import { Card } from "@/components/ui/primitives";
-import { TagManager } from "@/components/domain/TagManager";
 import { Button } from "@/components/ui/Button";
 import { Input, Select, FormField } from "@/components/ui/form";
 import { timezoneOptions } from "@/config/timezones";
@@ -116,8 +115,6 @@ export function SettingsPage() {
               </button>
             </div>
           </Card>
-
-          <TagManager />
 
           <Card>
             <div className="mb-4 text-[14.5px] font-semibold">Appearance</div>

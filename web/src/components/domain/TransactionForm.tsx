@@ -5,10 +5,10 @@ import { Modal, ConfirmDialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input, Select, Textarea, AmountInput, FormField } from "@/components/ui/form";
 import { DatePicker } from "@/components/ui/DatePicker";
-import { TagInput } from "@/components/ui/TagInput";
+import { TagPicker } from "@/components/ui/TagPicker";
 import { Avatar } from "@/components/ui/primitives";
 import { useAccounts, useIncomeSources, useFriends, useDashboard, useTags } from "@/hooks/queries";
-import { useCreateTransaction, useUpdateTransaction } from "@/hooks/mutations";
+import { useCreateTag, useCreateTransaction, useUpdateTransaction } from "@/hooks/mutations";
 import { useToast } from "@/components/ui/Toast";
 import { formatCurrency } from "@/lib/utils/format";
 import { today } from "@/lib/utils/clock";
@@ -77,6 +77,7 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
   const [memo, setMemo] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const { data: knownTags = [] } = useTags();
+  const createTag = useCreateTag();
   /** Who paid: you (optionally splitting with friends) or a friend (a friend-fronted expense). */
   const [payer, setPayer] = useState<"me" | "friend">("me");
   const [payerFriendId, setPayerFriendId] = useState<Id | "">("");
@@ -458,8 +459,20 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
               />
             )}
 
-            <FormField label="Tags (optional)" hint="Label it for later \u2014 e.g. a trip or a project \u2014 then filter or group by tag." full>
-              <TagInput value={tags} onChange={setTags} suggestions={knownTags.map((t) => t.name)} />
+            <FormField label="Tags (optional)" hint="Pick from your tags (manage them under Categories \u2192 Tags), then filter or group by tag later." full>
+              <TagPicker
+                value={tags}
+                onChange={setTags}
+                options={knownTags.map((t) => t.name)}
+                onCreate={async (name) => {
+                  try {
+                    return (await createTag.mutateAsync(name)).name;
+                  } catch (e) {
+                    toast.show(e instanceof Error ? e.message : "Couldn't create the tag.", { variant: "error" });
+                    return null;
+                  }
+                }}
+              />
             </FormField>
 
             <FormField label="Note (optional)" full>

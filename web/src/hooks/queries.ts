@@ -75,7 +75,7 @@ export function useFriendBalances() {
   return useQuery({ queryKey: qk.friendBalances, queryFn: friendsService.balances });
 }
 
-/** Tags in use, for suggestions, the filter and the tag manager. */
+/** Every configured tag, for the picker, the filter and the tag manager. */
 export function useTags() {
   return useQuery({ queryKey: qk.tags, queryFn: () => tagsService.list() });
 }
