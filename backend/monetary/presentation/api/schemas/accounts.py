@@ -38,8 +38,20 @@ class AccountOut(ApiModel):
     credit_limit: MoneyOut | None
     statement_day: int | None
     balance: MoneyOut
+    last_activity: str | None = Field(default=None, description="'YYYY-MM-DD' (owner's timezone) of the newest entry")
     created_at: str
     updated_at: str
+
+
+class ReconcileIn(ApiModel):
+    balance: str = Field(description="What the bank or card statement shows, major units >= 0. For a "
+                                     "credit card, the amount owed.")
+    date: str | None = Field(default=None, description="'YYYY-MM-DD' for the adjustment; defaults to now")
+
+
+class ReconcileOut(ApiModel):
+    difference: MoneyOut = Field(description="Bank balance minus ledger balance (signed); 0 = already matched")
+    entry_id: int | None = Field(description="The adjustment posted, or null when nothing needed posting")
 
 
 class AccountBalanceOut(ApiModel):
