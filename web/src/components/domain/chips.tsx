@@ -33,5 +33,11 @@ export function TxnBadge({ txn }: { txn: Transaction }) {
 
 export function TxnAmount({ txn, className }: { txn: Transaction; className?: string }) {
   const display = txnAmountDisplay(txn, formatSigned, formatCurrency);
-  return <span className={cn("ledger-figure", display.className, className)}>{display.text}</span>;
+  if (!display.sub) return <span className={cn("ledger-figure", display.className, className)}>{display.text}</span>;
+  return (
+    <span className="inline-flex flex-col items-end">
+      <span className={cn("ledger-figure", display.className, className)}>{display.text}</span>
+      <span className="text-[11.5px] font-normal text-ink-faint">{display.sub}</span>
+    </span>
+  );
 }

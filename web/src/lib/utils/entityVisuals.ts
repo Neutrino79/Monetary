@@ -98,12 +98,15 @@ export const TXN_TYPE_META: Record<TransactionType, TxnTypeMeta> = {
 export interface TxnAmountDisplay {
   text: string;
   className: string;
+  /** A second, quieter line: for a split, how much of the bill is yours. */
+  sub?: string;
 }
 
 export function txnAmountDisplay(txn: Transaction, formatSigned: (n: number, k: "positive" | "negative" | "neutral") => string, formatCurrency: (n: number) => string): TxnAmountDisplay {
   if (txn.type === "income" || txn.type === "refund") return { text: formatSigned(txn.amount, "positive"), className: "text-accent" };
   if (txn.type === "expense") return { text: formatSigned(txn.amount, "negative"), className: "text-negative" };
-  if (txn.type === "split") return { text: formatSigned(txn.yourShare ?? 0, "negative"), className: "text-negative" };
+  // a split shows the whole bill (what left your account, even when your own share is 0), with your share beneath
+  if (txn.type === "split") return { text: formatSigned(txn.amount, "negative"), className: "text-negative", sub: `Your share ${formatCurrency(txn.yourShare ?? 0)}` };
   if (txn.type === "fronted") return { text: formatSigned(txn.amount, "negative"), className: "text-negative" };
   if (txn.type === "transfer") return { text: formatCurrency(txn.amount), className: "text-warn" };
   if (txn.type === "settlement") return { text: formatSigned(txn.amount, txn.direction === "receive" ? "positive" : "negative"), className: txn.direction === "receive" ? "text-accent" : "text-negative" };
