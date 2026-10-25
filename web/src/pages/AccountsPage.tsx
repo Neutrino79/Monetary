@@ -15,6 +15,7 @@ import { Input, Select, AmountInput, FormField } from "@/components/ui/form";
 import { AccountActivity } from "@/components/domain/AccountActivity";
 import { formatCurrency, relativeDate } from "@/lib/utils/format";
 import { cardStats, statementText } from "@/lib/utils/creditCard";
+import { useFormErrors } from "@/lib/hooks/useFormErrors";
 
 const TYPE_OPTIONS: { value: AccountType; label: string }[] = [
   { value: "ASSET", label: "Asset (bank, cash, wallet)" },
@@ -179,7 +180,7 @@ function AccountForm({ open, onOpenChange, editingAccount = null }: { open: bool
   const [openingBalance, setOpeningBalance] = useState("");
   const [creditLimit, setCreditLimit] = useState("");
   const [statementDay, setStatementDay] = useState("");
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const { errors, setErrors } = useFormErrors({ name, openingBalance, creditLimit, statementDay, "*": [name, openingBalance, creditLimit, statementDay] });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {

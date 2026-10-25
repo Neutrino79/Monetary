@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input, FormField } from "@/components/ui/form";
 import { useToast } from "@/components/ui/Toast";
 import { AuthShell } from "./AuthShell";
+import { useFormError } from "@/lib/hooks/useFormErrors";
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login);
@@ -16,7 +17,7 @@ export function LoginPage() {
   const toast = useToast();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useFormError([email, password]);
   const [loading, setLoading] = useState(false);
 
   async function submit() {

@@ -10,6 +10,7 @@ import { Select, AmountInput, Textarea, FormField } from "@/components/ui/form";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { formatCurrency } from "@/lib/utils/format";
 import { today } from "@/lib/utils/clock";
+import { useFormErrors } from "@/lib/hooks/useFormErrors";
 
 /**
  * Settle up with a friend: they pay you back, or you pay them back. The amount starts as what is outstanding
@@ -25,7 +26,7 @@ export function SettleForm({ friend, open, onOpenChange, defaultAmount }: { frie
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState(today());
   const [memo, setMemo] = useState("");
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const { errors, setErrors } = useFormErrors({ account: accountId, amount, "*": [accountId, amount, date] });
   const [saving, setSaving] = useState(false);
 
   const outstanding = Math.abs(balances.find((b) => b.friendId === friend?.id)?.balance ?? 0);

@@ -5,6 +5,7 @@ import { authService } from "@/lib/api/services/authService";
 import { Button } from "@/components/ui/Button";
 import { Input, FormField } from "@/components/ui/form";
 import { AuthShell } from "./AuthShell";
+import { useFormError } from "@/lib/hooks/useFormErrors";
 
 type Step = "email" | "question" | "done";
 
@@ -16,7 +17,7 @@ export function ForgotPasswordPage() {
   const [answer, setAnswer] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useFormError([step, email, answer, password, confirm]);
   const [loading, setLoading] = useState(false);
 
   async function submitEmail() {
