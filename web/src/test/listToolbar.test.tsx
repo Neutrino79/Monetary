@@ -35,6 +35,7 @@ beforeEach(() => {
     const grouped = url.searchParams.get('groupBy')
     const bodies: Record<string, unknown> = {
       '/transactions': { items: [txn(1, 'Coffee', grouped ? 'Food' : null), txn(2, 'Pizza', grouped ? 'Food' : null)], total: 2, limit: 12, offset: 0 },
+      '/tags': [{ id: 1, name: 'goa', uses: 2 }],
       '/transactions/groups': { groupBy: grouped, groups: [{ key: 'Food', label: 'Food', count: 2, totals: [{ currency: 'INR', moneyIn: money(0), moneyOut: money(30000) }] }] },
     }
     return new Response(JSON.stringify(path in bodies ? bodies[path] : []), { status: 200, headers: { 'Content-Type': 'application/json' } })
@@ -99,6 +100,26 @@ describe('table toolbar', () => {
     expect(lastList().searchParams.get('categoryId')).toBe('7')
     expect(lastList().searchParams.get('dateFrom')).toBe('2026-09-01')
     expect(lastList().searchParams.get('dateTo')).toBe('2026-09-30')
+  })
+
+  it('filters by tag, from the toolbar or a link, across all time', async () => {
+    const user = userEvent.setup()
+    renderTable('/transactions?tag=goa')
+    await screen.findByText('Coffee')
+    expect(lastList().searchParams.getAll('tag')).toEqual(['goa'])
+    expect(lastList().searchParams.has('dateFrom')).toBe(false)         // a tag link is not limited to this month
+    expect(screen.getByText('Tag: goa')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: /Filters/ }))
+    expect(await screen.findByLabelText('Tag')).toHaveValue('goa')
+  })
+
+  it('can group by tag and explains that a transaction appears under each of its tags', async () => {
+    const user = userEvent.setup()
+    renderTable()
+    await screen.findByText('Coffee')
+    await user.selectOptions(screen.getByLabelText('Group'), 'tag')
+    await waitFor(() => expect(lastList().searchParams.get('groupBy')).toBe('tag'))
+    expect(await screen.findByText(/listed under each of them/)).toBeInTheDocument()
   })
 
   it('supports a custom date range', async () => {

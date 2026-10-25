@@ -56,6 +56,7 @@ export function toTransaction(t: TransactionDto): Transaction {
     splits: t.splits?.map((s) => ({ friendId: s.friendId, share: fromMoney(s.share) })),
     refundOfId: undef(t.refundOfId), correctionOf: undef(t.correctionOf), replacedBy: undef(t.replacedBy),
     unpaid: t.unpaid ? fromMoney(t.unpaid) : undefined,
+    tags: t.tags ?? [],
     groupKey: undef(t.groupKey),
   };
 }

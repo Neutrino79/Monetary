@@ -5,8 +5,9 @@ import { Modal, ConfirmDialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Input, Select, Textarea, AmountInput, FormField } from "@/components/ui/form";
 import { DatePicker } from "@/components/ui/DatePicker";
+import { TagInput } from "@/components/ui/TagInput";
 import { Avatar } from "@/components/ui/primitives";
-import { useAccounts, useIncomeSources, useFriends, useDashboard } from "@/hooks/queries";
+import { useAccounts, useIncomeSources, useFriends, useDashboard, useTags } from "@/hooks/queries";
 import { useCreateTransaction, useUpdateTransaction } from "@/hooks/mutations";
 import { useToast } from "@/components/ui/Toast";
 import { formatCurrency } from "@/lib/utils/format";
@@ -74,6 +75,8 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
   const [toAccountId, setToAccountId] = useState<Id | "">("");
   const [categoryId, setCategoryId] = useState<Id | "">("");
   const [memo, setMemo] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
+  const { data: knownTags = [] } = useTags();
   /** Who paid: you (optionally splitting with friends) or a friend (a friend-fronted expense). */
   const [payer, setPayer] = useState<"me" | "friend">("me");
   const [payerFriendId, setPayerFriendId] = useState<Id | "">("");
@@ -100,6 +103,7 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
     setToAccountId(t?.toAccountId ?? "");
     setCategoryId(t?.categoryId ?? "");
     setMemo(t?.memo ?? "");
+    setTags(t?.tags ?? []);
     setErrors({});
     const fronted = (t?.type ?? initialType) === "fronted";
     setPayer(fronted ? "friend" : "me");
@@ -158,7 +162,7 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
     else if (date > todayStr) newErrors.date = "Date can't be in the future.";
     if (!MONEY_RE.test(amount.trim()) || !(amountNum > 0)) newErrors.amount = "Enter an amount above 0 with at most 2 decimals.";
 
-    const common = { description: description.trim(), date, amount: amountNum, memo: memo.trim() || null };
+    const common = { description: description.trim(), date, amount: amountNum, memo: memo.trim() || null, tags };
     let input: NewTransactionInput;
 
     if (kind === "income") {
@@ -453,6 +457,10 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
                 error={errors.shares ?? (errors.friends && payer === "me" ? errors.friends : undefined)}
               />
             )}
+
+            <FormField label="Tags (optional)" hint="Label it for later \u2014 e.g. a trip or a project \u2014 then filter or group by tag." full>
+              <TagInput value={tags} onChange={setTags} suggestions={knownTags.map((t) => t.name)} />
+            </FormField>
 
             <FormField label="Note (optional)" full>
               <Textarea rows={2} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder={splitting ? "Split evenly" : undefined} />

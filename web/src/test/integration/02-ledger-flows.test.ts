@@ -280,6 +280,38 @@ describe('edit an expense into a split, and delete a settlement', () => {
   })
 })
 
+describe('tags', () => {
+  it('tags a transaction, filters and groups by the tag, and manages tags', async () => {
+    const { tagsService } = await import('@/lib/api/services/tagsService')
+    const tagged = await transactionsService.create({
+      type: 'expense', description: 'Tagged groceries', date: D, amount: 40, accountId: bank.id, categoryId: groceries,
+      tags: ['  Goa Trip ', 'food'],
+    })
+    expect(tagged.tags).toEqual(['food', 'goa trip'])
+    const plain = await transactionsService.create({
+      type: 'expense', description: 'Untagged groceries', date: D, amount: 10, accountId: bank.id, categoryId: groceries,
+    })
+    expect(plain.tags).toEqual([])
+
+    const byTag = await transactionsService.list({ tag: ['goa trip'], dateFrom: `${month}-01` })
+    expect(byTag.items.map((t) => t.description)).toEqual(['Tagged groceries'])
+    const groups = await transactionsService.groups({ groupBy: 'tag', dateFrom: `${month}-01`, tag: ['goa trip'] })
+    expect(groups.map((g) => g.label)).toEqual(['goa trip'])
+
+    const edited = await transactionsService.update(plain.id, { tags: ['goa trip'] })
+    expect(edited.tags).toEqual(['goa trip'])
+    const listed = await tagsService.list()
+    expect(listed.find((t) => t.name === 'goa trip')?.uses).toBe(2)
+
+    const merged = await tagsService.rename(listed.find((t) => t.name === 'food')!.id, 'goa trip')   // merge
+    expect(merged.uses).toBe(2)
+    await tagsService.remove(merged.id)
+    expect((await transactionsService.get(tagged.id)).tags).toEqual([])
+    await transactionsService.remove(tagged.id)
+    await transactionsService.remove(plain.id)
+  })
+})
+
 describe('sessions', () => {
   it('a session revoked on the server logs the app out on the next call', async () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(true)

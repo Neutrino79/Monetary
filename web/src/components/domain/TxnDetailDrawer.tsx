@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useState } from "react";
 import type { Transaction } from "@/types";
 import { Drawer, ConfirmDialog, Modal } from "@/components/ui/Dialog";
@@ -257,6 +258,18 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
             <div className="rounded-[10px] border border-line bg-paper-sunken px-4">
               <MetaRow icon={Tag} label="Category" value={category?.name ?? "—"} />
               <MetaRow icon={Landmark} label={txn.type === "income" ? "Deposited to" : "Paid from"} value={account?.name ?? "—"} />
+            </div>
+          </DetailSection>
+        )}
+
+        {txn.tags.length > 0 && (
+          <DetailSection title="Tags">
+            <div className="flex flex-wrap gap-1.5">
+              {txn.tags.map((tag) => (
+                <Link key={tag} to={`/transactions?tag=${encodeURIComponent(tag)}`} className="rounded-full bg-paper-sunken px-2.5 py-0.5 text-[12.5px] text-ink-soft hover:text-ink">
+                  {tag}
+                </Link>
+              ))}
             </div>
           </DetailSection>
         )}

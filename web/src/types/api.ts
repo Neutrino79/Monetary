@@ -82,6 +82,7 @@ export interface TransactionDto {
   yourShare: MoneyDto | null;
   splits: { friendId: number; share: MoneyDto }[] | null;
   refundOfId: number | null;
+  tags: string[];
   correctionOf: number | null;
   replacedBy: number | null;
   createdAt: string;
@@ -92,7 +93,7 @@ export interface TransactionDto {
   groupKey: string | null;
 }
 
-export type TransactionGroupBy = "date" | "month" | "category" | "account" | "type";
+export type TransactionGroupBy = "date" | "month" | "category" | "account" | "type" | "tag";
 
 export interface TransactionGroupDto {
   key: string;
@@ -178,6 +179,8 @@ export interface TransactionFilters {
   friendId?: Id;
   /** Refunds recorded against this expense. */
   refundOfId?: Id;
+  /** Only transactions with any of these tags. */
+  tag?: string[];
   search?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -205,6 +208,8 @@ export interface NewTransactionInput {
   yourShare?: number;
   splits?: { friendId: Id; share: number }[];
   refundOfId?: Id;
+  /** The complete tag set; on an edit, [] clears and absent leaves them alone. */
+  tags?: string[];
 }
 
 export type TransactionPatch = Partial<Omit<NewTransactionInput, "type">>;

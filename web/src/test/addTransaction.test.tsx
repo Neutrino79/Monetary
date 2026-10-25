@@ -23,6 +23,7 @@ const routes: Record<string, unknown> = {
     { id: 11, name: 'Rahul', email: 'r@example.com', phone: null, dueAccountId: 21, createdAt: 'x' },
     { id: 12, name: 'Riya', email: 'ri@example.com', phone: null, dueAccountId: 22, createdAt: 'x' },
   ],
+  '/tags': [{ id: 1, name: 'work', uses: 4 }, { id: 2, name: 'goa trip', uses: 2 }],
   '/reports/dashboard': {
     year: 2026, month: 10, netWorth: [], summary: [], accountBalances: [], budgetStatus: [{
       categoryId: 7, categoryName: 'Food', budget: money(500000), spent: money(250000), remaining: money(250000),
@@ -83,6 +84,19 @@ describe('add transaction form', () => {
     await user.click(screen.getByRole('button', { name: 'Add transaction' }))
     await waitFor(() => expect(posted).toHaveLength(1))
     expect(posted[0]).toMatchObject({ type: 'expense', amount: '250.00', accountId: 1, categoryId: 7 })
+  })
+
+  it('sends the tags typed or picked from the suggestions', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await fillBasics(user, '250')
+    await screen.findByRole('option', { name: 'HDFC Savings' })
+    await user.selectOptions(screen.getByLabelText('Pay from'), '1')
+    await user.type(screen.getByLabelText('Add a tag'), '#Trip Home{enter}')
+    await user.click(await screen.findByRole('button', { name: '+ work' }))
+    await user.click(screen.getByRole('button', { name: 'Add transaction' }))
+    await waitFor(() => expect(posted).toHaveLength(1))
+    expect(posted[0]).toMatchObject({ type: 'expense', tags: ['trip home', 'work'] })
   })
 
   it('records an expense a friend paid as a fronted entry with no account', async () => {

@@ -3,7 +3,7 @@ import { Plus, Search } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import type { Transaction, TransactionGroup, TransactionType } from "@/types";
 import type { TransactionGroupBy } from "@/types/api";
-import { useAccounts, useCategories, useFriends, useTransactionGroups, useTransactions } from "@/hooks/queries";
+import { useAccounts, useCategories, useFriends, useTags, useTransactionGroups, useTransactions } from "@/hooks/queries";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useLookups } from "@/hooks/useLookups";
 import { formatDate, formatSigned, clamp } from "@/lib/utils/format";
@@ -25,8 +25,9 @@ interface FilterState {
   categoryId: string;
   type: string;
   friendId: string;
+  tag: string;
 }
-const defaultFilters = (): FilterState => ({ search: "", range: currentMonthRange(), accountId: "", categoryId: "", type: "", friendId: "" });
+const defaultFilters = (): FilterState => ({ search: "", range: currentMonthRange(), accountId: "", categoryId: "", type: "", friendId: "", tag: "" });
 
 type SortKey = "date" | "description" | "amount";
 type SortDir = "asc" | "desc";
@@ -46,11 +47,20 @@ const GROUP_OPTIONS: SelectOption<"none" | TransactionGroupBy>[] = [
   { value: "category", label: "Category" },
   { value: "account", label: "Account" },
   { value: "type", label: "Type" },
+  { value: "tag", label: "Tag" },
 ];
 
 const selectLook = "w-full";
 
-export function TransactionTable({
+type TableProps = React.ComponentProps<typeof TransactionTableInner>;
+
+/** Opens on the filters in the link (`?category=`, `?month=`, `?tag=`); following another such link starts afresh. */
+export function TransactionTable(props: TableProps) {
+  const [params] = useSearchParams();
+  return <TransactionTableInner key={params.toString()} {...props} />;
+}
+
+function TransactionTableInner({
   allowedTypes,
   title,
   description,
@@ -81,6 +91,7 @@ export function TransactionTable({
   const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
   const { data: friends = [] } = useFriends();
+  const { data: allTags = [] } = useTags();
   const lookups = useLookups();
   const isPhone = useMediaQuery("(max-width: 640px)");
 
@@ -91,6 +102,11 @@ export function TransactionTable({
     const f = defaultFilters();
     const category = params.get("category");
     const month = params.get("month");
+    const tag = params.get("tag");
+    if (tag) {
+      f.tag = tag;
+      if (!month) f.range = { mode: "all" };      // a tag link is about the tag, not this month
+    }
     if (category && /^\d+$/.test(category)) f.categoryId = category;
     if (month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month)) f.range = { mode: "month", month };
     return f;
@@ -117,6 +133,7 @@ export function TransactionTable({
     accountId: filters.accountId ? Number(filters.accountId) : undefined,
     categoryId: filters.categoryId ? Number(filters.categoryId) : undefined,
     friendId: filters.friendId ? Number(filters.friendId) : undefined,
+    tag: filters.tag ? [filters.tag] : undefined,
   };
   const grouped = groupBy !== "none";
   const query = useTransactions({
@@ -164,7 +181,7 @@ export function TransactionTable({
   const isDefaultDate = isDefaultRange(filters.range);
   const rangeText = rangeLabel(filters.range);
   const filterCount =
-    (isDefaultDate ? 0 : 1) + [filters.type, filters.accountId, filters.categoryId, filters.friendId].filter(Boolean).length;
+    (isDefaultDate ? 0 : 1) + [filters.type, filters.accountId, filters.categoryId, filters.friendId, filters.tag].filter(Boolean).length;
 
   const chips: ToolbarChip[] = [];
   if (rangeText) chips.push({ key: "range", label: rangeText, onRemove: () => updateFilter("range", { mode: "all" }) });
@@ -172,6 +189,7 @@ export function TransactionTable({
   if (filters.accountId) chips.push({ key: "accountId", label: `Account: ${accounts.find((a) => a.id === Number(filters.accountId))?.name ?? ""}`, onRemove: () => updateFilter("accountId", "") });
   if (filters.categoryId) chips.push({ key: "categoryId", label: `Category: ${lookups.getCategory(Number(filters.categoryId))?.name ?? ""}`, onRemove: () => updateFilter("categoryId", "") });
   if (filters.type) chips.push({ key: "type", label: `Type: ${TXN_TYPE_META[filters.type as TransactionType].label}`, onRemove: () => updateFilter("type", "") });
+  if (filters.tag) chips.push({ key: "tag", label: `Tag: ${filters.tag}`, onRemove: () => updateFilter("tag", "") });
   if (filters.friendId) chips.push({ key: "friendId", label: `Friend: ${friends.find((f) => f.id === Number(filters.friendId))?.name ?? ""}`, onRemove: () => updateFilter("friendId", "") });
 
   function resetFilters() {
@@ -275,6 +293,18 @@ export function TransactionTable({
                   </Select>
                 </FilterField>
               )}
+              {(allTags.length > 0 || filters.tag) && (
+                <FilterField label="Tag">
+                  <Select aria-label="Tag" className={selectLook} value={filters.tag} onChange={(e) => updateFilter("tag", e.target.value)}>
+                    <option value="">All tags</option>
+                    {[...new Set([...allTags.map((t) => t.name), ...(filters.tag ? [filters.tag] : [])])].map((name) => (
+                      <option key={name} value={name}>
+                        {name}
+                      </option>
+                    ))}
+                  </Select>
+                </FilterField>
+              )}
               {showFriendFilter && (
                 <FilterField label="Friend">
                   <Select aria-label="Friend" className={selectLook} value={filters.friendId} onChange={(e) => updateFilter("friendId", e.target.value)}>
@@ -305,6 +335,10 @@ export function TransactionTable({
         onResetAll={filterCount > 0 ? resetFilters : undefined}
         resetLabel="Reset filters"
       />
+
+      {groupBy === "tag" && (
+        <p className="mb-3 text-[12.5px] text-ink-faint">A transaction with several tags is listed under each of them, so group totals can add up to more than the period total.</p>
+      )}
 
       <div className="rounded-2xl border border-line bg-paper-raised p-5">
         {query.isLoading ? (
@@ -337,7 +371,7 @@ export function TransactionTable({
                     const startsGroup = grouped && (i === 0 || pageRows[i - 1].groupKey !== t.groupKey);
                     const g = t.groupKey != null ? groupsByKey.get(t.groupKey) : undefined;
                     return (
-                      <Fragment key={t.id}>
+                      <Fragment key={`${t.id}-${t.groupKey ?? ""}`}>
                         {startsGroup && (
                           <tr data-testid="group-header" className="border-y border-line bg-paper-sunken">
                             <td colSpan={5} className="px-3 py-2">
@@ -352,6 +386,13 @@ export function TransactionTable({
                           <td className="px-3 py-3">
                             <div className="font-semibold">{t.description}</div>
                             {t.memo && <div className="text-[12px] text-ink-soft">{t.memo}</div>}
+                            {t.tags.length > 0 && (
+                              <div className="mt-1 flex flex-wrap gap-1" aria-label="Tags">
+                                {t.tags.map((tag) => (
+                                  <span key={tag} className="rounded-full bg-paper-sunken px-2 py-px text-[11.5px] text-ink-soft">{tag}</span>
+                                ))}
+                              </div>
+                            )}
                           </td>
                           <td className="px-3 py-3">{categoryText(t)}</td>
                           <td className="px-3 py-3">{accountText(t)}</td>
@@ -376,7 +417,7 @@ export function TransactionTable({
                 const startsGroup = grouped && (i === 0 || pageRows[i - 1].groupKey !== t.groupKey);
                 const g = t.groupKey != null ? groupsByKey.get(t.groupKey) : undefined;
                 return (
-                  <Fragment key={t.id}>
+                  <Fragment key={`${t.id}-${t.groupKey ?? ""}`}>
                     {startsGroup && (
                       <li className="-mx-1 mt-2 flex items-baseline justify-between gap-2 rounded-[8px] bg-paper-sunken px-3 py-2">
                         <span className="text-[13px] font-semibold">{groupTitle(t.groupKey ?? "", g?.label ?? "")}</span>

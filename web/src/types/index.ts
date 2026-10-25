@@ -27,6 +27,13 @@ export interface Account {
   updatedAt: string;
 }
 
+/** A tag and how many live transactions carry it. */
+export interface Tag {
+  id: Id;
+  name: string;
+  uses: number;
+}
+
 export type CategoryType = "EXPENSE" | "INCOME";
 
 /** Expense categories and income sources share one shape (an income source is an INCOME category). */
@@ -82,6 +89,8 @@ export interface Transaction {
   yourShare?: number;
   splits?: SplitParticipant[];
   refundOfId?: Id;
+  /** Free-form labels, sorted; empty when untagged. */
+  tags: string[];
   /** STRICT mode: the entry this one replaced / the entry that replaced this one. */
   correctionOf?: Id;
   replacedBy?: Id;
