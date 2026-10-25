@@ -7,6 +7,7 @@ import type {
 import { accountsService } from "@/lib/api/services/accountsService";
 import { categoriesService } from "@/lib/api/services/categoriesService";
 import { friendsService } from "@/lib/api/services/friendsService";
+import { tagsService } from "@/lib/api/services/tagsService";
 import { transactionsService } from "@/lib/api/services/transactionsService";
 import { qk } from "./queries";
 
@@ -21,6 +22,7 @@ export function invalidateLedger(qc: QueryClient) {
     qc.invalidateQueries({ queryKey: ["transaction"] }),
     qc.invalidateQueries({ queryKey: qk.accounts }),
     qc.invalidateQueries({ queryKey: qk.friends }),
+    qc.invalidateQueries({ queryKey: qk.tags }),
     qc.invalidateQueries({ queryKey: ["reports"] }),
   ]);
 }
@@ -47,6 +49,11 @@ export const useSettleFriend = () => useLedgerMutation((s: SettlementInput) => t
 // ----------------------------------------------------------------- accounts
 export const useCreateAccount = () => useLedgerMutation((p: NewAccountInput) => accountsService.create(p));
 export const useUpdateAccount = () => useLedgerMutation(({ id, patch }: { id: Id; patch: AccountPatch }) => accountsService.update(id, patch));
+// --------------------------------------------------------------------- tags
+export const useCreateTag = () => useLedgerMutation((name: string) => tagsService.create(name), [qk.tags]);
+export const useRenameTag = () => useLedgerMutation(({ id, name }: { id: Id; name: string }) => tagsService.rename(id, name), [qk.tags]);
+export const useDeleteTag = () => useLedgerMutation((id: Id) => tagsService.remove(id), [qk.tags]);
+
 export const useReconcileAccount = () =>
   useLedgerMutation(({ id, balance, date }: { id: Id; balance: number; date?: string }) => accountsService.reconcile(id, balance, date));
 export const useArchiveAccount = () => useLedgerMutation((id: Id) => accountsService.archive(id));

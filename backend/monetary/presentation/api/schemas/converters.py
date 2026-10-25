@@ -37,7 +37,7 @@ def transaction_out(view: dict):
         your_share=(money_out(view["your_share_points"], cur) if view["your_share_points"] is not None else None),
         splits=([SplitShareOut(friend_id=f, share=money_out(p, cur)) for f, p in view["splits"]]
                 if view["splits"] is not None else None),
-        refund_of_id=view["refund_of_id"], correction_of=view["correction_of"],
+        refund_of_id=view["refund_of_id"], tags=view.get("tags", []), correction_of=view["correction_of"],
         replaced_by=view["replaced_by"], created_at=view["created_at"], updated_at=view["updated_at"],
         unpaid=money_out(view["unpaid_points"], cur) if view.get("unpaid_points") is not None else None,
         group_key=view.get("group_key"),

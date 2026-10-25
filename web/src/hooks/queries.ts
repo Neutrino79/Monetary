@@ -10,6 +10,7 @@ import { incomeSourcesService } from "@/lib/api/services/incomeSourcesService";
 import { friendsService } from "@/lib/api/services/friendsService";
 import { transactionsService } from "@/lib/api/services/transactionsService";
 import { reportsService } from "@/lib/api/services/reportsService";
+import { tagsService } from "@/lib/api/services/tagsService";
 import { authService } from "@/lib/api/services/authService";
 
 /** Query keys. Everything that changes the ledger invalidates the "ledger" family together (see mutations.ts). */
@@ -20,6 +21,7 @@ export const qk = {
   accounts: ["accounts"] as const,
   categories: ["categories"] as const,
   incomeSources: ["income-sources"] as const,
+  tags: ["tags"] as const,
   friends: ["friends"] as const,
   friendBalances: ["friends", "balances"] as const,
   accountStatement: (id: Id) => ["accounts", "statement", id] as const,
@@ -71,6 +73,11 @@ export function useFriends() {
 
 export function useFriendBalances() {
   return useQuery({ queryKey: qk.friendBalances, queryFn: friendsService.balances });
+}
+
+/** Every configured tag, for the picker, the filter and the tag manager. */
+export function useTags() {
+  return useQuery({ queryKey: qk.tags, queryFn: () => tagsService.list() });
 }
 
 export function useAccountStatement(id: Id | undefined) {

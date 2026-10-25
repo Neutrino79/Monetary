@@ -191,6 +191,7 @@ class TransactionCreate(ApiModel):
     your_share: str | None = Field(default=None, description="split: your own share (can be '0')")
     splits: list[SplitShareIn] | None = None
     refund_of_id: int | None = None
+    tags: list[str] | None = Field(default=None, description="Free-form labels, lowercased and de-duplicated; at most 10")
 
 
 class TransactionPatch(ApiModel):
@@ -208,6 +209,7 @@ class TransactionPatch(ApiModel):
     direction: str | None = None
     your_share: str | None = None
     splits: list[SplitShareIn] | None = None
+    tags: list[str] | None = Field(default=None, description="The complete new tag set; [] clears the tags, absent leaves them")
     force: bool = False
     remove_settlements: bool = False
 
@@ -229,6 +231,7 @@ class TransactionOut(ApiModel):
     your_share: MoneyOut | None
     splits: list[SplitShareOut] | None
     refund_of_id: int | None
+    tags: list[str] = Field(default_factory=list, description="Sorted tag names")
     correction_of: int | None = Field(description="STRICT mode: the entry this one replaced")
     replaced_by: int | None = Field(description="STRICT mode: the entry that replaced this one")
     created_at: str

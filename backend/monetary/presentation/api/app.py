@@ -28,6 +28,7 @@ from monetary.presentation.api.routers import (
     reports,
     settlements,
     setup,
+    tags,
     splits,
     transactions,
     transfers,
@@ -109,6 +110,7 @@ app.include_router(transactions.router)
 app.include_router(splits.router)
 app.include_router(transfers.router)
 app.include_router(settlements.router)
+app.include_router(tags.router)
 app.include_router(reports.router)
 
 

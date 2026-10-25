@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from monetary.application import (
     settlement_service,
+    tag_service,
     split_service,
     transaction_service,
     transfer_service,
@@ -88,6 +89,13 @@ def _adjustment_side(account_type: str, direction: str) -> str:
 # create
 # --------------------------------------------------------------------------- #
 def create(conn, owner: dict, data: dict) -> dict:
+    tags = tag_service.checked_tags(conn, data.get("tags"))      # validated before anything is posted
+    entry = _create_entry(conn, owner, data)
+    tag_service.apply_after_create(conn, entry["id"], tags)
+    return entry
+
+
+def _create_entry(conn, owner: dict, data: dict) -> dict:
     ftype = data["type"]
     if ftype not in FLAT_TYPES:
         raise ValidationError(f"Unknown transaction type {ftype!r}; expected one of: {', '.join(FLAT_TYPES)}.")
@@ -176,12 +184,12 @@ def view_of(conn, owner: dict, entry: dict) -> dict:
     return to_views(conn, owner, [entry])[0]
 
 
-def list_views(conn, owner: dict, *, account_id=None, category_id=None, friend_id=None, refund_of_id=None, types=None,
+def list_views(conn, owner: dict, *, account_id=None, category_id=None, friend_id=None, refund_of_id=None, types=None, tags=None,
                search=None, status="posted", date_from=None, date_to=None, sort="date",
                direction="desc", limit=50, offset=0, group_by=None) -> tuple[list[dict], int]:
     """With `group_by`, rows are clustered by group and each view carries `group_key`."""
     filters = _filters(conn, owner, account_id=account_id, category_id=category_id, friend_id=friend_id,
-                       refund_of_id=refund_of_id, types=types, search=search, status=status,
+                       refund_of_id=refund_of_id, types=types, tags=tags, search=search, status=status,
                        date_from=date_from, date_to=date_to)
     if sort not in SORT_FIELDS:
         raise ValidationError(f"sort must be one of: {', '.join(SORT_FIELDS)}.")
@@ -196,14 +204,14 @@ def list_views(conn, owner: dict, *, account_id=None, category_id=None, friend_i
 
 
 def group_summaries(conn, owner: dict, *, group_by, direction="desc", account_id=None, category_id=None,
-                    friend_id=None, refund_of_id=None, types=None, search=None, status="posted",
+                    friend_id=None, refund_of_id=None, types=None, tags=None, search=None, status="posted",
                     date_from=None, date_to=None) -> list[dict]:
     """Header data for each group of a grouped list: key, label, count, money in and out (in points)."""
     _check_group_by(group_by)
     if not group_by:
         raise ValidationError(f"groupBy is required; expected one of: {', '.join(q.GROUP_BYS)}.")
     filters = _filters(conn, owner, account_id=account_id, category_id=category_id, friend_id=friend_id,
-                       refund_of_id=refund_of_id, types=types, search=search, status=status,
+                       refund_of_id=refund_of_id, types=types, tags=tags, search=search, status=status,
                        date_from=date_from, date_to=date_to)
     groups: dict[str, dict] = {}
     for r in q.group_summary(conn, group_by=group_by, tz_name=owner["timezone"], direction=direction, **filters):
@@ -218,7 +226,7 @@ def _check_group_by(group_by) -> None:
         raise ValidationError(f"groupBy must be one of: {', '.join(q.GROUP_BYS)}.")
 
 
-def _filters(conn, owner: dict, *, account_id, category_id, friend_id, refund_of_id, types, search, status,
+def _filters(conn, owner: dict, *, account_id, category_id, friend_id, refund_of_id, types, tags=None, search, status,
              date_from, date_to) -> dict:
     """The filter arguments shared by the list and the group summary, translated for the query layer."""
     for t in types or []:
@@ -231,7 +239,7 @@ def _filters(conn, owner: dict, *, account_id, category_id, friend_id, refund_of
         category_ids = [category_id, *repo.child_account_ids(conn, category_id)]
     return dict(
         account_id=account_id, category_ids=category_ids, friend_id=friend_id, refund_of_id=refund_of_id,
-        flat_types=types or None, search=search, status=status,
+        flat_types=types or None, tags=tag_service.normalise_tags(tags) or None, search=search, status=status,
         date_from=parse_local_to_utc_iso(date_from, tz) if date_from else None,
         date_to_exclusive=next_local_day_start_utc_iso(date_to, tz) if date_to else None)
 
@@ -241,7 +249,18 @@ def _filters(conn, owner: dict, *, account_id, category_id, friend_id, refund_of
 # --------------------------------------------------------------------------- #
 def update(conn, owner: dict, entry_id: int, fields: dict, *, force=False, remove_settlements=False) -> dict:
     """`fields` holds only the keys the client sent. A key present with null
-    clears the field where clearing is meaningful (memo); absent = unchanged."""
+    clears the field where clearing is meaningful (memo); absent = unchanged. `tags`, when sent, is the
+    new complete tag set (`[]` clears them); a replacement entry always keeps the original's tags."""
+    tags = tag_service.checked_tags(conn, fields.get("tags")) if fields.get("tags") is not None else None
+    if set(fields) <= {"tags"}:
+        entry = _entry_or_404(conn, entry_id)               # tags only: no ledger edit (nor a STRICT replacement)
+    else:
+        entry = _update_entry(conn, owner, entry_id, fields, force=force, remove_settlements=remove_settlements)
+    tag_service.apply_after_edit(conn, entry_id, entry["id"], tags)
+    return entry
+
+
+def _update_entry(conn, owner: dict, entry_id: int, fields: dict, *, force=False, remove_settlements=False) -> dict:
     entry = _entry_or_404(conn, entry_id)
     etype = entry["entry_type"]
     if "date" in fields and fields["date"]:

@@ -52,7 +52,7 @@ describe('money mapping', () => {
 
   it('maps a flat transaction, turning nulls into undefined and money objects into numbers', () => {
     const dto: TransactionDto = {
-      id: 7, type: 'split', description: 'Dinner', memo: null, date: '2026-03-10', currency: 'INR', status: 'posted',
+      id: 7, type: 'split', description: 'Dinner', memo: null, tags: [], date: '2026-03-10', currency: 'INR', status: 'posted',
       amount: money(50000), accountId: 1, toAccountId: null, categoryId: 4, friendId: null, direction: null,
       yourShare: money(15000), splits: [{ friendId: 9, share: money(35000) }], refundOfId: null, correctionOf: null,
       replacedBy: 12, createdAt: 'x', updatedAt: 'y', unpaid: null, groupKey: null,

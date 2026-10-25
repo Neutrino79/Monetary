@@ -86,6 +86,17 @@ CREATE TABLE IF NOT EXISTS posting (
          OR (credit_amount > 0 AND debit_amount = 0) )
 );
 
+CREATE TABLE IF NOT EXISTS tag (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    name    TEXT NOT NULL UNIQUE          -- normalised: trimmed, lowercase, single spaces (domain/tags.py)
+);
+
+CREATE TABLE IF NOT EXISTS entry_tag (
+    journal_entry_id   INTEGER NOT NULL REFERENCES journal_entry(id) ON DELETE CASCADE,
+    tag_id             INTEGER NOT NULL REFERENCES tag(id) ON DELETE CASCADE,
+    PRIMARY KEY (journal_entry_id, tag_id)
+);
+
 CREATE INDEX IF NOT EXISTS idx_account_type          ON account(account_type);
 CREATE INDEX IF NOT EXISTS idx_account_parent         ON account(parent_account_id);
 CREATE INDEX IF NOT EXISTS idx_account_counterparty   ON account(counterparty_user_id);
@@ -96,6 +107,7 @@ CREATE INDEX IF NOT EXISTS idx_entry_refund_of        ON journal_entry(refund_of
 CREATE INDEX IF NOT EXISTS idx_entry_category         ON journal_entry(category_id);
 CREATE INDEX IF NOT EXISTS idx_posting_entry          ON posting(journal_entry_id);
 CREATE INDEX IF NOT EXISTS idx_posting_account        ON posting(account_id);
+CREATE INDEX IF NOT EXISTS idx_entry_tag_tag           ON entry_tag(tag_id);
 CREATE INDEX IF NOT EXISTS idx_session_owner          ON session(owner_id);
 CREATE INDEX IF NOT EXISTS idx_session_expires        ON session(expires_at);
 CREATE INDEX IF NOT EXISTS idx_session_token_hash     ON session(token_hash);

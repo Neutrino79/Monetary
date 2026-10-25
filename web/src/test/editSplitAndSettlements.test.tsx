@@ -27,14 +27,14 @@ const routes: Record<string, unknown> = {
 }
 
 const txnDto = (over: Record<string, unknown>) => ({
-  id: 5, type: 'expense', description: 'Dinner', memo: null, date: '2026-10-10', currency: 'INR', status: 'posted',
+  id: 5, type: 'expense', description: 'Dinner', memo: null, tags: [], date: '2026-10-10', currency: 'INR', status: 'posted',
   amount: money(10000), accountId: 1, toAccountId: null, categoryId: 7, friendId: null, direction: null, yourShare: null,
   splits: null, refundOfId: null, correctionOf: null, replacedBy: null, createdAt: 'x', updatedAt: 'x', unpaid: null, groupKey: null,
   ...over,
 })
 
 const base: Transaction = {
-  id: 5, type: 'expense', description: 'Dinner', memo: null, date: '2026-10-10', currency: 'INR', status: 'posted',
+  id: 5, type: 'expense', description: 'Dinner', memo: null, tags: [], date: '2026-10-10', currency: 'INR', status: 'posted',
   createdAt: 'x', updatedAt: 'x', amount: 100, accountId: 1, categoryId: 7,
 }
 

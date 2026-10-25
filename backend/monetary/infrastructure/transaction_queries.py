@@ -33,7 +33,7 @@ GROUP_ACCOUNT_ID_SQL = (
     "WHERE p.journal_entry_id = je.id AND a.account_type IN ('ASSET','LIABILITY') "
     "AND (je.entry_type != 'TRANSFER' OR p.credit_amount > 0) ORDER BY p.id LIMIT 1)"
 )
-GROUP_BYS = ("date", "month", "category", "account", "type")
+GROUP_BYS = ("date", "month", "category", "account", "type", "tag")
 
 
 def _group_sql(group_by: str) -> tuple[str, str, str]:
@@ -48,6 +48,8 @@ def _group_sql(group_by: str) -> tuple[str, str, str]:
                 "LOWER({l}), {k}")
     if group_by == "type":
         return FLAT_TYPE_SQL, FLAT_TYPE_SQL, "{k}"
+    if group_by == "tag":        # needs the tag join of `_from("tag")`; an untagged row is its own group
+        return "COALESCE(CAST(tg.id AS TEXT), '')", "COALESCE(tg.name, 'Untagged')", "(tg.id IS NULL), LOWER({l}), {k}"
     if group_by == "account":
         return (f"COALESCE(CAST({GROUP_ACCOUNT_ID_SQL} AS TEXT), '')",
                 f"COALESCE((SELECT name FROM account WHERE id = {GROUP_ACCOUNT_ID_SQL}), 'No account')",
@@ -60,7 +62,7 @@ def _register_local_day(conn, tz_name: str | None) -> None:
 
 
 def _where(*, account_id, category_ids, friend_id, refund_of_id, flat_types, search, status,
-           date_from, date_to_exclusive) -> tuple[list[str], list[Any]]:
+           date_from, date_to_exclusive, tags=None, group_by=None) -> tuple[list[str], list[Any]]:
     where = ["je.entry_type != 'REVERSAL'"]
     params: list[Any] = []
     if status == "posted":
@@ -89,6 +91,16 @@ def _where(*, account_id, category_ids, friend_id, refund_of_id, flat_types, sea
     if date_to_exclusive is not None:
         where.append("je.entry_date < ?")
         params.append(date_to_exclusive)
+    if tags:
+        marks = ",".join("?" for _ in tags)
+        # any of the tags; when grouping by tag the joined row must match too, so a group never shows
+        # tags that were not asked for
+        where.append("EXISTS (SELECT 1 FROM entry_tag fe JOIN tag ft ON ft.id = fe.tag_id "
+                     f"WHERE fe.journal_entry_id = je.id AND ft.name IN ({marks}))")
+        params.extend(tags)
+        if group_by == "tag":
+            where.append(f"tg.name IN ({marks})")
+            params.extend(tags)
     if search:
         where.append("(je.description LIKE ? OR je.memo LIKE ?)")
         like = f"%{search}%"
@@ -97,18 +109,26 @@ def _where(*, account_id, category_ids, friend_id, refund_of_id, flat_types, sea
 
 
 _FROM = "FROM journal_entry je LEFT JOIN account c ON c.id = je.category_id WHERE "
+_FROM_TAGGED = ("FROM journal_entry je LEFT JOIN account c ON c.id = je.category_id "
+                "LEFT JOIN entry_tag et ON et.journal_entry_id = je.id LEFT JOIN tag tg ON tg.id = et.tag_id WHERE ")
+
+
+def _from(group_by) -> str:
+    """Grouping by tag lists a transaction once per tag it carries (and once as 'Untagged' with none)."""
+    return _FROM_TAGGED if group_by == "tag" else _FROM
 
 
 def search_entries(conn, *, account_id=None, category_ids=None, friend_id=None, refund_of_id=None, flat_types=None,
-                   search=None, status="posted", date_from=None, date_to_exclusive=None,
+                   tags=None, search=None, status="posted", date_from=None, date_to_exclusive=None,
                    sort="date", direction="desc", limit=50, offset=0,
                    group_by=None, tz_name=None) -> tuple[list[dict], int]:
     """With `group_by`, rows come back clustered by group (so a group is contiguous across pages) and
     each carries `group_key`; `sort`/`direction` then order the rows inside a group."""
     where, params = _where(
         account_id=account_id, category_ids=category_ids, friend_id=friend_id, refund_of_id=refund_of_id,
-        flat_types=flat_types, search=search, status=status, date_from=date_from, date_to_exclusive=date_to_exclusive)
-    base = _FROM + " AND ".join(where)
+        flat_types=flat_types, search=search, status=status, date_from=date_from, date_to_exclusive=date_to_exclusive,
+        tags=tags, group_by=group_by)
+    base = _from(group_by) + " AND ".join(where)
     total = conn.execute(f"SELECT COUNT(*) AS n {base}", params).fetchone()["n"]
     order = _SORTS[sort].format(d="ASC" if direction == "asc" else "DESC")
     select = "je.*"
@@ -127,12 +147,13 @@ def search_entries(conn, *, account_id=None, category_ids=None, friend_id=None, 
 
 
 def group_summary(conn, *, group_by, tz_name, account_id=None, category_ids=None, friend_id=None,
-                  refund_of_id=None, flat_types=None, search=None, status="posted", date_from=None,
+                  refund_of_id=None, flat_types=None, tags=None, search=None, status="posted", date_from=None,
                   date_to_exclusive=None, direction="desc") -> list[dict]:
     """One row per group and currency: key, label, count and the money in/out (income+refund vs expenses+friend-paid)."""
     where, params = _where(
         account_id=account_id, category_ids=category_ids, friend_id=friend_id, refund_of_id=refund_of_id,
-        flat_types=flat_types, search=search, status=status, date_from=date_from, date_to_exclusive=date_to_exclusive)
+        flat_types=flat_types, search=search, status=status, date_from=date_from, date_to_exclusive=date_to_exclusive,
+        tags=tags, group_by=group_by)
     _register_local_day(conn, tz_name)
     key, label, group_order = _group_sql(group_by)
     group_order = group_order.format(k="group_key", l="group_label")
@@ -142,7 +163,7 @@ def group_summary(conn, *, group_by, tz_name, account_id=None, category_ids=None
     sql = (f"SELECT {key} AS group_key, {label} AS group_label, je.currency_code AS currency, COUNT(*) AS n, "
            f"COALESCE(SUM(CASE WHEN {ftype} IN ('income','refund') THEN {AMOUNT_SQL} END), 0) AS in_points, "
            f"COALESCE(SUM(CASE WHEN {ftype} IN ('expense','fronted') THEN {AMOUNT_SQL} END), 0) AS out_points "
-           f"{_FROM}{' AND '.join(where)} GROUP BY group_key, je.currency_code ORDER BY {group_order}, currency")
+           f"{_from(group_by)}{' AND '.join(where)} GROUP BY group_key, je.currency_code ORDER BY {group_order}, currency")
     return [dict(r) for r in conn.execute(sql, params).fetchall()]
 
 

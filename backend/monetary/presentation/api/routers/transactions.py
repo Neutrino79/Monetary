@@ -118,7 +118,7 @@ def create_transaction(
     return transaction_out(flat.view_of(conn, owner, entry))
 
 
-_GROUP_BY = "^(date|month|category|account|type)$"
+_GROUP_BY = "^(date|month|category|account|type|tag)$"
 
 
 @router.get("", response_model=Page[TransactionOut])
@@ -129,6 +129,7 @@ def list_transactions(
     friend_id: int | None = Query(default=None, alias="friendId"),
     refund_of_id: int | None = Query(default=None, alias="refundOfId", description="Refunds recorded against this entry"),
     types: list[str] | None = Query(default=None, alias="type", description="Repeatable"),
+    tags: list[str] | None = Query(default=None, alias="tag", description="Repeatable; matches any of them"),
     search: str | None = Query(default=None, description="Matches description or memo"),
     status: str = Query(default="posted", pattern="^(posted|reversed|all)$"),
     date_from: str | None = Query(default=None, alias="dateFrom", description="'YYYY-MM-DD', inclusive"),
@@ -136,7 +137,7 @@ def list_transactions(
     sort: str = Query(default="date", pattern="^(date|amount|description)$"),
     direction: str = Query(default="desc", pattern="^(asc|desc)$"),
     group_by: str | None = Query(default=None, alias="groupBy", pattern=_GROUP_BY,
-                                 description="Cluster rows by group (date, month, category, account, type); "
+                                 description="Cluster rows by group (date, month, category, account, type, tag); "
                                              "`sort`/`direction` then order rows inside each group"),
     limit: int = Query(default=50, ge=1, le=500),
     offset: int = Query(default=0, ge=0),
@@ -144,7 +145,7 @@ def list_transactions(
     owner: dict = Depends(get_current_owner),
 ):
     views, total = flat.list_views(
-        conn, owner, account_id=account_id, category_id=category_id, friend_id=friend_id, refund_of_id=refund_of_id, types=types,
+        conn, owner, account_id=account_id, category_id=category_id, friend_id=friend_id, refund_of_id=refund_of_id, types=types, tags=tags,
         search=search, status=status, date_from=date_from, date_to=date_to, sort=sort,
         direction=direction, limit=limit, offset=offset, group_by=group_by)
     return Page(items=[transaction_out(v) for v in views], total=total, limit=limit, offset=offset)
@@ -158,6 +159,7 @@ def list_transaction_groups(
                                     description="Includes the category's subcategories"),
     friend_id: int | None = Query(default=None, alias="friendId"),
     types: list[str] | None = Query(default=None, alias="type", description="Repeatable"),
+    tags: list[str] | None = Query(default=None, alias="tag", description="Repeatable; matches any of them"),
     search: str | None = Query(default=None, description="Matches description or memo"),
     status: str = Query(default="posted", pattern="^(posted|reversed|all)$"),
     date_from: str | None = Query(default=None, alias="dateFrom", description="'YYYY-MM-DD', inclusive"),
@@ -170,7 +172,7 @@ def list_transaction_groups(
     count and money in/out per currency. Group order matches the list's row order."""
     groups = flat.group_summaries(
         conn, owner, group_by=group_by, direction=direction, account_id=account_id, category_id=category_id,
-        friend_id=friend_id, types=types, search=search, status=status, date_from=date_from, date_to=date_to)
+        friend_id=friend_id, types=types, tags=tags, search=search, status=status, date_from=date_from, date_to=date_to)
     return TransactionGroupsOut(group_by=group_by, groups=[
         TransactionGroupOut(key=g["key"], label=g["label"], count=g["count"], totals=[
             GroupTotalOut(currency=t["currency"], money_in=money_out(t["in_points"], t["currency"]),
