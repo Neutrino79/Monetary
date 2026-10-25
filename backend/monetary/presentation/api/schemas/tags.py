@@ -13,3 +13,7 @@ class TagOut(ApiModel):
 
 class TagRename(ApiModel):
     name: str = Field(min_length=1, max_length=60, description="Renaming onto an existing tag merges the two")
+
+
+class TagCreate(ApiModel):
+    name: str = Field(min_length=1, max_length=60, description="Normalised like every tag name; 409 if it exists")

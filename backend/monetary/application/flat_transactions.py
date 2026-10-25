@@ -89,7 +89,7 @@ def _adjustment_side(account_type: str, direction: str) -> str:
 # create
 # --------------------------------------------------------------------------- #
 def create(conn, owner: dict, data: dict) -> dict:
-    tags = tag_service.normalise_tags(data.get("tags"))      # validated before anything is posted
+    tags = tag_service.checked_tags(conn, data.get("tags"))      # validated before anything is posted
     entry = _create_entry(conn, owner, data)
     tag_service.apply_after_create(conn, entry["id"], tags)
     return entry
@@ -251,7 +251,7 @@ def update(conn, owner: dict, entry_id: int, fields: dict, *, force=False, remov
     """`fields` holds only the keys the client sent. A key present with null
     clears the field where clearing is meaningful (memo); absent = unchanged. `tags`, when sent, is the
     new complete tag set (`[]` clears them); a replacement entry always keeps the original's tags."""
-    tags = tag_service.normalise_tags(fields.get("tags")) if fields.get("tags") is not None else None
+    tags = tag_service.checked_tags(conn, fields.get("tags")) if fields.get("tags") is not None else None
     if set(fields) <= {"tags"}:
         entry = _entry_or_404(conn, entry_id)               # tags only: no ledger edit (nor a STRICT replacement)
     else:

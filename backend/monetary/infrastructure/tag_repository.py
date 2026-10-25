@@ -3,19 +3,24 @@
 from __future__ import annotations
 
 
-def _prune(conn) -> None:
-    conn.execute("DELETE FROM tag WHERE id NOT IN (SELECT tag_id FROM entry_tag)")
+def create_tag(conn, name: str) -> int:
+    return conn.execute("INSERT INTO tag (name) VALUES (?)", (name,)).lastrowid
+
+
+def existing_names(conn, names: list[str]) -> set[str]:
+    if not names:
+        return set()
+    rows = conn.execute(f"SELECT name FROM tag WHERE name IN ({','.join('?' for _ in names)})", names).fetchall()
+    return {r["name"] for r in rows}
 
 
 def set_entry_tags(conn, entry_id: int, names: list[str]) -> None:
-    """Make `names` the entry's complete tag set (creating tags as needed, dropping unused ones)."""
+    """Make `names` (all existing tags) the entry's complete tag set."""
     conn.execute("DELETE FROM entry_tag WHERE journal_entry_id = ?", (entry_id,))
     for name in names:
-        conn.execute("INSERT OR IGNORE INTO tag (name) VALUES (?)", (name,))
         conn.execute(
             "INSERT INTO entry_tag (journal_entry_id, tag_id) SELECT ?, id FROM tag WHERE name = ?",
             (entry_id, name))
-    _prune(conn)
 
 
 def copy_entry_tags(conn, from_id: int, to_id: int) -> None:
@@ -37,15 +42,14 @@ def tags_for_entries(conn, entry_ids: list[int]) -> dict[int, list[str]]:
     return out
 
 
-def list_tags(conn, *, include_unused: bool = False) -> list[dict]:
-    """Tags with how many live (posted) transactions carry them, most used first. A tag whose only
-    transactions were deleted or reversed is hidden unless `include_unused`."""
+def list_tags(conn) -> list[dict]:
+    """Every tag with how many live (posted) transactions carry it, alphabetical."""
     rows = conn.execute(
         "SELECT t.id, t.name, COUNT(je.id) AS uses FROM tag t "
         "LEFT JOIN entry_tag et ON et.tag_id = t.id "
         "LEFT JOIN journal_entry je ON je.id = et.journal_entry_id "
         "AND je.status = 'POSTED' AND je.entry_type != 'REVERSAL' "
-        f"GROUP BY t.id {'' if include_unused else 'HAVING uses > 0'} ORDER BY uses DESC, t.name").fetchall()
+        "GROUP BY t.id ORDER BY t.name").fetchall()
     return [dict(r) for r in rows]
 
 

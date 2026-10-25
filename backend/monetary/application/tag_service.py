@@ -2,11 +2,29 @@
 
 from __future__ import annotations
 
-from monetary.domain.exceptions import NotFoundError
+from monetary.domain.exceptions import ConflictError, NotFoundError, ValidationError
 from monetary.domain.tags import normalise_tag, normalise_tags
 from monetary.infrastructure import tag_repository as repo
 
-__all__ = ["normalise_tags", "apply_after_create", "apply_after_edit", "list_tags", "rename", "delete"]
+__all__ = ["checked_tags", "apply_after_create", "apply_after_edit", "list_tags", "create", "rename", "delete"]
+
+
+def checked_tags(conn, raw: list[str] | None) -> list[str]:
+    """Normalise a transaction's tags and require that each one exists (tags are created on their own)."""
+    names = normalise_tags(raw)
+    unknown = [n for n in names if n not in repo.existing_names(conn, names)]
+    if unknown:
+        raise ValidationError(f"Unknown tag{'s' if len(unknown) > 1 else ''}: {', '.join(unknown)}. "
+                              "Create tags first under Tags.")
+    return names
+
+
+def create(conn, name: str) -> dict:
+    clean = normalise_tag(name)
+    if repo.get_tag_by_name(conn, clean):
+        raise ConflictError(f"The tag {clean!r} already exists.")
+    tag_id = repo.create_tag(conn, clean)
+    return next(t for t in repo.list_tags(conn) if t["id"] == tag_id)
 
 
 def apply_after_create(conn, entry_id: int, tags: list[str] | None) -> None:
@@ -41,9 +59,9 @@ def rename(conn, tag_id: int, new_name: str) -> dict:
     existing = repo.get_tag_by_name(conn, name)
     if existing and existing["id"] != tag_id:
         repo.merge_tag(conn, tag_id, existing["id"])
-        return next(t for t in repo.list_tags(conn, include_unused=True) if t["id"] == existing["id"])
+        return next(t for t in repo.list_tags(conn) if t["id"] == existing["id"])
     repo.rename_tag(conn, tag_id, name)
-    return next(t for t in repo.list_tags(conn, include_unused=True) if t["id"] == tag_id)
+    return next(t for t in repo.list_tags(conn) if t["id"] == tag_id)
 
 
 def delete(conn, tag_id: int) -> None:

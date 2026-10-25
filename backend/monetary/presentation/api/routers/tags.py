@@ -8,15 +8,21 @@ from monetary.application import tag_service
 from monetary.config import API_PREFIX
 from monetary.presentation.api.deps import get_current_owner, DB
 from monetary.presentation.api.schemas.common import MessageOut
-from monetary.presentation.api.schemas.tags import TagOut, TagRename
+from monetary.presentation.api.schemas.tags import TagCreate, TagOut, TagRename
 
 router = APIRouter(prefix=f"{API_PREFIX}/tags", tags=["tags"])
 
 
 @router.get("", response_model=list[TagOut])
 def list_tags(conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner)):
-    """Every tag with its use count, most used first (for suggestions and the tag manager)."""
+    """Every tag, alphabetical, with its use count (for the pickers and the tag manager)."""
     return [TagOut(**t) for t in tag_service.list_tags(conn)]
+
+
+@router.post("", response_model=TagOut, status_code=201)
+def create_tag(payload: TagCreate, conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner)):
+    """Tags are created here, then picked on transactions (an unknown tag name is rejected there)."""
+    return TagOut(**tag_service.create(conn, payload.name))
 
 
 @router.patch("/{tag_id}", response_model=TagOut)
