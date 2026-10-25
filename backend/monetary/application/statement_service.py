@@ -52,14 +52,26 @@ def _due_balances(conn) -> list[dict]:
 def friend_statement(conn, due_account_id) -> list[dict]:
     """Every posting against one friend's DUE account, in order, with a running
     balance -- the bank-statement-style replacement for per-share status tracking."""
-    entries = repo.list_journal_entries(conn, account_id=due_account_id, include_reversed=True)
+    return _statement(conn, due_account_id, AccountType.DUE.normal_side.value, include_reversed=True)
+
+
+def account_statement(conn, account_id: int, account_type: str) -> list[dict]:
+    """The activity of one asset/liability account: every posting in date order with the balance after it
+    (for a liability, the amount owed). Reversed entries and their reversals are left out -- they cancel."""
+    return _statement(conn, account_id, AccountType(account_type).normal_side.value, include_reversed=False)
+
+
+def _statement(conn, account_id: int, normal_side: str, *, include_reversed: bool) -> list[dict]:
+    entries = repo.list_journal_entries(conn, account_id=account_id, include_reversed=include_reversed)
     entries = sorted(entries, key=lambda e: (e["entry_date"], e["id"]))
     running = 0
     rows = []
     for e in entries:
-        postings = [p for p in repo.postings_for_entry(conn, e["id"]) if p["account_id"] == due_account_id]
+        postings = [p for p in repo.postings_for_entry(conn, e["id"]) if p["account_id"] == account_id]
         for p in postings:
-            delta = p["debit_amount"] - p["credit_amount"]  # DUE normal side = DEBIT
+            delta = p["debit_amount"] - p["credit_amount"]
+            if normal_side != "DEBIT":
+                delta = -delta
             # a reversed original and its REVERSAL entry cancel out, so neither
             # contributes to the running balance (both rows are still listed)
             if e["status"] == "POSTED" and e["entry_type"] != "REVERSAL":

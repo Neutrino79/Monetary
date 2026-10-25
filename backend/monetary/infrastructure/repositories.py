@@ -525,3 +525,12 @@ def all_root_categories(conn, account_type) -> list[dict]:
     q = ("SELECT * FROM account WHERE account_type = ? AND parent_account_id IS NULL "
          "AND is_active = 1 ORDER BY id")
     return _rows(conn.execute(q, (account_type,)).fetchall())
+
+
+def last_activity_iso(conn, account_id) -> str | None:
+    """The entry_date of the newest live (posted, not a reversal) entry that touches the account."""
+    row = conn.execute(
+        "SELECT MAX(je.entry_date) AS d FROM journal_entry je JOIN posting p ON p.journal_entry_id = je.id "
+        "WHERE p.account_id = ? AND je.status = 'POSTED' AND je.entry_type != 'REVERSAL'", (account_id,),
+    ).fetchone()
+    return row["d"]

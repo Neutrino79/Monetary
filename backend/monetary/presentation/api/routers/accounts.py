@@ -4,8 +4,10 @@ import sqlite3
 
 from fastapi import APIRouter, Depends, Query
 
-from monetary.application import account_service
+from monetary.application import account_service, reconcile_service, statement_service
 from monetary.config import API_PREFIX
+from monetary.domain.time_utils import utc_iso_to_local_date
+from monetary.infrastructure import repositories as repo
 from monetary.presentation.api.deps import get_current_owner, DB
 from monetary.presentation.api.schemas.accounts import (
     AccountBalanceOut,
@@ -15,21 +17,26 @@ from monetary.presentation.api.schemas.accounts import (
     CategoryCreate,
     CategoryOut,
     CategoryUpdate,
+    ReconcileIn,
+    ReconcileOut,
 )
+from monetary.presentation.api.schemas.friends import StatementRowOut
 from monetary.presentation.api.schemas.converters import money_out
 
 router = APIRouter(prefix=API_PREFIX, tags=["accounts"])
 
 
-def account_out(conn, acc: dict) -> AccountOut:
+def account_out(conn, acc: dict, tz: str | None = None) -> AccountOut:
     points, currency = account_service.get_balance(conn, acc["id"])
     limit = acc["credit_limit"]
+    last = repo.last_activity_iso(conn, acc["id"])
     return AccountOut(
         id=acc["id"], name=acc["name"], account_type=acc["account_type"],
         currency_code=acc["currency_code"], is_active=bool(acc["is_active"]),
         subtype=acc["subtype"] or account_service.default_subtype(acc["account_type"]),
         credit_limit=money_out(limit, currency) if limit is not None else None,
         statement_day=acc["statement_day"], balance=money_out(points, currency),
+        last_activity=utc_iso_to_local_date(last, tz) if last else None,
         created_at=acc["created_at"], updated_at=acc["updated_at"],
     )
 
@@ -57,7 +64,7 @@ def create_account(
         statement_day=payload.statement_day, opening_balance_major=payload.opening_balance,
         opening_date=payload.opening_date,
     )
-    return account_out(conn, acc)
+    return account_out(conn, acc, owner["timezone"])
 
 
 @router.get("/accounts", response_model=list[AccountOut])
@@ -66,7 +73,7 @@ def list_accounts(
     conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
-    return [account_out(conn, a) for a in account_service.list_accounts(conn, include_inactive=include_inactive)]
+    return [account_out(conn, a, owner["timezone"]) for a in account_service.list_accounts(conn, include_inactive=include_inactive)]
 
 
 @router.patch("/accounts/{account_id}", response_model=AccountOut)
@@ -76,7 +83,7 @@ def update_account(
     owner: dict = Depends(get_current_owner),
 ):
     fields = payload.model_dump(include=payload.model_fields_set)
-    return account_out(conn, account_service.update_account(conn, account_id, fields=fields))
+    return account_out(conn, account_service.update_account(conn, account_id, fields=fields), owner["timezone"])
 
 
 @router.get("/accounts/{account_id}/balance", response_model=AccountBalanceOut)
@@ -93,13 +100,43 @@ def get_account_balance(
     )
 
 
+@router.get("/accounts/{account_id}/statement", response_model=list[StatementRowOut])
+def get_account_statement(
+    account_id: int,
+    conn: sqlite3.Connection = DB,
+    owner: dict = Depends(get_current_owner),
+):
+    """Every posting on the account in date order with the balance after it (a liability's balance is the
+    amount owed). Reversed entries are left out."""
+    acc = account_service.get_real_account_or_raise(conn, account_id)
+    rows = statement_service.account_statement(conn, account_id, acc["account_type"])
+    currency = acc["currency_code"]
+    return [StatementRowOut(
+        entry_id=r["entry_id"], description=r["description"], entry_type=r["entry_type"],
+        entry_date=r["entry_date"], date=utc_iso_to_local_date(r["entry_date"], owner["timezone"]),
+        status=r["status"], delta=money_out(r["delta_points"], currency),
+        running_balance=money_out(r["running_balance_points"], currency),
+    ) for r in rows]
+
+
+@router.post("/accounts/{account_id}/reconcile", response_model=ReconcileOut)
+def reconcile_account(
+    account_id: int, payload: ReconcileIn,
+    conn: sqlite3.Connection = DB,
+    owner: dict = Depends(get_current_owner),
+):
+    """Match the ledger to the bank: posts one adjustment for any difference."""
+    r = reconcile_service.reconcile(conn, owner, account_id, balance_major=payload.balance, date_str=payload.date)
+    return ReconcileOut(difference=money_out(r["difference_points"], r["currency"]), entry_id=r["entry_id"])
+
+
 @router.post("/accounts/{account_id}/deactivate", response_model=AccountOut)
 def deactivate_account(
     account_id: int,
     conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
-    return account_out(conn, account_service.deactivate_account(conn, account_id))
+    return account_out(conn, account_service.deactivate_account(conn, account_id), owner["timezone"])
 
 
 @router.post("/accounts/{account_id}/reactivate", response_model=AccountOut)
@@ -108,7 +145,7 @@ def reactivate_account(
     conn: sqlite3.Connection = DB,
     owner: dict = Depends(get_current_owner),
 ):
-    return account_out(conn, account_service.reactivate_account(conn, account_id))
+    return account_out(conn, account_service.reactivate_account(conn, account_id), owner["timezone"])
 
 
 @router.post("/categories", response_model=CategoryOut, status_code=201)

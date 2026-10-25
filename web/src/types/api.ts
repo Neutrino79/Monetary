@@ -38,6 +38,7 @@ export interface AccountDto {
   creditLimit: MoneyDto | null;
   statementDay: number | null;
   balance: MoneyDto;
+  lastActivity: string | null;
   createdAt: string;
   updatedAt: string;
 }
