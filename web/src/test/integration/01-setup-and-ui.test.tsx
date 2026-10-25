@@ -13,6 +13,7 @@ import { queryClient } from '@/lib/queryClient'
 import { useAuthStore } from '@/store/authStore'
 import { accountsService } from '@/lib/api/services/accountsService'
 import { OWNER } from './fixtures'
+import { selectLabel, selectValue } from '../helpers'
 
 function renderApp(path: string) {
   window.history.pushState({}, '', path)
@@ -43,7 +44,7 @@ describe('first run', () => {
     await user.type(screen.getByLabelText('Email'), OWNER.email)
     await user.type(screen.getByLabelText('Password'), OWNER.password)
     await user.type(screen.getByLabelText('Confirm password'), OWNER.password)
-    await user.selectOptions(screen.getByLabelText('Timezone'), 'UTC')
+    await selectValue(user, screen.getByLabelText('Timezone'), 'UTC')
     await user.type(screen.getByLabelText('Your answer'), OWNER.answer)
     await user.click(screen.getByRole('button', { name: 'Create owner account' }))
 
@@ -74,8 +75,8 @@ describe('adding a transaction through the UI', () => {
 
     const dialog = await screen.findByRole('dialog')
     await user.type(within(dialog).getByLabelText('Description'), 'Coffee beans')
-    await user.selectOptions(within(dialog).getByLabelText('Category'), within(dialog).getByRole('option', { name: /Groceries/ }))
-    await user.selectOptions(within(dialog).getByLabelText('Pay from'), await within(dialog).findByRole('option', { name: 'Main Bank' }))
+    await selectLabel(user, within(dialog).getByLabelText('Category'), /Groceries/)
+    await selectLabel(user, within(dialog).getByLabelText('Pay from'), 'Main Bank')
     await user.type(within(dialog).getByPlaceholderText('0.00'), '12.50')
     await user.click(within(dialog).getByRole('button', { name: /Add|Save/ }))
 

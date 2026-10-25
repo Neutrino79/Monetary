@@ -78,8 +78,8 @@ describe('friend cards', () => {
     expect(await screen.findByText(/Paid for you, not paid back/)).toHaveTextContent('1,240')
     await user.click(screen.getByRole('button', { name: /Pay back/ }))
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByRole('spinbutton')).toHaveValue(1240)              // the amount owed is prefilled
-    expect(within(dialog).getByRole('combobox', { name: /Pay from account/ })).toHaveValue('1')   // first account chosen
+    expect(within(dialog).getByRole('textbox', { name: /Amount/ })).toHaveValue('1240')              // the amount owed is prefilled
+    expect(within(dialog).getByRole('combobox', { name: /Pay from account/ })).toHaveTextContent('HDFC Savings')   // first account chosen
   })
 
   it('has the "Paid by" filter on the Shared page and the same pending marker', async () => {

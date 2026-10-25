@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { Popover } from "radix-ui";
-import { ChevronDown, Layers, ListFilter, Search, X } from "lucide-react";
+import { Layers, ListFilter, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { Select } from "@/components/ui/Select";
 
 /** The one search/filter/group/sort toolbar every list page uses (design direction "A"). */
 
@@ -52,7 +53,7 @@ export function SearchBar({
 const buttonLook =
   "inline-flex h-10 items-center gap-2 rounded-[10px] border border-line-strong bg-paper-raised px-3.5 text-[13.5px] font-medium text-ink hover:bg-paper-sunken";
 
-/** A native <select> dressed as a toolbar button ("Group: Date"). Native keeps it keyboard/mobile friendly. */
+/** A dropdown dressed as a toolbar button ("Group: Date"), built on the app's custom Select. */
 export function ToolbarSelect<V extends string>({
   label,
   icon,
@@ -66,26 +67,26 @@ export function ToolbarSelect<V extends string>({
   options: SelectOption<V>[];
   onChange: (v: V) => void;
 }) {
-  const current = options.find((o) => o.value === value);
   return (
-    <label className={cn(buttonLook, "relative cursor-pointer focus-within:border-focus-ring")}>
-      {icon}
-      <span className="text-ink-soft">{label}:</span>
-      <span className="font-semibold">{current?.label}</span>
-      <ChevronDown size={13} aria-hidden className="text-ink-soft" />
-      <select
-        aria-label={label}
-        value={value}
-        onChange={(e) => onChange(e.target.value as V)}
-        className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-      >
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
+    <Select
+      unstyled
+      aria-label={label}
+      value={value}
+      onChange={(e) => onChange(e.target.value as V)}
+      className={cn(buttonLook, "justify-start font-semibold focus-visible:border-focus-ring")}
+      prefix={
+        <>
+          {icon}
+          <span className="font-medium text-ink-soft">{label}:</span>
+        </>
+      }
+    >
+      {options.map((o) => (
+        <option key={o.value} value={o.value}>
+          {o.label}
+        </option>
+      ))}
+    </Select>
   );
 }
 
