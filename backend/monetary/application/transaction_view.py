@@ -21,6 +21,7 @@ from __future__ import annotations
 
 from monetary.application import statement_service
 from monetary.domain.time_utils import utc_iso_to_local_date
+from monetary.infrastructure import tag_repository as tag_repo
 from monetary.infrastructure import transaction_queries as q
 
 REAL = ("ASSET", "LIABILITY")
@@ -94,6 +95,7 @@ def to_views(conn, owner: dict, entries: list[dict]) -> list[dict]:
     if any(e["entry_type"] == "FRONTED" for e in entries):
         unpaid = {f["entry_id"]: f["unpaid_points"] for f in statement_service.fronted_unpaid(conn)}
 
+    tags = tag_repo.tags_for_entries(conn, ids)
     tz = owner["timezone"]
     views = []
     for e in entries:
@@ -104,7 +106,7 @@ def to_views(conn, owner: dict, entries: list[dict]) -> list[dict]:
             "date": utc_iso_to_local_date(e["entry_date"], tz), "currency": e["currency_code"],
             "status": e["status"].lower(), "refund_of_id": e["refund_of_id"],
             "correction_of": e["correction_of_id"], "replaced_by": replaced_by.get(e["id"]),
-            "created_at": e["created_at"], "updated_at": e["updated_at"],
+            "created_at": e["created_at"], "updated_at": e["updated_at"], "tags": tags.get(e["id"], []),
         })
         views.append(v)
     return views

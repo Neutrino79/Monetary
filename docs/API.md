@@ -146,6 +146,7 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
 | `categories` | `POST /categories`, `GET /categories` (`?type=EXPENSE\|INCOME` -- income sources are INCOME categories), `PATCH /categories/{id}` (name, colour, budget, parent), `POST /categories/{id}/{deactivate,reactivate}` |
 | `friends` | `POST /friends`, `GET /friends`, `PATCH /friends/{id}` (name, email, phone), `DELETE /friends/{id}`, `GET /friends/balances`, `GET /friends/{id}/statement` (every entry against the friend, oldest first: `entryType`, `date` in the owner's timezone, `delta`, `runningBalance`) |
 | `transactions` | **Flat API:** `POST /transactions` (one body for every type -- income, expense, transfer, split, fronted, settlement, refund, adjustment), `GET /transactions` (server-side filter / sort / group / paging), `GET /transactions/groups` (group headers), `GET/PATCH/DELETE /transactions/{id}`, `GET /transactions/{id}/postings` (the raw double-entry view). Typed creates `POST /transactions/{expense,income,refund,adjustment}` remain. |
+| `tags` | `GET /tags` (every tag in use with its `uses` count), `PATCH /tags/{id}` (rename; onto an existing tag it merges), `DELETE /tags/{id}` (removes the tag from every transaction). See *Tags* below. |
 | `splits` | `POST /splits`, `POST /splits/fronted`, `GET /splits`, `GET/PATCH/DELETE /splits/{id}` |
 | `transfers` | `POST /transfers`, `GET /transfers`, `PATCH/DELETE /transfers/{id}` |
 | `settlements` | `POST /settlements`, `GET /settlements`, `PATCH/DELETE /settlements/{id}` |
@@ -159,7 +160,7 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
   `offset`. The response is a `{items, total, limit, offset}` envelope. STRICT-mode system reversal
   rows are never listed; a corrected entry links to the one it replaced via `correctionOf`, and the
   original reports `replacedBy`.
-- **Grouping** -- `GET /transactions?groupBy=date|month|category|account|type` clusters rows by group
+- **Grouping** -- `GET /transactions?groupBy=date|month|category|account|type|tag` clusters rows by group
   before paging, so a group is contiguous across pages; `sort`/`direction` then order the rows inside a
   group. Date and month groups are on the owner's local calendar and follow `direction` (newest first by
   default); category, account and type groups are alphabetical. Every row carries `groupKey` (`null`
@@ -168,6 +169,17 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
   `{groupBy, groups: [{key, label, count, totals: [{currency, moneyIn, moneyOut}]}]}` in the same group
   order, for the group headers. `moneyIn` sums income and refunds, `moneyOut` expenses and friend-paid expenses; the other types
   count but add to neither. Totals are per currency.
+- **Tags** -- free-form labels on any transaction, for slicing ("everything for the Goa trip"); they never
+  affect balances, budgets or reports. `POST /transactions` takes `tags: ["trip goa", "work"]` and
+  `PATCH /transactions/{id}` takes the complete new set (`[]` clears, absent leaves them); every
+  transaction returns `tags`, sorted. Names are trimmed, lowercased, de-duplicated, a leading `#` is
+  dropped, and they are at most 30 characters with no commas; at most 10 per transaction (else 422).
+  A tags-only edit never touches the ledger (no STRICT replacement), and a STRICT replacement keeps the
+  original's tags. `GET /transactions` and `GET /transactions/groups` take a repeatable `tag` filter
+  (matches *any* of the tags). `groupBy=tag` lists a transaction under every tag it carries, so group
+  totals can add up to more than the period total; untagged rows form an "Untagged" group (key `""`),
+  listed last, and with a `tag` filter only the matching tags appear as groups. `total` of a
+  `groupBy=tag` list counts those repeated rows.
 - **Friend-fronted expenses** (`type: fronted`, a friend paid; the amount is your share): they count as
   spending, and against the category budget, on the purchase date, exactly like any expense. What you
   still owe the friend is tracked per expense: repayments are not tied to an expense, so they clear the

@@ -22,6 +22,13 @@ CREATE TABLE account (
     updated_at               TEXT NOT NULL
 );
 
+-- table: entry_tag
+CREATE TABLE entry_tag (
+    journal_entry_id   INTEGER NOT NULL REFERENCES journal_entry(id) ON DELETE CASCADE,
+    tag_id             INTEGER NOT NULL REFERENCES tag(id) ON DELETE CASCADE,
+    PRIMARY KEY (journal_entry_id, tag_id)
+);
+
 -- table: journal_entry
 CREATE TABLE journal_entry (
     id                 INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -68,6 +75,12 @@ CREATE TABLE session (
     expires_at      TEXT NOT NULL
 );
 
+-- table: tag
+CREATE TABLE tag (
+    id      INTEGER PRIMARY KEY AUTOINCREMENT,
+    name    TEXT NOT NULL UNIQUE          -- normalised: trimmed, lowercase, single spaces (domain/tags.py)
+);
+
 -- table: user
 CREATE TABLE user (
     id                      INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -105,6 +118,9 @@ CREATE INDEX idx_entry_refund_of        ON journal_entry(refund_of_id);
 
 -- index: idx_entry_status
 CREATE INDEX idx_entry_status           ON journal_entry(status);
+
+-- index: idx_entry_tag_tag
+CREATE INDEX idx_entry_tag_tag           ON entry_tag(tag_id);
 
 -- index: idx_entry_type
 CREATE INDEX idx_entry_type             ON journal_entry(entry_type);
