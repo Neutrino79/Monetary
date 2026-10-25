@@ -167,7 +167,7 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
   when ungrouped): `YYYY-MM-DD`, `YYYY-MM`, the category or account id (`""` = none) or the flat type.
   `GET /transactions/groups` takes the same filters plus a required `groupBy` and returns
   `{groupBy, groups: [{key, label, count, totals: [{currency, moneyIn, moneyOut}]}]}` in the same group
-  order, for the group headers. `moneyIn` sums income and refunds, `moneyOut` expenses and friend-paid expenses; the other types
+  order, for the group headers. `moneyIn` sums income and refunds, `moneyOut` expenses, friend-paid expenses and *your own share* of splits (0 when a friend carries the whole bill); the other types
   count but add to neither. Totals are per currency.
 - **Tags** -- a managed list of labels you pick on transactions, for slicing ("everything for the Goa
   trip"); they never affect balances, budgets or reports. Tags are created on their own
