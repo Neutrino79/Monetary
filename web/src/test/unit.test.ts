@@ -2,11 +2,12 @@ import { describe, it, expect } from 'vitest'
 import { apiErrorFromBody, ApiError } from '@/lib/api/errors'
 import { buildQuery } from '@/lib/api/http'
 import { fromMoney, toMajor, toTransaction, toDashboard, toAccount } from '@/lib/api/mappers'
-import { colorForId } from '@/lib/utils/entityVisuals'
+import { colorForId, txnAmountDisplay } from '@/lib/utils/entityVisuals'
 import { toISODate, today, toMonthKey } from '@/lib/utils/clock'
 import { timezoneOptions } from '@/config/timezones'
 import { formatCurrency, setDisplayCurrency, currencySymbol } from '@/lib/utils/format'
 import type { TransactionDto, AccountDto } from '@/types/api'
+import type { Transaction } from '@/types'
 import type { DashboardDto } from '@/lib/api/mappers'
 
 const money = (points: number, currency = 'INR') => ({ points, major: `${currency} ${(points / 100).toFixed(2)}`, currency })
@@ -116,5 +117,21 @@ describe('small helpers', () => {
     expect(currencySymbol()).toBeTruthy()
     setDisplayCurrency('INR')
     expect(formatCurrency(1234.5)).toContain('₹')
+  })
+})
+
+describe('txnAmountDisplay', () => {
+  const fmtSigned = (n: number, k: string) => `${k === 'negative' ? '-' : k === 'positive' ? '+' : ''}${n}`
+  const fmt = (n: number) => String(n)
+  const base = { id: 1, description: 'x', memo: null, tags: [], date: '2026-10-10', currency: 'INR', status: 'posted', createdAt: 'x', updatedAt: 'x' } as const
+  it('shows the whole bill of a split, with your share beneath, even when your share is 0', () => {
+    const paidAll = { ...base, type: 'split', amount: 500, yourShare: 0 } as unknown as Transaction
+    expect(txnAmountDisplay(paidAll, fmtSigned, fmt)).toMatchObject({ text: '-500', sub: 'Your share 0' })
+    const shared = { ...base, type: 'split', amount: 500, yourShare: 150 } as unknown as Transaction
+    expect(txnAmountDisplay(shared, fmtSigned, fmt)).toMatchObject({ text: '-500', sub: 'Your share 150' })
+  })
+  it('has no second line for other types', () => {
+    const e = { ...base, type: 'expense', amount: 80 } as unknown as Transaction
+    expect(txnAmountDisplay(e, fmtSigned, fmt).sub).toBeUndefined()
   })
 })

@@ -301,8 +301,16 @@ def test_group_by_month_and_summary_totals(populated):
     assert (feb["key"], jan["key"]) == ("2026-02", "2026-01")
     assert (feb["count"], jan["count"]) == (5, 1)
     assert feb["totals"][0]["moneyIn"]["points"] == 90_000       # Freelance gig
-    assert feb["totals"][0]["moneyOut"]["points"] == 32_000      # Bus 20 + Petrol 300 (split/transfer excluded)
+    assert feb["totals"][0]["moneyOut"]["points"] == 42_000      # Bus 20 + Petrol 300 + your 100 of the Dinner split (transfer excluded)
     assert jan["totals"][0]["moneyOut"]["points"] == 1_000
+
+
+def test_split_counts_only_your_own_share_as_money_out(populated):
+    ok(post(populated, **base(populated, "split", description="Paid for all", amount="900.00", date="2026-01-15",
+                              accountId=populated.acct["bank"], categoryId=populated.cat["food"], yourShare="0",
+                              splits=[{"friendId": populated.friend["rahul"], "share": "900.00"}])))
+    jan = next(g for g in groups(populated, "month") if g["key"] == "2026-01")
+    assert jan["count"] == 2 and jan["totals"][0]["moneyOut"]["points"] == 1_000     # a bill fully carried by a friend adds 0
 
 
 def test_friend_paid_expense_counts_as_money_out_in_group_totals(populated):

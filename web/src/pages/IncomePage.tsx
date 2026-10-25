@@ -3,10 +3,9 @@ import { TransactionTable } from "@/components/domain/TransactionTable";
 export function IncomePage() {
   return (
     <TransactionTable
-      allowedTypes={["income"]}
+      allowedTypes={["income", "refund"]}
       title="Income"
-      description="Every credit recorded against your accounts."
-      showTypeFilter={false}
+      description="Money coming in: income, and refunds you get back on something you bought."
       showCategoryFilter
       addType="income"
       emptyTitle="No income recorded"

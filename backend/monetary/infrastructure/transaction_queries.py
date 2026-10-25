@@ -16,6 +16,9 @@ FLAT_TYPE_SQL = (
     "CASE c.account_type WHEN 'EXPENSE' THEN 'expense' ELSE 'income' END "
     "ELSE LOWER(je.entry_type) END"
 )
+# Your own share of a split: what was debited to the expense category (zero when a friend carries it all).
+OWN_SHARE_SQL = ("(SELECT COALESCE(SUM(p.debit_amount), 0) FROM posting p JOIN account a ON a.id = p.account_id "
+                 "WHERE p.journal_entry_id = je.id AND a.account_type = 'EXPENSE')")
 # Headline amount: the largest single leg (equals the total for every type).
 AMOUNT_SQL = "(SELECT MAX(debit_amount + credit_amount) FROM posting WHERE journal_entry_id = je.id)"
 
@@ -149,7 +152,7 @@ def search_entries(conn, *, account_id=None, category_ids=None, friend_id=None, 
 def group_summary(conn, *, group_by, tz_name, account_id=None, category_ids=None, friend_id=None,
                   refund_of_id=None, flat_types=None, tags=None, search=None, status="posted", date_from=None,
                   date_to_exclusive=None, direction="desc") -> list[dict]:
-    """One row per group and currency: key, label, count and the money in/out (income+refund vs expenses+friend-paid)."""
+    """One row per group and currency: key, label, count and the money in/out (income+refund vs expenses + friend-paid + your share of splits)."""
     where, params = _where(
         account_id=account_id, category_ids=category_ids, friend_id=friend_id, refund_of_id=refund_of_id,
         flat_types=flat_types, search=search, status=status, date_from=date_from, date_to_exclusive=date_to_exclusive,
@@ -162,7 +165,8 @@ def group_summary(conn, *, group_by, tz_name, account_id=None, category_ids=None
     ftype = FLAT_TYPE_SQL
     sql = (f"SELECT {key} AS group_key, {label} AS group_label, je.currency_code AS currency, COUNT(*) AS n, "
            f"COALESCE(SUM(CASE WHEN {ftype} IN ('income','refund') THEN {AMOUNT_SQL} END), 0) AS in_points, "
-           f"COALESCE(SUM(CASE WHEN {ftype} IN ('expense','fronted') THEN {AMOUNT_SQL} END), 0) AS out_points "
+           f"COALESCE(SUM(CASE WHEN {ftype} IN ('expense','fronted') THEN {AMOUNT_SQL} "
+           f"WHEN {ftype} = 'split' THEN {OWN_SHARE_SQL} END), 0) AS out_points "
            f"{_from(group_by)}{' AND '.join(where)} GROUP BY group_key, je.currency_code ORDER BY {group_order}, currency")
     return [dict(r) for r in conn.execute(sql, params).fetchall()]
 

@@ -5,6 +5,8 @@ import userEvent from '@testing-library/user-event'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router-dom'
 import { TransactionTable } from '@/components/domain/TransactionTable'
+import { ExpensesPage } from '@/pages/ExpensesPage'
+import { IncomePage } from '@/pages/IncomePage'
 import { ToastProvider } from '@/components/ui/Toast'
 import { useAuthStore } from '@/store/authStore'
 import { queryClient } from '@/lib/queryClient'
@@ -88,7 +90,7 @@ describe('table toolbar', () => {
     await screen.findByText('Coffee')
     const bar = await screen.findByLabelText('Period totals')
     expect(bar).toHaveTextContent(/Out\s*\u2212/)
-    expect(bar).toHaveTextContent(/Net/)
+    expect(bar).not.toHaveTextContent(/Net|In /)          // only money out here, so no empty In / Net
     expect(urls.some((u) => u.pathname.endsWith('/transactions/groups') && u.searchParams.get('groupBy') === 'type')).toBe(true)
     expect(screen.getByRole('columnheader', { name: 'Category' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Account' })).toBeInTheDocument()
@@ -145,5 +147,19 @@ describe('table toolbar', () => {
     expect(lastList().searchParams.get('groupBy')).toBe('category')
     expect(urls.some((u) => u.pathname.endsWith('/transactions/groups') && u.searchParams.get('groupBy') === 'category')).toBe(true)
     expect(within(header).getByText(/300/)).toBeInTheDocument()
+  })
+})
+
+describe('refunds and expenses pages', () => {
+  const pageTypes = async (page: React.ReactElement) => {
+    render(<QueryClientProvider client={queryClient}><ToastProvider><MemoryRouter>{page}</MemoryRouter></ToastProvider></QueryClientProvider>)
+    await waitFor(() => expect(listCalls().length).toBeGreaterThan(0))
+    return lastList().searchParams.getAll('type').sort()
+  }
+  it('lists refunds with income, not with expenses', async () => {
+    expect(await pageTypes(<IncomePage />)).toEqual(['income', 'refund'])
+  })
+  it('keeps expenses to expenses', async () => {
+    expect(await pageTypes(<ExpensesPage />)).toEqual(['expense'])
   })
 })

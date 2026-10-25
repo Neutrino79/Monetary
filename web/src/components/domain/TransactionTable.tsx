@@ -516,9 +516,9 @@ function PeriodSummary({ label, totals, loading }: { label: string; totals: { co
         const net = t.moneyIn - t.moneyOut;
         return (
           <span key={t.currency} className="ledger-figure flex flex-wrap gap-x-4">
-            <span><span className="text-ink-soft">In </span>{formatSigned(t.moneyIn, "positive")}</span>
-            <span><span className="text-ink-soft">Out </span>{formatSigned(t.moneyOut, "negative")}</span>
-            <span><span className="text-ink-soft">Net </span>{formatSigned(net, net >= 0 ? "positive" : "negative")}</span>
+            {t.moneyIn > 0 && <span><span className="text-ink-soft">In </span>{formatSigned(t.moneyIn, "positive")}</span>}
+            {t.moneyOut > 0 && <span><span className="text-ink-soft">Out </span>{formatSigned(t.moneyOut, "negative")}</span>}
+            {t.moneyIn > 0 && t.moneyOut > 0 && <span><span className="text-ink-soft">Net </span>{formatSigned(net, net >= 0 ? "positive" : "negative")}</span>}
           </span>
         );
       })}
