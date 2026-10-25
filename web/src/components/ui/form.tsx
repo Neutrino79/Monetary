@@ -67,7 +67,10 @@ export function FormField({
   const generatedId = useId();
   const childId = isValidElement(children) ? (children.props as { id?: string }).id : undefined;
   const fieldId = htmlFor ?? childId ?? generatedId;
-  const control = isValidElement(children) && !childId ? cloneElement(children, { id: fieldId }) : children;
+  const extra: { id?: string; "aria-invalid"?: boolean } = {};
+  if (!childId) extra.id = fieldId;
+  if (error) extra["aria-invalid"] = true; // lets the control draw a red border
+  const control = isValidElement(children) && Object.keys(extra).length ? cloneElement(children, extra) : children;
 
   return (
     <div className={cn("flex flex-col gap-1.5", full && "col-span-full")}>

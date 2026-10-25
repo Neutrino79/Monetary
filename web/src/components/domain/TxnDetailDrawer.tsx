@@ -17,6 +17,7 @@ import { today } from "@/lib/utils/clock";
 import { TransactionForm } from "./TransactionForm";
 import { SettleForm } from "./SettleForm";
 import { Landmark, Tag, Banknote, HandCoins, TrendingDown, Scale, SlidersHorizontal, Calendar, Edit, Check } from "lucide-react";
+import { useFormError } from "@/lib/hooks/useFormErrors";
 
 function MetaRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: React.ReactNode }) {
   return (
@@ -364,7 +365,7 @@ function RefundForm({ original, open, onOpenChange, onDone }: { original: Transa
   const [amount, setAmount] = useState(String(original.amount));
   const [date, setDate] = useState(today());
   const [memo, setMemo] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useFormError([amount, date]);
 
   async function submit() {
     const amt = Number(amount);

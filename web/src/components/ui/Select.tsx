@@ -63,7 +63,7 @@ function parseGroups(children: ReactNode): Group[] {
 }
 
 export const fieldBase =
-  "w-full rounded-[10px] border border-line-strong bg-paper-raised px-3 py-2.5 text-[13.3px] text-ink transition-colors focus:border-focus-ring focus:outline-none";
+  "w-full rounded-[10px] border border-line-strong bg-paper-raised px-3 py-2.5 text-[13.3px] text-ink transition-colors focus:border-focus-ring focus:outline-none aria-[invalid=true]:border-danger";
 
 const SEARCH_THRESHOLD = 12;
 
@@ -76,6 +76,7 @@ export interface SelectProps {
   required?: boolean;
   className?: string;
   "aria-label"?: string;
+  "aria-invalid"?: boolean;
   /** Shown when the current value matches no option (or an option with an empty value). */
   placeholder?: string;
   /** Drop the form-field look (for toolbar buttons that bring their own). */
@@ -157,6 +158,7 @@ export function Select({ value, onChange, id, name, disabled, className, placeho
           role="combobox"
           id={id}
           aria-label={rest["aria-label"]}
+          aria-invalid={rest["aria-invalid"]}
           aria-haspopup="listbox"
           aria-expanded={open}
           aria-controls={open ? listId : undefined}

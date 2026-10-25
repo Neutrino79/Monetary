@@ -12,6 +12,7 @@ import { useBranding } from "@/hooks/queries";
 import { authService } from "@/lib/api/services/authService";
 import { currencySymbol } from "@/lib/utils/format";
 import type { LedgerMode } from "@/types";
+import { useFormError } from "@/lib/hooks/useFormErrors";
 
 export function SettingsPage() {
   const user = useAuthStore((s) => s.user);
@@ -162,7 +163,7 @@ function ChangePasswordCard() {
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useFormError([current, next, confirm]);
   const [saving, setSaving] = useState(false);
 
   async function submit() {

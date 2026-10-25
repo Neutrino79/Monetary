@@ -15,6 +15,7 @@ import { today } from "@/lib/utils/clock";
 import { useLookups } from "@/hooks/useLookups";
 import { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils/cn";
+import { useFormErrors } from "@/lib/hooks/useFormErrors";
 
 /** The three things you can add. Splits and friend-paid expenses are expenses with a different "Paid by". */
 type FormKind = "income" | "expense" | "transfer";
@@ -85,7 +86,17 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
   const [splitMode, setSplitMode] = useState<SplitMode>("equal");
   const [yourShare, setYourShare] = useState("");
   const [friendShares, setFriendShares] = useState<ShareMap>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const { errors, setErrors } = useFormErrors({
+    description,
+    date,
+    amount,
+    category: categoryId,
+    account: accountId,
+    toAccount: [accountId, toAccountId],
+    friends: [payerFriendId, checkedFriends, payer],
+    shares: [amount, yourShare, friendShares, checkedFriends],
+    "*": [kind, description, date, amount, accountId, toAccountId, categoryId, payer, payerFriendId, checkedFriends, yourShare, friendShares],
+  });
   const [saving, setSaving] = useState(false);
   /** A guarded split edit the server refused (friends already settled against it); asks the user before forcing it. */
   const [forcePrompt, setForcePrompt] = useState<{ message: string; retry: () => void } | null>(null);
@@ -309,7 +320,10 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
               key={t.value}
               role="tab"
               aria-selected={kind === t.value}
-              onClick={() => setKind(t.value)}
+              onClick={() => {
+                setKind(t.value);
+                setErrors({}); // a tab you haven't submitted yet shouldn't show another tab's errors
+              }}
               className={cn(
                 "border-b-2 border-transparent px-4 py-2 text-[13.5px] font-semibold text-ink-soft hover:text-ink",
                 kind === t.value && "border-ink text-ink",

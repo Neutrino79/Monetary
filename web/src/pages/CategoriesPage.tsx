@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal, ConfirmDialog } from "@/components/ui/Dialog";
 import { Input, Select, AmountInput, FormField } from "@/components/ui/form";
 import { formatCurrency } from "@/lib/utils/format";
+import { useFormErrors } from "@/lib/hooks/useFormErrors";
 
 const TABS = [
   { value: "categories", label: "Categories" },
@@ -222,7 +223,7 @@ function CategoryForm({
   const isIncome = type === "INCOME";
   const [budgetLimit, setBudgetLimit] = useState("");
   const [color, setColor] = useState("#5A5A5A");
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const { errors, setErrors } = useFormErrors({ name, budgetLimit, "*": [name, parentId, budgetLimit] });
   const [saving, setSaving] = useState(false);
 
   // a category that already has subcategories can't itself become a subcategory (one level only)

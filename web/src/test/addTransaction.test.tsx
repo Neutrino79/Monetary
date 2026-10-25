@@ -153,3 +153,38 @@ describe('add transaction form', () => {
     expect(screen.getByText('70%')).toBeInTheDocument()                           // (2500 + 1000) / 5000
   })
 })
+
+describe('add transaction form validation', () => {
+  it('shows what is missing on submit, and each message goes away as its field is fixed', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await user.click(await screen.findByRole('button', { name: 'Add transaction' }))
+    expect(await screen.findByText('Description is required.')).toBeInTheDocument()
+    expect(screen.getByText(/Enter an amount above 0/)).toBeInTheDocument()
+    expect(screen.getByText('Select a category.')).toBeInTheDocument()
+    expect(screen.getByLabelText('Description')).toHaveAttribute('aria-invalid', 'true')
+
+    await user.type(screen.getByLabelText('Description'), 'Lunch')
+    expect(screen.queryByText('Description is required.')).not.toBeInTheDocument()
+    expect(screen.getByText(/Enter an amount above 0/)).toBeInTheDocument() // untouched fields keep theirs
+
+    await user.type(screen.getByLabelText('Amount'), '120')
+    await selectValue(user, screen.getByLabelText('Category'), '7')
+    expect(screen.queryByText(/Enter an amount above 0/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Select a category.')).not.toBeInTheDocument()
+    expect(screen.getByText('Select an account.')).toBeInTheDocument()
+  })
+
+  it('does not carry one tab\'s errors over to a tab that has not been submitted', async () => {
+    const user = userEvent.setup()
+    renderForm()
+    await user.click(await screen.findByRole('tab', { name: 'Income' }))
+    await user.click(screen.getByRole('button', { name: 'Add transaction' }))
+    expect(await screen.findByText('Select an income source.')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Expense' }))
+    expect(screen.queryByText('Description is required.')).not.toBeInTheDocument()
+    expect(screen.queryByText(/Enter an amount above 0/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Select a category.')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Description')).not.toHaveAttribute('aria-invalid')
+  })
+})

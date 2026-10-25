@@ -11,6 +11,7 @@ import { appConfig } from "@/config/app";
 import { useBranding, useSecurityQuestions, useSetupStatus } from "@/hooks/queries";
 import { ApiError } from "@/lib/api/errors";
 import { AuthShell } from "./AuthShell";
+import { useFormError } from "@/lib/hooks/useFormErrors";
 
 export function SignupPage() {
   const setupAccount = useAuthStore((s) => s.setup);
@@ -30,7 +31,7 @@ export function SignupPage() {
   const [alreadySetUp, setAlreadySetUp] = useState(false);
   const selectedQuestion = questionId ?? questions[0]?.id ?? null;
   const [answer, setAnswer] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useFormError([name, email, password, confirm, timezone, currency, questionId, answer]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {

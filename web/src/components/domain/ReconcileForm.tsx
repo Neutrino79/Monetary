@@ -6,6 +6,7 @@ import { Modal } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { AmountInput, FormField } from "@/components/ui/form";
 import { formatCurrency } from "@/lib/utils/format";
+import { useFormError } from "@/lib/hooks/useFormErrors";
 
 /** "What does your bank say?" -- any difference is recorded as one adjustment so the ledger matches the bank. */
 export function ReconcileForm(props: { account: Account | null; open: boolean; onOpenChange: (o: boolean) => void }) {
@@ -17,7 +18,7 @@ function ReconcileDialog({ account, open, onOpenChange }: { account: Account | n
   const reconcile = useReconcileAccount();
   const toast = useToast();
   const [value, setValue] = useState("");
-  const [error, setError] = useState("");
+  const [error, setError] = useFormError(value);
 
   if (!account) return null;
   const isCard = account.accountType === "LIABILITY";

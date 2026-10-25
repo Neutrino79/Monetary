@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button";
 import { Modal, ConfirmDialog } from "@/components/ui/Dialog";
 import { Input, FormField } from "@/components/ui/form";
 import { formatCurrency } from "@/lib/utils/format";
+import { useFormErrors } from "@/lib/hooks/useFormErrors";
 
 export function FriendsPage() {
   const { data: friends = [], isLoading } = useFriends();
@@ -155,7 +156,7 @@ function FriendForm({ open, onOpenChange, editingFriend = null }: { open: boolea
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const { errors, setErrors } = useFormErrors({ name, email, phone, "*": [name, email, phone] });
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
