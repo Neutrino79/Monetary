@@ -28,7 +28,7 @@ export function toAccount(a: AccountDto): Account {
   return {
     id: a.id, name: a.name, accountType: a.accountType, subtype: a.subtype, currency: a.currencyCode,
     isActive: a.isActive, balance: fromMoney(a.balance), creditLimit: optMoney(a.creditLimit),
-    statementDay: a.statementDay, createdAt: a.createdAt, updatedAt: a.updatedAt,
+    statementDay: a.statementDay, lastActivity: a.lastActivity ?? null, createdAt: a.createdAt, updatedAt: a.updatedAt,
   };
 }
 

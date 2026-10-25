@@ -4,7 +4,7 @@ import type { Account, BudgetStatus, FriendBalance } from '@/types'
 
 const acct = (over: Partial<Account>): Account => ({
   id: 1, name: 'HDFC', accountType: 'ASSET', subtype: 'bank', currency: 'INR', isActive: true, balance: 1000,
-  creditLimit: null, statementDay: null, createdAt: 'x', updatedAt: 'x', ...over,
+  creditLimit: null, statementDay: null, lastActivity: null, createdAt: 'x', updatedAt: 'x', ...over,
 })
 const budget = (over: Partial<BudgetStatus>): BudgetStatus => ({
   categoryId: 1, categoryName: 'Food', budget: 1000, spent: 100, remaining: 900, percentageUsed: 10, overBudget: false, notPaidBack: 0, ...over,

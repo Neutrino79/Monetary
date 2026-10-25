@@ -12,7 +12,9 @@ import { AccountChip } from "@/components/domain/chips";
 import { Button } from "@/components/ui/Button";
 import { Modal, ConfirmDialog } from "@/components/ui/Dialog";
 import { Input, Select, AmountInput, FormField } from "@/components/ui/form";
-import { formatCurrency } from "@/lib/utils/format";
+import { AccountActivity } from "@/components/domain/AccountActivity";
+import { formatCurrency, relativeDate } from "@/lib/utils/format";
+import { cardStats, statementText } from "@/lib/utils/creditCard";
 
 const TYPE_OPTIONS: { value: AccountType; label: string }[] = [
   { value: "ASSET", label: "Asset (bank, cash, wallet)" },
@@ -31,6 +33,8 @@ export function AccountsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [archivingAccount, setArchivingAccount] = useState<Account | null>(null);
+  const [activityId, setActivityId] = useState<number | null>(null);
+  const [now] = useState(() => new Date());
   const archiveAccount = useArchiveAccount();
   const restoreAccount = useRestoreAccount();
   const toast = useToast();
@@ -101,7 +105,9 @@ export function AccountsPage() {
                   <div className="flex items-center gap-3">
                     <AccountChip account={a} />
                     <div className="min-w-0">
-                      <div className="truncate text-[14px] font-semibold">{a.name}</div>
+                      <button type="button" onClick={() => setActivityId(a.id)} aria-label={`${a.name} activity`} className="block max-w-full truncate text-left text-[14px] font-semibold hover:underline">
+                        {a.name}
+                      </button>
                       <div className="text-[11.5px] text-ink-faint">{a.accountType === "LIABILITY" ? "Liability" : "Asset"}</div>
                     </div>
                   </div>
@@ -118,13 +124,8 @@ export function AccountsPage() {
                   <div className="text-[11px] text-ink-faint">{a.accountType === "LIABILITY" ? "Amount owed" : "Current balance"}</div>
                   <div className="ledger-figure text-[18px]">{formatCurrency(a.balance, true)}</div>
                 </div>
-                {(a.creditLimit != null || a.statementDay != null) && (
-                  <div className="text-[11.5px] text-ink-faint">
-                    {a.creditLimit != null && <>Credit limit {formatCurrency(a.creditLimit)}</>}
-                    {a.creditLimit != null && a.statementDay != null && " · "}
-                    {a.statementDay != null && <>Statement day {a.statementDay}</>}
-                  </div>
-                )}
+                {a.accountType === "LIABILITY" && <CardFigures account={a} now={now} />}
+                <div className="text-[11.5px] text-ink-faint">{a.lastActivity ? `Last activity ${relativeDate(a.lastActivity).toLowerCase()}` : "No activity yet"}</div>
               </Card>
             ))}
           </div>
@@ -150,6 +151,7 @@ export function AccountsPage() {
         </>
       )}
 
+      <AccountActivity account={accounts.find((a) => a.id === activityId) ?? null} open={activityId != null} onOpenChange={(o) => !o && setActivityId(null)} />
       <AccountForm open={addOpen} onOpenChange={setAddOpen} />
       <AccountForm open={!!editingAccount} onOpenChange={(o) => !o && setEditingAccount(null)} editingAccount={editingAccount} />
       <ConfirmDialog
@@ -293,5 +295,28 @@ function AccountForm({ open, onOpenChange, editingAccount = null }: { open: bool
         )}
       </div>
     </Modal>
+  );
+}
+
+/** Available credit, how much of the limit is used, and when the next statement lands. */
+function CardFigures({ account, now }: { account: Account; now: Date }) {
+  const c = cardStats(account, now);
+  if (c.available == null && c.daysToStatement == null) return null;
+  const pct = c.utilisationPct ?? 0;
+  return (
+    <div className="flex flex-col gap-1.5 text-[11.5px] text-ink-soft">
+      {c.available != null && c.utilisationPct != null && (
+        <>
+          <div className="flex justify-between">
+            <span>{formatCurrency(c.available)} available of {formatCurrency(account.creditLimit)}</span>
+            <span className={pct >= 80 ? "text-negative" : ""}>{Math.round(pct)}% used</span>
+          </div>
+          <div className="h-1.5 overflow-hidden rounded-full bg-paper-sunken" role="img" aria-label={`${Math.round(pct)}% of the credit limit used`}>
+            <div className="h-full" style={{ width: `${Math.min(100, pct)}%`, background: pct >= 80 ? "var(--negative)" : "var(--accent)" }} />
+          </div>
+        </>
+      )}
+      {c.daysToStatement != null && <div>{statementText(c.daysToStatement)} (day {account.statementDay})</div>}
+    </div>
   );
 }

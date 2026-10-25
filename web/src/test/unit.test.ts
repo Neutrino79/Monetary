@@ -66,9 +66,9 @@ describe('money mapping', () => {
   it('maps an account including a liability credit limit', () => {
     const dto: AccountDto = {
       id: 2, name: 'Visa', accountType: 'LIABILITY', currencyCode: 'INR', isActive: true, subtype: 'credit_card',
-      creditLimit: money(5000000), statementDay: 5, balance: money(30000), createdAt: 'a', updatedAt: 'b',
+      creditLimit: money(5000000), statementDay: 5, balance: money(30000), lastActivity: '2026-10-20', createdAt: 'a', updatedAt: 'b',
     }
-    expect(toAccount(dto)).toMatchObject({ balance: 300, creditLimit: 50000, statementDay: 5, currency: 'INR' })
+    expect(toAccount(dto)).toMatchObject({ balance: 300, creditLimit: 50000, statementDay: 5, currency: 'INR', lastActivity: '2026-10-20' })
   })
 
   it('picks the owner\'s home-currency bucket from per-currency report data', () => {

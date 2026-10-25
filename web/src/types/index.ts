@@ -21,6 +21,8 @@ export interface Account {
   balance: number;
   creditLimit: number | null;
   statementDay: number | null;
+  /** Local date (YYYY-MM-DD) of the newest transaction on the account; null when it has none. */
+  lastActivity: string | null;
   createdAt: string;
   updatedAt: string;
 }

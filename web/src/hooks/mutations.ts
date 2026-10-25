@@ -47,6 +47,8 @@ export const useSettleFriend = () => useLedgerMutation((s: SettlementInput) => t
 // ----------------------------------------------------------------- accounts
 export const useCreateAccount = () => useLedgerMutation((p: NewAccountInput) => accountsService.create(p));
 export const useUpdateAccount = () => useLedgerMutation(({ id, patch }: { id: Id; patch: AccountPatch }) => accountsService.update(id, patch));
+export const useReconcileAccount = () =>
+  useLedgerMutation(({ id, balance, date }: { id: Id; balance: number; date?: string }) => accountsService.reconcile(id, balance, date));
 export const useArchiveAccount = () => useLedgerMutation((id: Id) => accountsService.archive(id));
 export const useRestoreAccount = () => useLedgerMutation((id: Id) => accountsService.restore(id));
 

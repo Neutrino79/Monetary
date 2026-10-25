@@ -22,6 +22,7 @@ export const qk = {
   incomeSources: ["income-sources"] as const,
   friends: ["friends"] as const,
   friendBalances: ["friends", "balances"] as const,
+  accountStatement: (id: Id) => ["accounts", "statement", id] as const,
   friendStatement: (id: Id) => ["friends", "statement", id] as const,
   transactions: (f: TransactionFilters) => ["transactions", f] as const,
   transactionGroups: (f: TransactionFilters) => ["transactions", "groups", f] as const,
@@ -70,6 +71,10 @@ export function useFriends() {
 
 export function useFriendBalances() {
   return useQuery({ queryKey: qk.friendBalances, queryFn: friendsService.balances });
+}
+
+export function useAccountStatement(id: Id | undefined) {
+  return useQuery({ queryKey: qk.accountStatement(id ?? 0), queryFn: () => accountsService.statement(id!), enabled: id != null });
 }
 
 export function useFriendStatement(id: Id | undefined) {
