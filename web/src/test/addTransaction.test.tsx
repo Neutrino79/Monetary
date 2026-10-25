@@ -9,6 +9,7 @@ import { ToastProvider } from '@/components/ui/Toast'
 import { useAuthStore } from '@/store/authStore'
 import { queryClient } from '@/lib/queryClient'
 import type { User } from '@/types'
+import { selectValue } from './helpers'
 
 const owner: User = {
   id: 1, name: 'Asha', email: 'a@example.com', isSuperuser: true, timezone: 'UTC', homeCurrencyCode: 'INR',
@@ -70,8 +71,7 @@ function renderForm() {
 async function fillBasics(user: ReturnType<typeof userEvent.setup>, amount: string) {
   await user.type(await screen.findByLabelText('Description'), 'Dinner at Truffles')
   await user.type(screen.getByLabelText(/^(Amount|Total bill|Your share)$/), amount)
-  await screen.findByRole('option', { name: 'Food' })
-  await user.selectOptions(screen.getByLabelText('Category'), '7')
+  await selectValue(user, screen.getByLabelText('Category'), '7')
 }
 
 describe('add transaction form', () => {
@@ -79,8 +79,7 @@ describe('add transaction form', () => {
     const user = userEvent.setup()
     renderForm()
     await fillBasics(user, '250')
-    await screen.findByRole('option', { name: 'HDFC Savings' })
-    await user.selectOptions(screen.getByLabelText('Pay from'), '1')
+    await selectValue(user, screen.getByLabelText('Pay from'), '1')
     await user.click(screen.getByRole('button', { name: 'Add transaction' }))
     await waitFor(() => expect(posted).toHaveLength(1))
     expect(posted[0]).toMatchObject({ type: 'expense', amount: '250.00', accountId: 1, categoryId: 7 })
@@ -90,8 +89,7 @@ describe('add transaction form', () => {
     const user = userEvent.setup()
     renderForm()
     await fillBasics(user, '250')
-    await screen.findByRole('option', { name: 'HDFC Savings' })
-    await user.selectOptions(screen.getByLabelText('Pay from'), '1')
+    await selectValue(user, screen.getByLabelText('Pay from'), '1')
     await user.click(screen.getByRole('button', { name: 'Tags' }))
     await user.click(await screen.findByRole('option', { name: 'work' }))
     await user.click(screen.getByRole('option', { name: 'goa trip' }))
@@ -108,7 +106,7 @@ describe('add transaction form', () => {
     expect(screen.queryByLabelText('Pay from')).not.toBeInTheDocument()          // none of your accounts is involved
     expect(screen.getByLabelText('Your share')).toBeInTheDocument()               // the amount is your share
     await fillBasics(user, '1240')
-    await user.selectOptions(screen.getByLabelText('Friend who paid'), '11')
+    await selectValue(user, screen.getByLabelText('Friend who paid'), '11')
     expect(screen.getByText(/You owe Rahul/)).toBeInTheDocument()                 // the preview says what happens
     await user.click(screen.getByRole('button', { name: 'Add transaction' }))
     await waitFor(() => expect(posted).toHaveLength(1))
@@ -134,11 +132,10 @@ describe('add transaction form', () => {
     await user.click(await screen.findByRole('button', { name: /^Rahul/ }))
     await user.click(screen.getByRole('button', { name: /^Riya/ }))
     expect(screen.getByLabelText('Total bill')).toBeInTheDocument()
-    expect(screen.getByLabelText('You share')).toHaveValue(33.34)                 // the odd cent goes to you
-    expect(screen.getByLabelText('Rahul share')).toHaveValue(33.33)
+    expect(screen.getByLabelText('You share')).toHaveValue('33.34')                 // the odd cent goes to you
+    expect(screen.getByLabelText('Rahul share')).toHaveValue('33.33')
     expect(screen.getByText(/Shares add up to/)).toBeInTheDocument()
-    await screen.findByRole('option', { name: 'HDFC Savings' })
-    await user.selectOptions(screen.getByLabelText('Pay from'), '1')
+    await selectValue(user, screen.getByLabelText('Pay from'), '1')
     await user.click(screen.getByRole('button', { name: 'Add transaction' }))
     await waitFor(() => expect(posted).toHaveLength(1))
     expect(posted[0]).toMatchObject({

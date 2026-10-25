@@ -86,9 +86,9 @@ describe('editing an expense into a split', () => {
     const user = userEvent.setup()
     wrap(<TransactionForm open onOpenChange={() => {}} editingTxn={base} />)
     await user.click(await screen.findByRole('button', { name: /^Rahul/ }))           // used to do nothing in edit
-    expect(screen.getByLabelText('Total bill')).toHaveValue(100)
-    expect(screen.getByLabelText('You share')).toHaveValue(50)
-    expect(screen.getByLabelText('Rahul share')).toHaveValue(50)
+    expect(screen.getByLabelText('Total bill')).toHaveValue('100')
+    expect(screen.getByLabelText('You share')).toHaveValue('50')
+    expect(screen.getByLabelText('Rahul share')).toHaveValue('50')
     await user.click(screen.getByRole('button', { name: 'Save changes' }))
     await waitFor(() => expect(patched).toHaveLength(1))
     expect(patched[0].path).toBe('/transactions/5')

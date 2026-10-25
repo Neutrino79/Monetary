@@ -289,7 +289,14 @@ function AccountForm({ open, onOpenChange, editingAccount = null }: { open: bool
               <AmountInput value={creditLimit} onChange={(e) => setCreditLimit(e.target.value)} placeholder="0.00" />
             </FormField>
             <FormField label="Statement day (optional)" error={errors.statementDay}>
-              <Input type="number" min={1} max={31} value={statementDay} onChange={(e) => setStatementDay(e.target.value)} placeholder="1–31" />
+              <Select value={statementDay} onChange={(e) => setStatementDay(e.target.value)}>
+                <option value="">Not set</option>
+                {Array.from({ length: 31 }, (_, i) => (
+                  <option key={i + 1} value={String(i + 1)}>
+                    {i + 1}
+                  </option>
+                ))}
+              </Select>
             </FormField>
           </div>
         )}

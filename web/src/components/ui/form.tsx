@@ -1,32 +1,47 @@
-import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, ReactElement } from "react";
+import type { InputHTMLAttributes, TextareaHTMLAttributes, ReactElement } from "react";
 import { forwardRef, useId, isValidElement, cloneElement } from "react";
 import { cn } from "@/lib/utils/cn";
 import { currencySymbol } from "@/lib/utils/format";
 
-const fieldBase =
-  "w-full rounded-[10px] border border-line-strong bg-paper-raised px-3 py-2.5 text-[13.3px] text-ink transition-colors focus:border-focus-ring focus:outline-none";
+import { fieldBase } from "@/components/ui/Select";
+
+export { Select } from "@/components/ui/Select";
 
 export const Input = forwardRef<HTMLInputElement, InputHTMLAttributes<HTMLInputElement>>(function Input({ className, ...props }, ref) {
   return <input ref={ref} className={cn(fieldBase, className)} {...props} />;
-});
-
-export const Select = forwardRef<HTMLSelectElement, SelectHTMLAttributes<HTMLSelectElement>>(function Select({ className, children, ...props }, ref) {
-  return (
-    <select ref={ref} className={cn(fieldBase, className)} {...props}>
-      {children}
-    </select>
-  );
 });
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaHTMLAttributes<HTMLTextAreaElement>>(function Textarea({ className, ...props }, ref) {
   return <textarea ref={ref} className={cn(fieldBase, "min-h-18 resize-y", className)} {...props} />;
 });
 
-export function AmountInput({ className, ...props }: InputHTMLAttributes<HTMLInputElement>) {
+const DECIMAL = /^\d*\.?\d{0,2}$/;
+
+/**
+ * A money-style number box: plain text with a decimal keypad on phones, so there are no spinner arrows
+ * and the mouse wheel can't change the value. Anything that isn't digits plus up to two decimals is ignored.
+ */
+export const DecimalInput = forwardRef<HTMLInputElement, Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "min" | "max" | "step">>(function DecimalInput({ onChange, ...props }, ref) {
+  return (
+    <Input
+      ref={ref}
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      onChange={(e) => {
+        if (DECIMAL.test(e.target.value)) onChange?.(e);
+      }}
+      {...props}
+    />
+  );
+});
+
+export function AmountInput({ className, ...props }: Omit<InputHTMLAttributes<HTMLInputElement>, "type" | "min" | "max" | "step"> & { max?: number; min?: number }) {
+  const { max: _max, min: _min, ...rest } = props;
   return (
     <div className="relative">
       <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-faint">{currencySymbol()}</span>
-      <Input type="number" min={0} step={0.01} className={cn("pl-6.5", className)} {...props} />
+      <DecimalInput className={cn("pl-6.5", className)} {...rest} />
     </div>
   );
 }

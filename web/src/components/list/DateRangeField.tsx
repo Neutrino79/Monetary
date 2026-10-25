@@ -1,7 +1,7 @@
 import { today } from "@/lib/utils/clock";
 import { currentMonthRange, type DateRange } from "@/lib/utils/dateRange";
 import { cn } from "@/lib/utils/cn";
-import { DatePicker } from "@/components/ui/DatePicker";
+import { DateRangePicker } from "@/components/ui/DateRangePicker";
 import { MonthStepper } from "@/components/ui/MonthStepper";
 
 const MODES: { value: DateRange["mode"]; label: string }[] = [
@@ -46,16 +46,7 @@ export function DateRangeField({ value, onChange }: { value: DateRange; onChange
       )}
 
       {value.mode === "custom" && (
-        <div className="grid grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1 text-[12px] text-ink-soft">
-            From
-            <DatePicker aria-label="From" clearable placeholder="Any date" max={value.to || today()} value={value.from} onChange={(from) => onChange({ ...value, from })} />
-          </label>
-          <label className="flex flex-col gap-1 text-[12px] text-ink-soft">
-            To
-            <DatePicker aria-label="To" clearable placeholder="Any date" min={value.from || undefined} max={today()} value={value.to} onChange={(to) => onChange({ ...value, to })} />
-          </label>
-        </div>
+        <DateRangePicker aria-label="Date range" placeholder="Select dates" max={today()} from={value.from} to={value.to} onChange={({ from, to }) => onChange({ ...value, from, to })} />
       )}
 
       {value.mode === "all" && <p className="text-[12.5px] text-ink-soft">Showing every date.</p>}

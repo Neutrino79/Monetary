@@ -3,7 +3,7 @@ import type { Id, Transaction, TransactionType } from "@/types";
 import type { NewTransactionInput, TransactionPatch } from "@/types/api";
 import { Modal, ConfirmDialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
-import { Input, Select, Textarea, AmountInput, FormField } from "@/components/ui/form";
+import { Input, Select, Textarea, AmountInput, DecimalInput, FormField } from "@/components/ui/form";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { TagPicker } from "@/components/ui/TagPicker";
 import { Avatar } from "@/components/ui/primitives";
@@ -608,7 +608,7 @@ function ShareRow({ label, avatar, value, onChange }: { label: string; avatar: R
     <div className="flex items-center gap-3 border-b border-line py-2 last:border-b-0">
       <span className="flex w-6.5 justify-center">{avatar}</span>
       <span className="flex-1 text-[13.5px]">{label}</span>
-      <Input type="number" step={0.01} min={0} aria-label={`${label} share`} value={value} onChange={(e) => onChange(e.target.value)} className="w-28 text-right" />
+      <DecimalInput aria-label={`${label} share`} value={value} onChange={(e) => onChange(e.target.value)} className="w-28 text-right" />
     </div>
   );
 }

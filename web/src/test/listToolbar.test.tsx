@@ -12,6 +12,7 @@ import { useAuthStore } from '@/store/authStore'
 import { queryClient } from '@/lib/queryClient'
 import { toISODate } from '@/lib/utils/clock'
 import type { User } from '@/types'
+import { selectValue } from './helpers'
 
 const owner: User = {
   id: 1, name: 'Asha', email: 'a@example.com', isSuperuser: true, timezone: 'UTC', homeCurrencyCode: 'INR',
@@ -59,16 +60,6 @@ function renderTable(at = '/') {
 const listCalls = () => urls.filter((u) => u.pathname.endsWith('/transactions'))
 const lastList = () => listCalls()[listCalls().length - 1]
 
-/** Opens a DatePicker and walks back to March 2026 (tests run in or after it), then picks the given day. */
-async function pickDate(user: ReturnType<typeof userEvent.setup>, label: string, day: string) {
-  await user.click(screen.getByRole('button', { name: label }))
-  const dayBtn = () => screen.queryByRole('gridcell', { name: day })
-  for (let i = 0; i < 60 && !dayBtn(); i++) {
-    await user.click(await screen.findByRole('button', { name: 'Previous month' }))
-  }
-  await user.click(dayBtn()!)
-}
-
 describe('table toolbar', () => {
   it('starts on the current month, and "All time" drops the date filter', async () => {
     const user = userEvent.setup()
@@ -112,14 +103,14 @@ describe('table toolbar', () => {
     expect(lastList().searchParams.has('dateFrom')).toBe(false)         // a tag link is not limited to this month
     expect(screen.getByText('Tag: goa')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: /Filters/ }))
-    expect(await screen.findByLabelText('Tag')).toHaveValue('goa')
+    expect(await screen.findByLabelText('Tag')).toHaveTextContent('goa')
   })
 
   it('can group by tag and explains that a transaction appears under each of its tags', async () => {
     const user = userEvent.setup()
     renderTable()
     await screen.findByText('Coffee')
-    await user.selectOptions(screen.getByLabelText('Group'), 'tag')
+    await selectValue(user, screen.getByLabelText('Group'), 'tag')
     await waitFor(() => expect(lastList().searchParams.get('groupBy')).toBe('tag'))
     expect(await screen.findByText(/listed under each of them/)).toBeInTheDocument()
   })
@@ -130,8 +121,11 @@ describe('table toolbar', () => {
     await screen.findByText('Coffee')
     await user.click(screen.getByRole('button', { name: /Filters/ }))
     await user.click(await screen.findByRole('button', { name: 'Custom' }))
-    await pickDate(user, 'From', '5 Mar 2026')
-    await pickDate(user, 'To', '9 Mar 2026')
+    await user.click(screen.getByRole('button', { name: 'Date range' }))
+    const dayBtn = () => screen.queryByRole('gridcell', { name: '5 Mar 2026' })
+    for (let i = 0; i < 60 && !dayBtn(); i++) await user.click(await screen.findByRole('button', { name: 'Previous month' }))
+    await user.click(dayBtn()!)
+    await user.click(screen.getByRole('gridcell', { name: '9 Mar 2026' })) // the second click, in the same calendar, finishes the range
     await waitFor(() => expect(lastList().searchParams.get('dateFrom')).toBe('2026-03-05'))
     expect(lastList().searchParams.get('dateTo')).toBe('2026-03-09')
   })
@@ -141,7 +135,7 @@ describe('table toolbar', () => {
     renderTable()
     await screen.findByText('Coffee')
     expect(screen.queryByTestId('group-header')).not.toBeInTheDocument()
-    await user.selectOptions(screen.getByLabelText('Group'), 'category')
+    await selectValue(user, screen.getByLabelText('Group'), 'category')
     const header = await screen.findByTestId('group-header')
     await waitFor(() => expect(within(header).getByText('2 transactions')).toBeInTheDocument())
     expect(lastList().searchParams.get('groupBy')).toBe('category')
