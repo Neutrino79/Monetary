@@ -260,6 +260,18 @@ def test_sorting(populated):
     assert populated.api.get("/transactions", params={"sort": "bogus"}).status_code == 422
 
 
+def test_sorting_by_category_and_account_name(populated):
+    cat_name = {c["id"]: c["name"].lower() for c in populated.api.get("/categories").json()}
+    acct_name = {a["id"]: a["name"].lower() for a in populated.api.get("/accounts").json()}
+    for direction in ("asc", "desc"):
+        items = populated.api.get("/transactions", params={"sort": "category", "direction": direction}).json()["items"]
+        keys = [cat_name.get(i["categoryId"], "") for i in items]
+        assert keys == sorted(keys, reverse=direction == "desc")
+        items = populated.api.get("/transactions", params={"sort": "account", "direction": direction}).json()["items"]
+        keys = [acct_name.get(i["accountId"], "") for i in items]
+        assert keys == sorted(keys, reverse=direction == "desc")
+
+
 def test_paging_is_stable(populated):
     seen = []
     for off in range(0, 7, 3):

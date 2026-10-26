@@ -134,7 +134,7 @@ def list_transactions(
     status: str = Query(default="posted", pattern="^(posted|reversed|all)$"),
     date_from: str | None = Query(default=None, alias="dateFrom", description="'YYYY-MM-DD', inclusive"),
     date_to: str | None = Query(default=None, alias="dateTo", description="'YYYY-MM-DD', inclusive"),
-    sort: str = Query(default="date", pattern="^(date|amount|description)$"),
+    sort: str = Query(default="date", pattern="^(date|amount|description|category|account)$"),
     direction: str = Query(default="desc", pattern="^(asc|desc)$"),
     group_by: str | None = Query(default=None, alias="groupBy", pattern=_GROUP_BY,
                                  description="Cluster rows by group (date, month, category, account, type, tag); "

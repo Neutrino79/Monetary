@@ -156,7 +156,7 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
 - **`GET /transactions`** filters: `type` (repeatable: income, expense, transfer, split, fronted,
   settlement, refund, adjustment), `accountId`, `categoryId` (includes subcategories), `friendId`,
   `refundOfId`, `search` (description/memo), `dateFrom`, `dateTo`, `status` (`posted` default,
-  `reversed`, `all`); `sort` (`date`, `amount`, `description`) with `direction`; `limit` (max 500) /
+  `reversed`, `all`); `sort` (`date`, `amount`, `description`, `category`, `account`) with `direction`; `limit` (max 500) /
   `offset`. The response is a `{items, total, limit, offset}` envelope. STRICT-mode system reversal
   rows are never listed; a corrected entry links to the one it replaced via `correctionOf`, and the
   original reports `replacedBy`.
