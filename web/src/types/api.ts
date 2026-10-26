@@ -184,7 +184,7 @@ export interface TransactionFilters {
   search?: string;
   dateFrom?: string;
   dateTo?: string;
-  sort?: "date" | "amount" | "description";
+  sort?: "date" | "amount" | "description" | "category" | "account";
   direction?: "asc" | "desc";
   status?: "posted" | "reversed" | "all";
   /** Cluster rows by group; rows then carry `groupKey`. */

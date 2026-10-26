@@ -22,13 +22,6 @@ OWN_SHARE_SQL = ("(SELECT COALESCE(SUM(p.debit_amount), 0) FROM posting p JOIN a
 # Headline amount: the largest single leg (equals the total for every type).
 AMOUNT_SQL = "(SELECT MAX(debit_amount + credit_amount) FROM posting WHERE journal_entry_id = je.id)"
 
-_SORTS = {
-    "date": "je.entry_date {d}, je.id {d}",
-    "amount": AMOUNT_SQL + " {d}, je.id DESC",
-    "description": "LOWER(je.description) {d}, je.id DESC",
-}
-
-
 # The real (asset/liability) account a flat row is shown against: the debited-from leg of a transfer,
 # otherwise the first real leg -- the same choice transaction_view._derive makes.
 GROUP_ACCOUNT_ID_SQL = (
@@ -37,6 +30,15 @@ GROUP_ACCOUNT_ID_SQL = (
     "AND (je.entry_type != 'TRANSFER' OR p.credit_amount > 0) ORDER BY p.id LIMIT 1)"
 )
 GROUP_BYS = ("date", "month", "category", "account", "type", "tag")
+
+# Column sorts for the list. Category and account sort by the name shown in the table (none sorts first).
+_SORTS = {
+    "date": "je.entry_date {d}, je.id {d}",
+    "amount": AMOUNT_SQL + " {d}, je.id DESC",
+    "description": "LOWER(je.description) {d}, je.id DESC",
+    "category": "LOWER(COALESCE(c.name, '')) {d}, je.id DESC",
+    "account": "LOWER(COALESCE((SELECT name FROM account WHERE id = " + GROUP_ACCOUNT_ID_SQL + "), '')) {d}, je.id DESC",
+}
 
 
 def _group_sql(group_by: str) -> tuple[str, str, str]:

@@ -1,20 +1,20 @@
 import { Fragment, useEffect, useState } from "react";
-import { Plus, Search } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, ChevronDown, Plus, Search } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
-import type { Transaction, TransactionGroup, TransactionType } from "@/types";
+import type { Transaction, TransactionType } from "@/types";
 import type { TransactionGroupBy } from "@/types/api";
 import { useAccounts, useCategories, useFriends, useTags, useTransactionGroups, useTransactions } from "@/hooks/queries";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useLookups } from "@/hooks/useLookups";
-import { formatDate, formatSigned, clamp } from "@/lib/utils/format";
-import { currentMonthRange, isDefaultRange, monthLabel, rangeLabel, rangeToFilters, type DateRange } from "@/lib/utils/dateRange";
+import { formatDate, clamp } from "@/lib/utils/format";
+import { currentMonthRange, monthLabel, rangeToFilters, type DateRange } from "@/lib/utils/dateRange";
 import { TXN_TYPE_META } from "@/lib/utils/entityVisuals";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/form";
 import { EmptyState, Skeleton } from "@/components/ui/primitives";
-import { DateRangeField } from "@/components/list/DateRangeField";
-import { FilterField, ListToolbar, type SelectOption, type ToolbarChip } from "@/components/list/ListToolbar";
+import { ControlStrip, FilterField, StripDate, StripFilters, StripGroup, StripSearch, type GroupOption } from "@/components/list/ControlStrip";
 import { TxnBadge, TxnAmount } from "./chips";
+import { cn } from "@/lib/utils/cn";
 import { TransactionForm } from "./TransactionForm";
 import { TxnDetailDrawer } from "./TxnDetailDrawer";
 
@@ -29,18 +29,10 @@ interface FilterState {
 }
 const defaultFilters = (): FilterState => ({ search: "", range: currentMonthRange(), accountId: "", categoryId: "", type: "", friendId: "", tag: "" });
 
-type SortKey = "date" | "description" | "amount";
+type SortKey = "date" | "description" | "amount" | "category" | "account";
 type SortDir = "asc" | "desc";
 
-const SORT_OPTIONS: SelectOption[] = [
-  { value: "date:desc", label: "Newest first" },
-  { value: "date:asc", label: "Oldest first" },
-  { value: "amount:desc", label: "Amount, high to low" },
-  { value: "amount:asc", label: "Amount, low to high" },
-  { value: "description:asc", label: "Description A–Z" },
-];
-
-const GROUP_OPTIONS: SelectOption<"none" | TransactionGroupBy>[] = [
+const GROUP_OPTIONS: (GroupOption & { value: "none" | TransactionGroupBy })[] = [
   { value: "none", label: "None" },
   { value: "date", label: "Day" },
   { value: "month", label: "Month" },
@@ -117,6 +109,8 @@ function TransactionTableInner({
   const [page, setPage] = useState(1);
   const [addOpen, setAddOpen] = useState(false);
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
+  /** Group headers the user has folded away (this page of results only). */
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
 
   // Wait for typing to pause before asking the server to search.
   const [search, setSearch] = useState("");
@@ -145,9 +139,6 @@ function TransactionTableInner({
     offset: (page - 1) * pageSize,
   });
   const groupsQuery = useTransactionGroups({ ...baseFilters, direction: sortKey === "date" ? sortDir : "desc", groupBy: grouped ? groupBy : undefined });
-  // Period totals: the same filters, summed over every group (grouping by type keeps it to a handful of rows).
-  const totalsQuery = useTransactionGroups({ ...baseFilters, groupBy: "type" });
-  const periodTotals = sumTotals(totalsQuery.data ?? []);
   const groupsByKey = new Map((groupsQuery.data ?? []).map((g) => [g.key, g]));
 
   const pageRows = query.data?.items ?? [];
@@ -173,27 +164,27 @@ function TransactionTableInner({
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else {
       setSortKey(key);
-      setSortDir("desc");
+      // numbers and dates start high-to-low, names start A-Z
+      setSortDir(key === "date" || key === "amount" ? "desc" : "asc");
     }
     setPage(1);
   }
 
-  const isDefaultDate = isDefaultRange(filters.range);
-  const rangeText = rangeLabel(filters.range);
-  const filterCount =
-    (isDefaultDate ? 0 : 1) + [filters.type, filters.accountId, filters.categoryId, filters.friendId, filters.tag].filter(Boolean).length;
+  function toggleGroup(key: string) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
-  const chips: ToolbarChip[] = [];
-  if (rangeText) chips.push({ key: "range", label: rangeText, onRemove: () => updateFilter("range", { mode: "all" }) });
-  else chips.push({ key: "range", label: "All time" });
-  if (filters.accountId) chips.push({ key: "accountId", label: `Account: ${accounts.find((a) => a.id === Number(filters.accountId))?.name ?? ""}`, onRemove: () => updateFilter("accountId", "") });
-  if (filters.categoryId) chips.push({ key: "categoryId", label: `Category: ${lookups.getCategory(Number(filters.categoryId))?.name ?? ""}`, onRemove: () => updateFilter("categoryId", "") });
-  if (filters.type) chips.push({ key: "type", label: `Type: ${TXN_TYPE_META[filters.type as TransactionType].label}`, onRemove: () => updateFilter("type", "") });
-  if (filters.tag) chips.push({ key: "tag", label: `Tag: ${filters.tag}`, onRemove: () => updateFilter("tag", "") });
-  if (filters.friendId) chips.push({ key: "friendId", label: `Friend: ${friends.find((f) => f.id === Number(filters.friendId))?.name ?? ""}`, onRemove: () => updateFilter("friendId", "") });
+  // The date lives in the strip, so the Filters badge counts only the rest.
+  const filterCount = [filters.type, filters.accountId, filters.categoryId, filters.friendId, filters.tag].filter(Boolean).length;
 
   function resetFilters() {
-    setFilters((prev) => ({ ...defaultFilters(), search: prev.search }));
+    // Clears the filters in the panel; the date and the search box stay as they are.
+    setFilters((prev) => ({ ...prev, type: "", accountId: "", categoryId: "", friendId: "", tag: "" }));
     setPage(1);
   }
 
@@ -202,11 +193,6 @@ function TransactionTableInner({
     if (groupBy === "month") return monthLabel(key);
     if (groupBy === "type") return TXN_TYPE_META[key as TransactionType]?.label ?? fallback;
     return fallback;
-  }
-
-  function sortArrow(key: SortKey) {
-    if (sortKey !== key) return null;
-    return <span className="ml-1 opacity-60">{sortDir === "asc" ? "\u2191" : "\u2193"}</span>;
   }
 
   function categoryText(t: Transaction): string {
@@ -224,13 +210,114 @@ function TransactionTableInner({
     return [categoryText(t), accountText(t)].filter((x) => x && x !== "\u2014").join(" \u00b7 ");
   }
 
+  /** The category as its colour dot and name; transfers and settlements are neutral. */
+  function categoryPill(t: Transaction) {
+    const name = categoryText(t);
+    if (name === "\u2014") return <span className="text-ink-faint">{name}</span>;
+    const color = t.categoryId ? lookups.getCategory(t.categoryId)?.color : undefined;
+    const valid = !!color && /^#[0-9a-f]{6}$/i.test(color);
+    return (
+      <span className="inline-flex items-center gap-2">
+        <span aria-hidden className="h-2 w-2 flex-none rounded-full" style={{ background: valid ? color : "var(--color-ink-faint)" }} />
+        {name}
+      </span>
+    );
+  }
+
+  const colCount = 7;
+  const sortHead = (label: string, key: SortKey, align?: "right") => (
+    <SortTh label={label} active={sortKey === key} dir={sortDir} onClick={() => toggleSort(key)} align={align} />
+  );
+
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-semibold">{title}</h1>
-          <p className="mt-1 text-[13.5px] text-ink-soft">{description}</p>
-        </div>
+      <div className="mb-5 flex flex-wrap items-center gap-x-3 gap-y-3">
+        <h1 className="mr-auto text-2xl font-semibold">{title}</h1>
+        <p className="sr-only">{description}</p>
+
+        <ControlStrip className="order-last w-full sm:order-none sm:w-auto">
+          <StripSearch value={filters.search} onChange={(v) => updateFilter("search", v)} placeholder="Search description or memo" />
+          <StripDate value={filters.range} onChange={(r) => updateFilter("range", r)} />
+          <StripFilters count={filterCount} resultCount={query.data ? total : undefined} onReset={resetFilters}>
+            {showTypeFilter && (
+              <FilterField label="Type">
+                <Select aria-label="Type" className={selectLook} value={filters.type} onChange={(e) => updateFilter("type", e.target.value)}>
+                  <option value="">All types</option>
+                  {allowedTypes.map((t) => (
+                    <option key={t} value={t}>
+                      {TXN_TYPE_META[t].label}
+                    </option>
+                  ))}
+                </Select>
+              </FilterField>
+            )}
+            {showAccountFilter && (
+              <FilterField label="Account">
+                <Select aria-label="Account" className={selectLook} value={filters.accountId} onChange={(e) => updateFilter("accountId", e.target.value)}>
+                  <option value="">All accounts</option>
+                  {accounts.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </Select>
+              </FilterField>
+            )}
+            {showCategoryFilter && (
+              <FilterField label="Category">
+                <Select aria-label="Category" className={selectLook} value={filters.categoryId} onChange={(e) => updateFilter("categoryId", e.target.value)}>
+                  <option value="">All categories</option>
+                  {categories
+                    .filter((c) => !c.parentId)
+                    .map((root) => (
+                      <optgroup key={root.id} label={root.name}>
+                        <option value={root.id}>{root.name} (all)</option>
+                        {lookups.childrenOf(root.id).map((k) => (
+                          <option key={k.id} value={k.id}>
+                            {k.name}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                </Select>
+              </FilterField>
+            )}
+            {(allTags.length > 0 || filters.tag) && (
+              <FilterField label="Tag">
+                <Select aria-label="Tag" className={selectLook} value={filters.tag} onChange={(e) => updateFilter("tag", e.target.value)}>
+                  <option value="">All tags</option>
+                  {[...new Set([...allTags.map((t) => t.name), ...(filters.tag ? [filters.tag] : [])])].map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </Select>
+              </FilterField>
+            )}
+            {showFriendFilter && (
+              <FilterField label="Friend">
+                <Select aria-label="Friend" className={selectLook} value={filters.friendId} onChange={(e) => updateFilter("friendId", e.target.value)}>
+                  <option value="">All friends</option>
+                  {friends.map((f) => (
+                    <option key={f.id} value={f.id}>
+                      {f.name}
+                    </option>
+                  ))}
+                </Select>
+              </FilterField>
+            )}
+          </StripFilters>
+          <StripGroup
+            value={groupBy}
+            options={GROUP_OPTIONS}
+            onChange={(v) => {
+              setGroupBy(v as "none" | TransactionGroupBy);
+              setCollapsed(new Set());
+              setPage(1);
+            }}
+          />
+        </ControlStrip>
+
         <Button onClick={() => setAddOpen(true)}>
           <Plus size={15} /> Add {title === "Transactions" ? "transaction" : addType === "fronted" ? "friend-paid expense" : addType}
         </Button>
@@ -238,171 +325,89 @@ function TransactionTableInner({
 
       {headerExtra}
 
-      <PeriodSummary label={rangeLabel(filters.range) || "All time"} totals={periodTotals} loading={totalsQuery.isLoading} />
-
-      <ListToolbar
-        search={{ value: filters.search, onChange: (v) => updateFilter("search", v), placeholder: "Search description or memo" }}
-        filters={{
-          count: filterCount,
-          onReset: resetFilters,
-          children: (
-            <>
-              <FilterField label="Date">
-                <DateRangeField value={filters.range} onChange={(r) => updateFilter("range", r)} />
-              </FilterField>
-              {showTypeFilter && (
-                <FilterField label="Type">
-                  <Select aria-label="Type" className={selectLook} value={filters.type} onChange={(e) => updateFilter("type", e.target.value)}>
-                    <option value="">All types</option>
-                    {allowedTypes.map((t) => (
-                      <option key={t} value={t}>
-                        {TXN_TYPE_META[t].label}
-                      </option>
-                    ))}
-                  </Select>
-                </FilterField>
-              )}
-              {showAccountFilter && (
-                <FilterField label="Account">
-                  <Select aria-label="Account" className={selectLook} value={filters.accountId} onChange={(e) => updateFilter("accountId", e.target.value)}>
-                    <option value="">All accounts</option>
-                    {accounts.map((a) => (
-                      <option key={a.id} value={a.id}>
-                        {a.name}
-                      </option>
-                    ))}
-                  </Select>
-                </FilterField>
-              )}
-              {showCategoryFilter && (
-                <FilterField label="Category">
-                  <Select aria-label="Category" className={selectLook} value={filters.categoryId} onChange={(e) => updateFilter("categoryId", e.target.value)}>
-                    <option value="">All categories</option>
-                    {categories
-                      .filter((c) => !c.parentId)
-                      .map((root) => (
-                        <optgroup key={root.id} label={root.name}>
-                          <option value={root.id}>{root.name} (all)</option>
-                          {lookups.childrenOf(root.id).map((k) => (
-                            <option key={k.id} value={k.id}>
-                              {k.name}
-                            </option>
-                          ))}
-                        </optgroup>
-                      ))}
-                  </Select>
-                </FilterField>
-              )}
-              {(allTags.length > 0 || filters.tag) && (
-                <FilterField label="Tag">
-                  <Select aria-label="Tag" className={selectLook} value={filters.tag} onChange={(e) => updateFilter("tag", e.target.value)}>
-                    <option value="">All tags</option>
-                    {[...new Set([...allTags.map((t) => t.name), ...(filters.tag ? [filters.tag] : [])])].map((name) => (
-                      <option key={name} value={name}>
-                        {name}
-                      </option>
-                    ))}
-                  </Select>
-                </FilterField>
-              )}
-              {showFriendFilter && (
-                <FilterField label="Friend">
-                  <Select aria-label="Friend" className={selectLook} value={filters.friendId} onChange={(e) => updateFilter("friendId", e.target.value)}>
-                    <option value="">All friends</option>
-                    {friends.map((f) => (
-                      <option key={f.id} value={f.id}>
-                        {f.name}
-                      </option>
-                    ))}
-                  </Select>
-                </FilterField>
-              )}
-            </>
-          ),
-        }}
-        group={{ value: groupBy, options: GROUP_OPTIONS, onChange: (v) => { setGroupBy(v as "none" | TransactionGroupBy); setPage(1); } }}
-        sort={{
-          value: `${sortKey}:${sortDir}`,
-          options: SORT_OPTIONS,
-          onChange: (v) => {
-            const [k, d] = v.split(":");
-            setSortKey(k as SortKey);
-            setSortDir(d as SortDir);
-            setPage(1);
-          },
-        }}
-        chips={chips}
-        onResetAll={filterCount > 0 ? resetFilters : undefined}
-        resetLabel="Reset filters"
-      />
-
       {groupBy === "tag" && (
-        <p className="mb-3 text-[12.5px] text-ink-faint">A transaction with several tags is listed under each of them, so group totals can add up to more than the period total.</p>
+        <p className="mb-3 text-[12.5px] text-ink-faint">A transaction with several tags is listed under each of them, so group counts can add up to more than the total.</p>
       )}
 
-      <div className="rounded-2xl border border-line bg-paper-raised p-5">
+      <div className="overflow-hidden rounded-2xl border border-line bg-paper-raised">
         {query.isLoading ? (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 p-5">
             {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-11 rounded-[10px]" />)}
           </div>
         ) : query.isError ? (
-          <EmptyState icon={Search} title="Couldn't load transactions" description={query.error instanceof Error ? query.error.message : "Please try again."} />
+          <div className="p-5">
+            <EmptyState icon={Search} title="Couldn't load transactions" description={query.error instanceof Error ? query.error.message : "Please try again."} />
+          </div>
         ) : pageRows.length === 0 ? (
-          <EmptyState icon={Search} title={emptyTitle} description={emptyDescription} />
+          <div className="p-5">
+            <EmptyState icon={Search} title={emptyTitle} description={emptyDescription} />
+          </div>
         ) : (
           <>
             {!isPhone && (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-160 border-collapse text-[13.3px]">
+              <table className="w-full min-w-176 border-collapse text-[13.3px]">
                 <thead>
-                  <tr>
-                    <Th onClick={() => toggleSort("date")}>Date{sortArrow("date")}</Th>
-                    <Th onClick={() => toggleSort("description")}>Description{sortArrow("description")}</Th>
-                    <Th>Category</Th>
-                    <Th>Account</Th>
+                  <tr className="border-b border-line bg-paper-sunken">
+                    {sortHead("Date", "date")}
+                    {sortHead("Description", "description")}
                     <Th>Type</Th>
-                    <Th onClick={() => toggleSort("amount")} align="right">
-                      Amount{sortArrow("amount")}
-                    </Th>
+                    {sortHead("Category", "category")}
+                    {sortHead("Account", "account")}
+                    <Th>Tags</Th>
+                    {sortHead("Amount", "amount", "right")}
                   </tr>
                 </thead>
                 <tbody>
                   {pageRows.map((t, i) => {
                     const startsGroup = grouped && (i === 0 || pageRows[i - 1].groupKey !== t.groupKey);
                     const g = t.groupKey != null ? groupsByKey.get(t.groupKey) : undefined;
+                    const folded = grouped && t.groupKey != null && collapsed.has(t.groupKey);
                     return (
                       <Fragment key={`${t.id}-${t.groupKey ?? ""}`}>
                         {startsGroup && (
-                          <tr data-testid="group-header" className="border-y border-line bg-paper-sunken">
-                            <td colSpan={5} className="px-3 py-2">
-                              <span className="text-[13px] font-semibold">{groupTitle(t.groupKey ?? "", g?.label ?? "")}</span>
-                              {g && <span className="ml-2 text-[12px] text-ink-soft">{g.count} transaction{g.count === 1 ? "" : "s"}</span>}
+                          <tr data-testid="group-header" className="border-b border-line bg-paper">
+                            <td colSpan={colCount} className="p-0">
+                              <button
+                                type="button"
+                                aria-expanded={!folded}
+                                onClick={() => toggleGroup(t.groupKey ?? "")}
+                                className="flex w-full items-center gap-2.5 px-4 py-2 text-left hover:bg-paper-sunken"
+                              >
+                                <ChevronDown size={14} aria-hidden className={cn("flex-none text-ink-faint transition-transform", folded && "-rotate-90")} />
+                                {groupBy === "category" && t.groupKey && <span aria-hidden className="h-2 w-2 flex-none rounded-full" style={{ background: lookups.getCategory(Number(t.groupKey))?.color ?? "var(--color-ink-faint)" }} />}
+                                <span className="text-[13px] font-semibold">{groupTitle(t.groupKey ?? "", g?.label ?? "")}</span>
+                                {g && <span className="text-[12px] text-ink-faint">{g.count} transaction{g.count === 1 ? "" : "s"}</span>}
+                              </button>
                             </td>
-                            <td className="px-3 py-2 text-right text-[12.5px] text-ink-soft">{g ? <GroupTotals group={g} /> : null}</td>
                           </tr>
                         )}
-                        <tr onClick={() => setSelectedTxn(t)} className="cursor-pointer border-b border-line hover:bg-paper-sunken">
-                          <td className="px-3 py-3">{formatDate(t.date)}</td>
-                          <td className="px-3 py-3">
-                            <div className="font-semibold">{t.description}</div>
-                            {t.memo && <div className="text-[12px] text-ink-soft">{t.memo}</div>}
-                            {t.tags.length > 0 && (
-                              <div className="mt-1 flex flex-wrap gap-1" aria-label="Tags">
-                                {t.tags.map((tag) => (
-                                  <span key={tag} className="rounded-full bg-paper-sunken px-2 py-px text-[11.5px] text-ink-soft">{tag}</span>
-                                ))}
-                              </div>
-                            )}
-                          </td>
-                          <td className="px-3 py-3">{categoryText(t)}</td>
-                          <td className="px-3 py-3">{accountText(t)}</td>
-                          <td className="px-3 py-3">
-                            <TxnBadge txn={t} />
-                          </td>
-                          <td className="px-3 py-3 text-right">
-                            <TxnAmount txn={t} />
-                          </td>
-                        </tr>
+                        {!folded && (
+                          <tr onClick={() => setSelectedTxn(t)} className="cursor-pointer border-b border-line last:border-b-0 hover:bg-paper-sunken">
+                            <td className="whitespace-nowrap px-4 py-3 text-ink-soft">{formatDate(t.date)}</td>
+                            <td className="max-w-80 px-4 py-3">
+                              <div className="font-semibold">{t.description}</div>
+                              {t.memo && <div title={t.memo} className="truncate text-[12px] text-ink-soft">{t.memo.split(/\r?\n/)[0]}</div>}
+                            </td>
+                            <td className="px-4 py-3"><TxnBadge txn={t} /></td>
+                            <td className="px-4 py-3">{categoryPill(t)}</td>
+                            <td className="px-4 py-3 text-ink-soft">{accountText(t)}</td>
+                            <td className="px-4 py-3">
+                              {t.tags.length > 0 ? (
+                                <div className="flex flex-wrap gap-1" aria-label="Tags">
+                                  {t.tags.map((tag) => (
+                                    <span key={tag} className="rounded-full bg-paper-sunken px-2 py-px text-[11.5px] text-ink-soft">{tag}</span>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-ink-faint">{"—"}</span>
+                              )}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              <TxnAmount txn={t} />
+                            </td>
+                          </tr>
+                        )}
                       </Fragment>
                     );
                   })}
@@ -412,38 +417,44 @@ function TransactionTableInner({
             )}
             {/* phones: one card-like row per transaction, so the amount is never off-screen */}
             {isPhone && (
-            <ul aria-label="Transactions">
+            <ul aria-label="Transactions" className="px-4">
               {pageRows.map((t, i) => {
                 const startsGroup = grouped && (i === 0 || pageRows[i - 1].groupKey !== t.groupKey);
                 const g = t.groupKey != null ? groupsByKey.get(t.groupKey) : undefined;
+                const folded = grouped && t.groupKey != null && collapsed.has(t.groupKey);
                 return (
                   <Fragment key={`${t.id}-${t.groupKey ?? ""}`}>
                     {startsGroup && (
-                      <li className="-mx-1 mt-2 flex items-baseline justify-between gap-2 rounded-[8px] bg-paper-sunken px-3 py-2">
-                        <span className="text-[13px] font-semibold">{groupTitle(t.groupKey ?? "", g?.label ?? "")}</span>
-                        {g && <span className="text-[12px] text-ink-soft"><GroupTotals group={g} /></span>}
+                      <li className="-mx-4 border-y border-line bg-paper">
+                        <button type="button" aria-expanded={!folded} onClick={() => toggleGroup(t.groupKey ?? "")} className="flex w-full items-center gap-2 px-4 py-2 text-left">
+                          <ChevronDown size={14} aria-hidden className={cn("flex-none text-ink-faint transition-transform", folded && "-rotate-90")} />
+                          <span className="text-[13px] font-semibold">{groupTitle(t.groupKey ?? "", g?.label ?? "")}</span>
+                          {g && <span className="text-[12px] text-ink-faint">{g.count}</span>}
+                        </button>
                       </li>
                     )}
-                    <li className="border-b border-line last:border-b-0">
-                      <button type="button" onClick={() => setSelectedTxn(t)} className="flex w-full items-start gap-3 py-3 text-left">
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-[14px] font-semibold">{t.description}</div>
-                          <div className="truncate text-[12px] text-ink-soft">
-                            {formatDate(t.date, "short")} · {rowSubtext(t)}
+                    {!folded && (
+                      <li className="border-b border-line last:border-b-0">
+                        <button type="button" onClick={() => setSelectedTxn(t)} className="flex w-full items-start gap-3 py-3 text-left">
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[14px] font-semibold">{t.description}</div>
+                            <div className="truncate text-[12px] text-ink-soft">
+                              {formatDate(t.date, "short")} · {rowSubtext(t)}
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex flex-none flex-col items-end gap-1">
-                          <TxnAmount txn={t} />
-                          <TxnBadge txn={t} />
-                        </div>
-                      </button>
-                    </li>
+                          <div className="flex flex-none flex-col items-end gap-1">
+                            <TxnAmount txn={t} />
+                            <TxnBadge txn={t} />
+                          </div>
+                        </button>
+                      </li>
+                    )}
                   </Fragment>
                 );
               })}
             </ul>
             )}
-            <div className="mt-3.5 flex items-center justify-between">
+            <div className="flex items-center justify-between border-t border-line px-4 py-3">
               <span className="text-[12.5px] text-ink-soft">
                 {total} transaction{total === 1 ? "" : "s"}
               </span>
@@ -469,59 +480,23 @@ function TransactionTableInner({
   );
 }
 
-/** Money out and in for a group (per currency, zero sides hidden). */
-function GroupTotals({ group }: { group: TransactionGroup }) {
-  const parts = group.totals.flatMap((t) => [
-    t.moneyOut ? formatSigned(t.moneyOut, "negative") : "",
-    t.moneyIn ? formatSigned(t.moneyIn, "positive") : "",
-  ]).filter(Boolean);
-  return <span className="ledger-figure">{parts.join("  ")}</span>;
-}
-
-function Th({ children, onClick, align }: { children: React.ReactNode; onClick?: () => void; align?: "right" }) {
+/** A header cell that sorts the table: a faint up-down mark when idle, an arrow for the active column. */
+function SortTh({ label, active, dir, onClick, align }: { label: string; active: boolean; dir: "asc" | "desc"; onClick: () => void; align?: "right" }) {
+  const Icon = !active ? ArrowUpDown : dir === "asc" ? ArrowUp : ArrowDown;
   return (
-    <th
-      onClick={onClick}
-      className={`sticky top-0 whitespace-nowrap border-b border-line bg-paper-raised px-3 py-2 text-[11.5px] font-semibold text-ink-faint ${onClick ? "cursor-pointer select-none" : ""} ${align === "right" ? "text-right" : "text-left"}`}
-    >
-      {children}
+    <th aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"} className={cn("whitespace-nowrap px-4 py-0 text-[12px] font-semibold", align === "right" ? "text-right" : "text-left")}>
+      <button
+        type="button"
+        onClick={onClick}
+        className={cn("inline-flex h-[42px] items-center gap-1.5 hover:text-ink", active ? "text-ink" : "text-ink-soft", align === "right" && "flex-row-reverse")}
+      >
+        {label}
+        <Icon size={12} aria-hidden strokeWidth={active ? 2.6 : 2.2} className={active ? "text-ink" : "text-ink-faint/70"} />
+      </button>
     </th>
   );
 }
 
-interface PeriodTotal { currency: string; moneyIn: number; moneyOut: number }
-
-function sumTotals(groups: TransactionGroup[]): { count: number; byCurrency: PeriodTotal[] } {
-  const by = new Map<string, PeriodTotal>();
-  let count = 0;
-  for (const g of groups) {
-    count += g.count;
-    for (const t of g.totals) {
-      const cur = by.get(t.currency) ?? { currency: t.currency, moneyIn: 0, moneyOut: 0 };
-      cur.moneyIn += t.moneyIn;
-      cur.moneyOut += t.moneyOut;
-      by.set(t.currency, cur);
-    }
-  }
-  return { count, byCurrency: [...by.values()] };
-}
-
-/** "October 2026: in ₹85,000 · out ₹38,000 · net +₹47,000" for whatever the filters currently select. */
-function PeriodSummary({ label, totals, loading }: { label: string; totals: { count: number; byCurrency: PeriodTotal[] }; loading: boolean }) {
-  if (loading || totals.byCurrency.length === 0 || totals.byCurrency.every((t) => !t.moneyIn && !t.moneyOut)) return null;
-  return (
-    <div aria-label="Period totals" className="mb-4 flex flex-wrap items-baseline gap-x-5 gap-y-1 rounded-[12px] border border-line bg-paper-raised px-4 py-3 text-[13px]">
-      <span className="font-semibold">{label}</span>
-      {totals.byCurrency.map((t) => {
-        const net = t.moneyIn - t.moneyOut;
-        return (
-          <span key={t.currency} className="ledger-figure flex flex-wrap gap-x-4">
-            {t.moneyIn > 0 && <span><span className="text-ink-soft">In </span>{formatSigned(t.moneyIn, "positive")}</span>}
-            {t.moneyOut > 0 && <span><span className="text-ink-soft">Out </span>{formatSigned(t.moneyOut, "negative")}</span>}
-            {t.moneyIn > 0 && t.moneyOut > 0 && <span><span className="text-ink-soft">Net </span>{formatSigned(net, net >= 0 ? "positive" : "negative")}</span>}
-          </span>
-        );
-      })}
-    </div>
-  );
+function Th({ children }: { children: React.ReactNode }) {
+  return <th className="h-[42px] whitespace-nowrap px-4 text-left text-[12px] font-semibold text-ink-soft">{children}</th>;
 }

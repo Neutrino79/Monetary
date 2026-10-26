@@ -28,7 +28,7 @@ from monetary.infrastructure import repositories as repo
 from monetary.infrastructure import transaction_queries as q
 
 FLAT_TYPES = ("income", "expense", "transfer", "split", "fronted", "settlement", "refund", "adjustment")
-SORT_FIELDS = ("date", "amount", "description")
+SORT_FIELDS = ("date", "amount", "description", "category", "account")
 
 
 # --------------------------------------------------------------------------- #

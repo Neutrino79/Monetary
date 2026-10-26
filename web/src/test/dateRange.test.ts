@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { currentMonthRange, isDefaultRange, rangeLabel, rangeToFilters, shiftMonth } from '@/lib/utils/dateRange'
+import { activePreset, currentMonthRange, isDefaultRange, presetRange, rangeLabel, rangeToFilters, shiftMonth } from '@/lib/utils/dateRange'
 
 const NOW = new Date(2026, 9, 22) // 22 Oct 2026
 
@@ -35,5 +35,25 @@ describe('date range filter', () => {
     expect(rangeLabel({ mode: 'custom', from: '', to: '2026-10-22' })).toBe('Until 22 Oct 2026')
     expect(rangeLabel({ mode: 'custom', from: '', to: '' })).toBe('')
     expect(rangeLabel({ mode: 'all' })).toBe('')
+  })
+})
+
+describe('date presets', () => {
+  const now = new Date(2026, 9, 25) // 25 Oct 2026
+  it('turns each preset into a filter', () => {
+    expect(presetRange('this-month', now)).toEqual({ mode: 'month', month: '2026-10' })
+    expect(presetRange('last-month', now)).toEqual({ mode: 'month', month: '2026-09' })
+    expect(presetRange('7d', now)).toEqual({ mode: 'custom', from: '2026-10-19', to: '2026-10-25' })
+    expect(presetRange('30d', now)).toEqual({ mode: 'custom', from: '2026-09-26', to: '2026-10-25' })
+    expect(presetRange('year', now)).toEqual({ mode: 'custom', from: '2026-01-01', to: '2026-10-25' })
+    expect(presetRange('all', now)).toEqual({ mode: 'all' })
+  })
+  it('recognises which preset a filter is, and calls anything else custom', () => {
+    expect(activePreset({ mode: 'month', month: '2026-10' }, now)).toBe('this-month')
+    expect(activePreset({ mode: 'month', month: '2026-09' }, now)).toBe('last-month')
+    expect(activePreset({ mode: 'custom', from: '2026-10-19', to: '2026-10-25' }, now)).toBe('7d')
+    expect(activePreset({ mode: 'all' }, now)).toBe('all')
+    expect(activePreset({ mode: 'month', month: '2026-05' }, now)).toBe('custom')
+    expect(activePreset({ mode: 'custom', from: '2026-10-01', to: '2026-10-09' }, now)).toBe('custom')
   })
 })

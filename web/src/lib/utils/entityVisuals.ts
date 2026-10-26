@@ -91,7 +91,7 @@ export const TXN_TYPE_META: Record<TransactionType, TxnTypeMeta> = {
   split: { label: "Split Expense", icon: Users, badgeClass: "bg-info-soft text-info", colorVar: "var(--info)", bgVar: "var(--info-soft)" },
   fronted: { label: "Paid by friend", icon: Users, badgeClass: "bg-info-soft text-info", colorVar: "var(--info)", bgVar: "var(--info-soft)" },
   settlement: { label: "Settlement", icon: HandCoins, badgeClass: "bg-info-soft text-info", colorVar: "var(--info)", bgVar: "var(--info-soft)" },
-  refund: { label: "Refund", icon: ArrowRight, badgeClass: "bg-accent-soft text-accent", colorVar: "var(--accent)", bgVar: "var(--accent-soft)" },
+  refund: { label: "Refund", icon: ArrowRight, badgeClass: "bg-[#dff1f1] text-[#16666e] dark:bg-[#16363a] dark:text-[#7fd0d6]", colorVar: "var(--accent)", bgVar: "var(--accent-soft)" },
   adjustment: { label: "Adjustment", icon: Scale, badgeClass: "bg-paper-sunken text-ink-soft", colorVar: "var(--ink-soft)", bgVar: "var(--paper-sunken)" },
 };
 
