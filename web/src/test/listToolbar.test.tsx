@@ -85,6 +85,7 @@ describe('control strip', () => {
     expect(screen.queryByLabelText('Period totals')).not.toBeInTheDocument()
     expect(urls.some((u) => u.pathname.endsWith('/transactions/groups'))).toBe(false)
     const category = screen.getByRole('columnheader', { name: 'Category' })
+    expect(screen.getByRole('columnheader', { name: 'Type' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Account' })).toBeInTheDocument()
     expect(screen.getByRole('columnheader', { name: 'Date' })).toHaveAttribute('aria-sort', 'descending')
     await user.click(within(category).getByRole('button'))

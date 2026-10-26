@@ -224,7 +224,7 @@ function TransactionTableInner({
     );
   }
 
-  const colCount = 6;
+  const colCount = 7;
   const sortHead = (label: string, key: SortKey, align?: "right") => (
     <SortTh label={label} active={sortKey === key} dir={sortDir} onClick={() => toggleSort(key)} align={align} />
   );
@@ -351,6 +351,7 @@ function TransactionTableInner({
                   <tr className="border-b border-line bg-paper-sunken">
                     {sortHead("Date", "date")}
                     {sortHead("Description", "description")}
+                    <Th>Type</Th>
                     {sortHead("Category", "category")}
                     {sortHead("Account", "account")}
                     <Th>Tags</Th>
@@ -388,6 +389,7 @@ function TransactionTableInner({
                               <div className="font-semibold">{t.description}</div>
                               {t.memo && <div className="text-[12px] text-ink-soft">{t.memo}</div>}
                             </td>
+                            <td className="px-4 py-3"><TxnBadge txn={t} /></td>
                             <td className="px-4 py-3">{categoryPill(t)}</td>
                             <td className="px-4 py-3 text-ink-soft">{accountText(t)}</td>
                             <td className="px-4 py-3">
