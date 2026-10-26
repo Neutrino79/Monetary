@@ -55,3 +55,52 @@ export function rangeLabel(r: DateRange): string {
   if (r.to) return `Until ${shortDate(r.to)}`;
   return "";
 }
+
+export type DatePresetId = "this-month" | "last-month" | "7d" | "30d" | "year" | "all";
+
+export const DATE_PRESETS: { id: DatePresetId; label: string }[] = [
+  { id: "this-month", label: "This month" },
+  { id: "last-month", label: "Last month" },
+  { id: "7d", label: "Last 7 days" },
+  { id: "30d", label: "Last 30 days" },
+  { id: "year", label: "This year" },
+  { id: "all", label: "All time" },
+];
+
+/** The date filter a preset stands for. */
+export function presetRange(id: DatePresetId, now = new Date()): DateRange {
+  const t = toISODate(now);
+  const back = (days: number) => toISODate(new Date(now.getFullYear(), now.getMonth(), now.getDate() - days));
+  switch (id) {
+    case "this-month":
+      return currentMonthRange(now);
+    case "last-month":
+      return { mode: "month", month: shiftMonth(t.slice(0, 7), -1) };
+    case "7d":
+      return { mode: "custom", from: back(6), to: t };
+    case "30d":
+      return { mode: "custom", from: back(29), to: t };
+    case "year":
+      return { mode: "custom", from: `${now.getFullYear()}-01-01`, to: t };
+    case "all":
+      return { mode: "all" };
+  }
+}
+
+/** Which preset the current filter is, or "custom" when it is none of them. */
+export function activePreset(r: DateRange, now = new Date()): DatePresetId | "custom" {
+  for (const p of DATE_PRESETS) {
+    const q = presetRange(p.id, now);
+    if (q.mode !== r.mode) continue;
+    if (q.mode === "all" || (q.mode === "month" && r.mode === "month" && q.month === r.month) || (q.mode === "custom" && r.mode === "custom" && q.from === r.from && q.to === r.to)) {
+      return p.id;
+    }
+  }
+  return "custom";
+}
+
+/** Short text for the date segment: "Oct 2026", "5 Mar – 9 Mar 2026", "All time". */
+export function stripLabel(r: DateRange): string {
+  if (r.mode === "all") return "All time";
+  return rangeLabel(r) || "All time";
+}
