@@ -196,7 +196,7 @@ export function StripGroup({ value, options, onChange }: { value: string; option
   return (
     <Popover.Root open={open} onOpenChange={setOpen}>
       <Popover.Trigger asChild>
-        <button type="button" aria-label={`Group by: ${current?.label ?? "None"}`} className={cn(segment, "bg-paper-sunken")}>
+        <button type="button" aria-label={`Group by: ${current?.label ?? "None"}`} className={segment}>
           <Layers size={16} aria-hidden className="text-ink-soft" />
           <span className="hidden text-ink-soft sm:inline">Group</span>
           <span className="font-semibold">{current?.label}</span>

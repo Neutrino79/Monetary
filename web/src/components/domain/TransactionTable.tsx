@@ -210,15 +210,15 @@ function TransactionTableInner({
     return [categoryText(t), accountText(t)].filter((x) => x && x !== "\u2014").join(" \u00b7 ");
   }
 
-  /** The category as a small coloured pill; transfers and settlements are neutral. */
+  /** The category as its colour dot and name; transfers and settlements are neutral. */
   function categoryPill(t: Transaction) {
     const name = categoryText(t);
     if (name === "\u2014") return <span className="text-ink-faint">{name}</span>;
     const color = t.categoryId ? lookups.getCategory(t.categoryId)?.color : undefined;
     const valid = !!color && /^#[0-9a-f]{6}$/i.test(color);
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full py-0.5 pl-2 pr-2.5 text-[12.5px]" style={{ background: valid ? `${color}1f` : "var(--color-paper-sunken)" }}>
-        <span aria-hidden className="h-[7px] w-[7px] flex-none rounded-full" style={{ background: valid ? color : "var(--color-ink-faint)" }} />
+      <span className="inline-flex items-center gap-2">
+        <span aria-hidden className="h-2 w-2 flex-none rounded-full" style={{ background: valid ? color : "var(--color-ink-faint)" }} />
         {name}
       </span>
     );
@@ -385,9 +385,9 @@ function TransactionTableInner({
                         {!folded && (
                           <tr onClick={() => setSelectedTxn(t)} className="cursor-pointer border-b border-line last:border-b-0 hover:bg-paper-sunken">
                             <td className="whitespace-nowrap px-4 py-3 text-ink-soft">{formatDate(t.date)}</td>
-                            <td className="px-4 py-3">
+                            <td className="max-w-80 px-4 py-3">
                               <div className="font-semibold">{t.description}</div>
-                              {t.memo && <div className="text-[12px] text-ink-soft">{t.memo}</div>}
+                              {t.memo && <div title={t.memo} className="truncate text-[12px] text-ink-soft">{t.memo.split(/\r?\n/)[0]}</div>}
                             </td>
                             <td className="px-4 py-3"><TxnBadge txn={t} /></td>
                             <td className="px-4 py-3">{categoryPill(t)}</td>
