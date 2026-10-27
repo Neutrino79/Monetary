@@ -203,6 +203,18 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
 - **`GET /reports/dashboard?month=YYYY-MM`** -- everything a dashboard needs computed server-side:
   net worth, income / spending / savings for the month, budgets, per-category spend with its
   subcategories, account balances and what friends owe you (or you owe them).
+- **`GET /reports/spending-pace?month=YYYY-MM`** -- the data behind the dashboard's spending-pace chart:
+  `days` (what was spent each day and the running total, for every elapsed day), `previous` (the month
+  before, one running total per day, for comparison), `budgetTotal` (the sum of every category budget, or
+  `null` when none are set) and `projection`. Spend is what the dashboard calls spending: expense postings,
+  so your share of a split counts and refunds reduce it. Days follow the owner's timezone. For a past
+  month `elapsedDays` is the whole month and `projection` is `null`; a future month has no days.
+  For the current month `projection` is where the month should end (`expected`, with a `low`..`high`
+  range) plus the same per day from tomorrow on. It is learned from up to six earlier months -- what
+  they added after the same day, so rent paid on the 1st does not inflate it -- with the range being
+  the lowest..highest (3-4 months) or the middle half (5-6). `method: "history"` needs three earlier
+  months with spending; with fewer it is `"pace"` (this month's daily average, `low == high`).
+  It is `null` before day 3, once the month is over, or when nothing was spent yet.
 - **`GET /reports/reference-data`** -- accounts + categories + friends in one call.
 - **`GET /reports/trends/...`** -- monthly time series for the last N months.
 - **Split/fronted `DELETE` takes `?force=true` / `?remove_settlements=true`** query params

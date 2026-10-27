@@ -209,6 +209,38 @@ export interface CashflowPoint {
   net: number;
 }
 
+export interface PaceProjectionDay {
+  day: number;
+  expected: number;
+  low: number;
+  high: number;
+}
+
+/** Day-by-day cumulative spend for a month, the month before it, and (this month only) where it should end. */
+export interface SpendingPace {
+  year: number;
+  month: number;
+  daysInMonth: number;
+  /** Days that count: today for this month, every day for a past one, none for a future one. */
+  elapsedDays: number;
+  isCurrentMonth: boolean;
+  days: { day: number; spent: number; cumulative: number }[];
+  /** 'YYYY-MM' of the month the `previous` line belongs to. */
+  previousMonth: string;
+  /** The month before, one running total per day. */
+  previous: number[];
+  /** The sum of every category budget, or null when none are set. */
+  budgetTotal: number | null;
+  projection: null | {
+    method: "history" | "pace";
+    basisMonths: number;
+    expected: number;
+    low: number;
+    high: number;
+    days: PaceProjectionDay[];
+  };
+}
+
 export interface DateRange {
   from: string;
   to: string;

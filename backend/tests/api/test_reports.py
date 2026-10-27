@@ -1,3 +1,6 @@
+import datetime as dt
+from zoneinfo import ZoneInfo
+
 import pytest
 
 from tests.support.sample_data import OPENING_BALANCE_POINTS as OPEN
@@ -163,3 +166,64 @@ def test_balance_report_and_reference_data_are_typed_and_camel_cased(world):
     fuel = next(c for c in ref["categories"] if c["name"] == "Fuel")
     assert fuel["parentId"] == world.cat["transport"] and "currencyCode" in fuel
     assert {"id", "name", "email"} == set(ref["friends"][0])
+
+
+# ------------------------------------------------------------ spending pace ---
+def pace(world, month):
+    r = world.api.get("/reports/spending-pace", params={"month": month})
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_spending_pace_for_a_past_month_is_the_final_line(world):
+    world.expense(amount="100.00", date="2026-01-03")
+    world.expense(amount="50.00", date="2026-01-03")
+    world.expense(amount="25.00", date="2026-01-10")
+    world.expense(amount="999.00", date="2026-02-01")        # another month: not counted
+    p = pace(world, "2026-01")
+    assert (p["year"], p["month"], p["daysInMonth"], p["elapsedDays"], p["isCurrentMonth"]) == (2026, 1, 31, 31, False)
+    assert p["projection"] is None
+    assert len(p["days"]) == 31 and p["days"][2]["spent"]["points"] == 15_000 and p["days"][2]["cumulative"]["points"] == 15_000
+    assert p["days"][9]["cumulative"]["points"] == 17_500 and p["days"][30]["cumulative"]["points"] == 17_500
+    assert p["days"][0]["spent"]["points"] == 0
+
+
+def test_spending_pace_compares_with_the_month_before_and_sums_the_budgets(world):
+    world.expense(amount="40.00", date="2026-02-02")
+    p = pace(world, "2026-03")
+    assert (p["previous"]["year"], p["previous"]["month"]) == (2026, 2)
+    assert len(p["previous"]["cumulative"]) == 28 and p["previous"]["cumulative"][27]["points"] == 4_000
+    budgets = world.api.get("/reports/budget").json()
+    assert p["budgetTotal"]["points"] == sum(b["budget"]["points"] for b in budgets) > 0
+
+
+def test_spending_pace_counts_refunds_and_only_your_share_of_a_split(world):
+    world.split(date="2026-01-05")                           # your share is 150.00 of the 500.00 paid
+    p = pace(world, "2026-01")
+    assert p["days"][4]["spent"]["points"] == 15_000
+
+
+def test_spending_pace_follows_the_owner_timezone(world):
+    world.expense(amount="10.00", date="2026-01-31 23:59")   # Asia/Kolkata: still 31 Jan (18:29 UTC)
+    p = pace(world, "2026-01")
+    assert p["days"][30]["spent"]["points"] == 1_000
+    assert pace(world, "2026-02")["days"][0]["spent"]["points"] == 0
+
+
+def test_spending_pace_current_and_future_months(world):
+    today = dt.datetime.now(ZoneInfo("Asia/Kolkata"))
+    world.expense(amount="10.00", date=today.strftime("%Y-%m-01"))
+    cur = pace(world, today.strftime("%Y-%m"))
+    assert cur["isCurrentMonth"] is True and cur["elapsedDays"] == today.day and len(cur["days"]) == today.day
+    if 3 <= today.day < cur["daysInMonth"]:
+        assert cur["projection"] is not None and cur["projection"]["days"][-1]["day"] == cur["daysInMonth"]
+        assert cur["projection"]["method"] == "pace" and cur["projection"]["expected"]["points"] >= 1_000    # no earlier months here
+    nxt = (today.replace(day=1) + dt.timedelta(days=32)).strftime("%Y-%m")
+    fut = pace(world, nxt)
+    assert fut["elapsedDays"] == 0 and fut["days"] == [] and fut["projection"] is None and fut["isCurrentMonth"] is False
+
+
+def test_spending_pace_defaults_to_this_month_and_rejects_bad_months(world):
+    r = world.api.get("/reports/spending-pace")
+    assert r.status_code == 200 and r.json()["isCurrentMonth"] is True
+    assert world.api.get("/reports/spending-pace", params={"month": "2026-13"}).status_code == 422
