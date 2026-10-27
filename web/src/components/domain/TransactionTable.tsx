@@ -46,7 +46,7 @@ const selectLook = "w-full";
 
 type TableProps = React.ComponentProps<typeof TransactionTableInner>;
 
-/** Opens on the filters in the link (`?category=`, `?month=`, `?tag=`); following another such link starts afresh. */
+/** Opens on the filters in the link (`?category=`, `?month=`, `?date=`, `?tag=`); following another such link starts afresh. */
 export function TransactionTable(props: TableProps) {
   const [params] = useSearchParams();
   return <TransactionTableInner key={params.toString()} {...props} />;
@@ -101,6 +101,8 @@ function TransactionTableInner({
     }
     if (category && /^\d+$/.test(category)) f.categoryId = category;
     if (month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month)) f.range = { mode: "month", month };
+    const date = params.get("date");
+    if (date && /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)) f.range = { mode: "custom", from: date, to: date };   // one day, from the pace chart
     return f;
   });
   const [groupBy, setGroupBy] = useState<"none" | TransactionGroupBy>("none");

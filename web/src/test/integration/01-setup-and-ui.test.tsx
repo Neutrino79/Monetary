@@ -49,7 +49,7 @@ describe('first run', () => {
     await user.click(screen.getByRole('button', { name: 'Create owner account' }))
 
     await waitFor(() => expect(window.location.pathname).toBe('/dashboard'), { timeout: 15_000 })
-    expect(await screen.findByText(/Net worth/i)).toBeInTheDocument()
+    expect(await screen.findByText('Nothing here yet')).toBeInTheDocument()   // a new ledger gets the welcome card, not empty charts
     expect(useAuthStore.getState().user?.email).toBe(OWNER.email)
     expect(document.title).toContain('Monetary')
   })
