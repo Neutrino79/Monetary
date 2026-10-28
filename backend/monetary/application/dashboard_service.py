@@ -117,3 +117,67 @@ def dashboard(conn, owner, *, year=None, month=None) -> dict:
         "friend_balances": friends,
         "friend_totals": friend_totals(friends),
     }
+
+
+HISTORY_MONTHS = 6
+
+
+def _month_of(year: int, month: int, back: int) -> tuple[int, int]:
+    index = year * 12 + (month - 1) - back
+    return index // 12, index % 12 + 1
+
+
+def daily_spend(conn, owner, year: int, month: int) -> list[int]:
+    """Net spend per local day of the month (index 0 = day 1)."""
+    import calendar
+
+    from monetary.domain.time_utils import utc_iso_to_local_date
+
+    tz = owner["timezone"]
+    days = calendar.monthrange(year, month)[1]
+    start_iso, end_iso = month_bounds_utc_iso(tz, year, month)
+    out = [0] * days
+    for entry_date, points in repo.expense_postings_in_range(conn, start_iso, end_iso):
+        out[int(utc_iso_to_local_date(entry_date, tz)[8:10]) - 1] += points
+    return out
+
+
+def spending_pace(conn, owner, *, year=None, month=None) -> dict:
+    """Day-by-day cumulative spend for a month, the month before it for comparison, the total
+    budget, and -- for the current month only -- a projection of where it will end."""
+    import calendar
+
+    from monetary.domain import spending_pace as pace
+    from monetary.domain.time_utils import local_today
+
+    tz = owner["timezone"]
+    cur_year, cur_month = current_year_month(tz)
+    if year is None or month is None:
+        year, month = cur_year, cur_month
+    days_in_month = calendar.monthrange(year, month)[1]
+    is_current = (year, month) == (cur_year, cur_month)
+    is_future = (year, month) > (cur_year, cur_month)
+    elapsed = 0 if is_future else int(local_today(tz)[8:10]) if is_current else days_in_month
+
+    daily = daily_spend(conn, owner, year, month)[:elapsed]
+    so_far = pace.cumulative(daily)
+
+    prev_year, prev_month = _month_of(year, month, 1)
+    previous = pace.cumulative(daily_spend(conn, owner, prev_year, prev_month))
+
+    projection = None
+    if is_current:
+        history = [pace.cumulative(daily_spend(conn, owner, *_month_of(year, month, back)))
+                   for back in range(1, HISTORY_MONTHS + 1)]
+        projection = pace.project_month_end(so_far=so_far, days_in_month=days_in_month, history=history)
+
+    budgeted = repo.budgeted_root_accounts(conn)
+    return {
+        "currency": owner["home_currency_code"],
+        "year": year, "month": month,
+        "days_in_month": days_in_month, "elapsed_days": elapsed, "is_current_month": is_current,
+        "days": [{"day": i + 1, "spent_points": daily[i], "cumulative_points": so_far[i]} for i in range(elapsed)],
+        "previous": {"year": prev_year, "month": prev_month, "cumulative_points": previous},
+        "budget_total_points": sum(a["budget_limit"] for a in budgeted) if budgeted else None,
+        "projection": projection,
+    }

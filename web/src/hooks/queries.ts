@@ -32,6 +32,7 @@ export const qk = {
   dashboard: (month?: string) => ["reports", "dashboard", month ?? "current"] as const,
   cashflow: (months: number) => ["reports", "cashflow", months] as const,
   spending: (month?: string) => ["reports", "spending", month ?? "current"] as const,
+  spendingPace: (month?: string) => ["reports", "spending-pace", month ?? "current"] as const,
 };
 
 /**
@@ -126,5 +127,11 @@ export function useCashflow(months = 6) {
 export function useSpending(month?: string) {
   return useQuery({
     queryKey: qk.spending(month), queryFn: () => reportsService.spending(month), placeholderData: keepPreviousData,
+  });
+}
+
+export function useSpendingPace(month?: string) {
+  return useQuery({
+    queryKey: qk.spendingPace(month), queryFn: () => reportsService.spendingPace(month), placeholderData: keepPreviousData,
   });
 }

@@ -28,6 +28,14 @@ export function formatCurrency(amount: number | null | undefined, precise = fals
   return (precise ? formatters.precise : formatters.whole).format(amount);
 }
 
+/** "₹62k" / "₹1.2L" / "₹3Cr": for chart axes, where the full figure would not fit. */
+export function formatCompact(amount: number): string {
+  const abs = Math.abs(amount);
+  const trim = (n: number) => String(Math.round(n * 10) / 10);
+  const [scaled, unit] = abs >= 1e7 ? [abs / 1e7, "Cr"] : abs >= 1e5 ? [abs / 1e5, "L"] : abs >= 1e3 ? [abs / 1e3, "k"] : [abs, ""];
+  return `${amount < 0 ? "\u2212" : ""}${currencySymbol()}${trim(scaled)}${unit}`;
+}
+
 export function formatSigned(amount: number, kind: "positive" | "negative" | "neutral"): string {
   const abs = formatCurrency(Math.abs(amount));
   if (kind === "positive") return `+${abs}`;

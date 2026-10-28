@@ -1,7 +1,7 @@
-import type { CashflowPoint, CategoryTotal, Dashboard } from "@/types";
+import type { CashflowPoint, CategoryTotal, Dashboard, SpendingPace } from "@/types";
 import { appConfig } from "@/config/app";
 import { http } from "@/lib/api/http";
-import { toCashflow, toCategoryTotal, toDashboard, type CashflowDto, type DashboardDto } from "@/lib/api/mappers";
+import { toCashflow, toCategoryTotal, toDashboard, toSpendingPace, type CashflowDto, type DashboardDto, type SpendingPaceDto } from "@/lib/api/mappers";
 
 /** `month` is 'YYYY-MM'; omitted = the owner's current month (the backend takes it as one `month` param). */
 const period = (month?: string) => (month ? { month } : undefined);
@@ -13,6 +13,10 @@ export const reportsService = {
 
   async cashflow(months = 6): Promise<CashflowPoint[]> {
     return toCashflow(await http.get<CashflowDto>("/reports/trends/cashflow", { months }), appConfig.locale);
+  },
+
+  async spendingPace(month?: string): Promise<SpendingPace> {
+    return toSpendingPace(await http.get<SpendingPaceDto>("/reports/spending-pace", period(month)));
   },
 
   async spending(month?: string): Promise<CategoryTotal[]> {

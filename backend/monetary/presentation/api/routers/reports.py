@@ -33,11 +33,16 @@ from monetary.presentation.api.schemas.reports import (
     FriendTotalsOut,
     MonthPointOut,
     NetWorthOut,
+    PaceComparisonOut,
+    PaceDayOut,
+    PaceProjectionDayOut,
+    PaceProjectionOut,
     PeriodSummaryOut,
     ReferenceAccountOut,
     ReferenceCategoryOut,
     ReferenceDataOut,
     ReferenceFriendOut,
+    SpendingPaceOut,
     TrendOut,
 )
 
@@ -125,6 +130,33 @@ def dashboard(
                                        owed_to_you=money_out(r["owed_to_you_points"], r["currency"]),
                                        you_owe=money_out(r["you_owe_points"], r["currency"]))
                        for r in d["friend_totals"]],
+    )
+
+
+@router.get("/spending-pace", response_model=SpendingPaceOut)
+def spending_pace(
+    month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$", description="'YYYY-MM', e.g. '2026-09'"),
+    conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
+):
+    year, m = _year_month(month)
+    d = dashboard_service.spending_pace(conn, owner, year=year, month=m)
+    cur = d["currency"]
+    proj = d["projection"]
+    return SpendingPaceOut(
+        currency=cur, year=d["year"], month=d["month"], days_in_month=d["days_in_month"],
+        elapsed_days=d["elapsed_days"], is_current_month=d["is_current_month"],
+        days=[PaceDayOut(day=r["day"], spent=money_out(r["spent_points"], cur),
+                         cumulative=money_out(r["cumulative_points"], cur)) for r in d["days"]],
+        previous=PaceComparisonOut(year=d["previous"]["year"], month=d["previous"]["month"],
+                                   cumulative=[money_out(p, cur) for p in d["previous"]["cumulative_points"]]),
+        budget_total=money_out(d["budget_total_points"], cur) if d["budget_total_points"] is not None else None,
+        projection=None if proj is None else PaceProjectionOut(
+            method=proj.method, basis_months=proj.basis_months,
+            expected=money_out(proj.end.expected, cur), low=money_out(proj.end.low, cur),
+            high=money_out(proj.end.high, cur),
+            days=[PaceProjectionDayOut(day=x.day, expected=money_out(x.expected, cur),
+                                       low=money_out(x.low, cur), high=money_out(x.high, cur)) for x in proj.days],
+        ),
     )
 
 

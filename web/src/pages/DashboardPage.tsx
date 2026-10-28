@@ -1,23 +1,30 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Plus, TrendingUp, TrendingDown, ChevronRight } from "lucide-react";
+import { Plus, ChevronRight, AlertTriangle, Info } from "lucide-react";
 import { Card, Skeleton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
 import { MonthStepper } from "@/components/ui/MonthStepper";
-import { LineChart, DonutChart } from "@/components/charts/charts";
 import { TxnIconChip, TxnAmount } from "@/components/domain/chips";
 import { VsLastMonth } from "@/components/domain/VsLastMonth";
-import { BudgetBar } from "@/components/domain/BudgetBar";
 import { TransactionForm } from "@/components/domain/TransactionForm";
 import { TxnDetailDrawer } from "@/components/domain/TxnDetailDrawer";
-import { useCashflow, useDashboard, useSpending, useTransactions } from "@/hooks/queries";
+import { SpendingPace, SetBudgetHint } from "@/components/dashboard/SpendingPace";
+import { SpendDonut, type DonutRow } from "@/components/dashboard/SpendDonut";
+import { MonthlyBars } from "@/components/dashboard/MonthlyBars";
+import { SpendingBudgets } from "@/components/dashboard/SpendingBudgets";
+import { buildSpendRows } from "@/lib/utils/spendRows";
+import { useAccounts, useCashflow, useDashboard, useFriendBalances, useSpending, useSpendingPace, useTransactions } from "@/hooks/queries";
 import { useLookups } from "@/hooks/useLookups";
 import { useAuthStore } from "@/store/authStore";
-import { currencySymbol, formatCurrency, formatDate } from "@/lib/utils/format";
+import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { toMonthKey } from "@/lib/utils/clock";
 import { shiftMonth } from "@/lib/utils/dateRange";
+import { buildAttention } from "@/lib/utils/attention";
 import { appConfig } from "@/config/app";
+import { cn } from "@/lib/utils/cn";
 import type { Transaction } from "@/types";
+
+const OTHERS_COLOR = "#b9b29f";
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
@@ -26,12 +33,16 @@ export function DashboardPage() {
   const dashboard = useDashboard(month);
   const previousMonth = shiftMonth(month, -1);
   const previous = useDashboard(previousMonth);
+  const pace = useSpendingPace(month);
   const cashflow = useCashflow(6);
   const spending = useSpending(month);
   const recentQuery = useTransactions({ limit: 6, sort: "date", direction: "desc" });
+  const { data: accounts = [] } = useAccounts();
+  const { data: friendBalances = [] } = useFriendBalances();
   const lookups = useLookups();
   const [addOpen, setAddOpen] = useState(false);
   const [selectedTxn, setSelectedTxn] = useState<Transaction | null>(null);
+  const [now] = useState(() => new Date());
 
   if (dashboard.isLoading || !dashboard.data) {
     return dashboard.isError ? <DashboardError message={dashboard.error instanceof Error ? dashboard.error.message : "Couldn't load the dashboard."} onRetry={() => dashboard.refetch()} /> : <DashboardSkeleton />;
@@ -39,26 +50,38 @@ export function DashboardPage() {
 
   // Every figure below is computed by the backend; this page only lays them out.
   const d = dashboard.data;
-  const { income, expense: expenses, savings: netFlow, netWorth, assets, liabilities, owedToYou, youOwe } = d;
-  const buckets = cashflow.data ?? [];
-  const budgets = [...d.budgets].sort((a, b) => b.percentageUsed - a.percentageUsed).slice(0, 4);
-  const catSpend = (spending.data ?? []).filter((c) => c.total > 0).sort((a, b) => b.total - a.total);
-  const topCat = catSpend[0];
-  const topIncome = [...d.incomeSummary].sort((a, b) => b.total - a.total)[0];
-  const recent = recentQuery.data?.items ?? [];
+  const { income, expense: expenses, savings: netFlow, owedToYou, youOwe } = d;
   const monthLabel = formatDate(`${month}-01`, "monthYear");
+  const catSpend = (spending.data ?? []).filter((c) => c.total > 0).sort((a, b) => b.total - a.total);
+  const colorOf = (id: number) => lookups.getCategory(id)?.color;
+  const donutRows: DonutRow[] = catSpend.slice(0, 5).map((c) => ({ id: c.categoryId, name: c.categoryName, value: c.total, color: colorOf(c.categoryId) ?? "#5a5a5a" }));
+  const rest = catSpend.slice(5).reduce((s, c) => s + c.total, 0);
+  if (rest > 0) donutRows.push({ id: null, name: "Others", value: rest, color: OTHERS_COLOR });
+  const spendRows = buildSpendRows(spending.data ?? [], d.budgets, colorOf);
+  const buckets = cashflow.data ?? [];
+  const hasHistory = buckets.some((b) => b.income > 0 || b.expense > 0);
+  const recent = recentQuery.data?.items ?? [];
+  const attention = buildAttention({ budgets: d.budgets, accounts, friendBalances, today: now });
+  const paceData = pace.data;
+  const noSpend = !paceData || paceData.days.every((x) => x.cumulative === 0);
+  const hasSplits = owedToYou > 0 || youOwe > 0;
+  const firstTime = recentQuery.data !== undefined && recentQuery.data.total === 0 && income === 0 && expenses === 0;
+  const savedPct = income > 0 ? Math.round((netFlow / income) * 100) : null;
 
-  const accentColor = "#1F6D4C";
-  const negativeColor = "#7B2E3A";
+  const kpis = [
+    { label: "Income", value: income, cls: "text-accent", prev: previous.data?.income, upIsGood: true },
+    { label: "Spent", value: expenses, cls: "text-negative", prev: previous.data?.expense, upIsGood: false },
+    { label: netFlow >= 0 ? "Saved" : "Overspent", value: Math.abs(netFlow), cls: "", prev: previous.data?.savings, upIsGood: true },
+  ];
 
   return (
     <div>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-semibold">Good to see you, {(user?.name ?? "there").split(" ")[0]}</h1>
           <p className="mt-1 text-[13.5px] text-ink-soft">Here's where things stand for {monthLabel}.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <MonthStepper value={month} max={currentMonth} onChange={setMonth} />
           <Button onClick={() => setAddOpen(true)}>
             <Plus size={15} /> Add transaction
@@ -66,148 +89,151 @@ export function DashboardPage() {
         </div>
       </div>
 
-      <div className="mb-5 grid grid-cols-4 gap-5 max-[1180px]:grid-cols-2 max-[640px]:grid-cols-1">
-        <Card className="flex flex-col gap-2">
-          <div className="text-[12.5px] text-ink-soft">Net worth</div>
-          <div className="ledger-figure text-[27px]">{formatCurrency(netWorth)}</div>
-          <div className="text-[11.5px] text-ink-faint">
-            {formatCurrency(assets)} assets − {formatCurrency(liabilities)} owed
-          </div>
+      {firstTime ? (
+        <Card className="mx-auto mt-6 max-w-lg text-center">
+          <div className="mb-1 text-[16px] font-semibold">Nothing here yet</div>
+          <p className="mb-4 text-[13.5px] text-ink-soft">Add your first transaction and this page will start showing where your money goes, and how the month is pacing.</p>
+          <Button onClick={() => setAddOpen(true)}><Plus size={15} /> Add your first transaction</Button>
         </Card>
-        <Card className="flex flex-col gap-2">
-          <div className="flex items-center gap-1.5 text-[12.5px] text-ink-soft">
-            <TrendingUp size={14} /> Income
-          </div>
-          <div className="ledger-figure text-accent text-[27px]">{formatCurrency(income)}</div>
-          <VsLastMonth current={income} previous={previous.data?.income} previousMonth={previousMonth} upIsGood />
-          <span className="w-fit rounded-full bg-accent-soft px-2 py-0.5 text-[12px] text-accent">{topIncome ? `Top: ${topIncome.categoryName}` : "No income yet"}</span>
-        </Card>
-        <Card className="flex flex-col gap-2">
-          <div className="flex items-center gap-1.5 text-[12.5px] text-ink-soft">
-            <TrendingDown size={14} /> Expenses
-          </div>
-          <div className="ledger-figure text-negative text-[27px]">{formatCurrency(expenses)}</div>
-          <VsLastMonth current={expenses} previous={previous.data?.expense} previousMonth={previousMonth} upIsGood={false} />
-          <span className="w-fit rounded-full bg-negative-soft px-2 py-0.5 text-[12px] text-negative">{topCat ? `Top: ${topCat.categoryName}` : "No spend yet"}</span>
-        </Card>
-        <Card className="flex flex-col gap-2">
-          <div className="text-[12.5px] text-ink-soft">Net cash flow</div>
-          <div className={`ledger-figure text-[27px] ${netFlow >= 0 ? "text-accent" : "text-negative"}`}>
-            {netFlow >= 0 ? "+" : "\u2212"}
-            {formatCurrency(Math.abs(netFlow))}
-          </div>
-          <span className={`w-fit rounded-full px-2 py-0.5 text-[12px] ${netFlow >= 0 ? "bg-accent-soft text-accent" : "bg-negative-soft text-negative"}`}>
-            {netFlow >= 0 ? "Saving this month" : "Spending more than earning"}
-          </span>
-        </Card>
-      </div>
-
-      <div className="mb-5 grid grid-cols-[2fr_1fr] gap-5 max-[1180px]:grid-cols-1">
-        <Card>
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <div className="text-[14.5px] font-semibold">Cash flow — last 6 months</div>
-              <div className="text-[12.5px] text-ink-faint">Income vs. expenses, month over month</div>
-            </div>
-            <div className="flex gap-3 text-[12.5px]">
-              <span className="flex items-center gap-1.5 text-ink-soft">
-                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: accentColor }} /> Income
-              </span>
-              <span className="flex items-center gap-1.5 text-ink-soft">
-                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: negativeColor }} /> Expenses
-              </span>
-            </div>
-          </div>
-          <LineChart
-            series={[
-              { label: "Income", color: accentColor, points: buckets.map((b, i) => ({ x: i, y: b.income, label: b.label })) },
-              { label: "Expenses", color: negativeColor, points: buckets.map((b, i) => ({ x: i, y: b.expense, label: b.label })) },
-            ]}
-            yFormat={(v) => currencySymbol() + Math.round(v / 1000) + "k"}
-          />
-        </Card>
-        <Card>
-          <div className="text-[14.5px] font-semibold">Where it went</div>
-          <div className="mb-2.5 text-[12.5px] text-ink-faint">Spending by category ({monthLabel})</div>
-          {catSpend.length ? (
-            <DonutChart segments={catSpend.slice(0, 6).map((x) => ({ label: x.categoryName, value: x.total, color: lookups.getCategory(x.categoryId)?.color ?? "#5A5A5A" }))} size={172} thickness={24} centerLabel={formatCurrency(expenses)} centerSub="total spent" />
-          ) : (
-            <div className="py-8 text-center text-[13px] text-ink-faint">No expenses this month</div>
-          )}
-          <div className="mt-4 flex flex-wrap gap-3 text-[12.5px]">
-            {catSpend.slice(0, 5).map((x) => (
-              <span key={x.categoryId} className="flex items-center gap-1.5 text-ink-soft">
-                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: lookups.getCategory(x.categoryId)?.color ?? "#5A5A5A" }} /> {x.categoryName}
-              </span>
-            ))}
-          </div>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-[2fr_1fr] gap-5 max-[1180px]:grid-cols-1">
-        <Card>
-          <div className="mb-2 flex items-center justify-between">
-            <div className="text-[14.5px] font-semibold">Recent activity</div>
-            <Link to="/transactions" className="flex items-center gap-1 text-[12.5px] font-semibold text-ink-soft hover:text-ink">
-              View all <ChevronRight size={14} />
-            </Link>
-          </div>
-          {recent.length ? (
-            recent.map((t) => {
-              const account = lookups.getAccount(t.accountId);
-              return (
-                <button key={t.id} onClick={() => setSelectedTxn(t)} className="flex w-full items-center gap-3 border-b border-line py-3 text-left last:border-b-0">
-                  <TxnIconChip txn={t} />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13.3px] font-semibold">{t.description}</div>
-                    <div className="text-[12px] text-ink-faint">
-                      {formatDate(t.date, "short")} {account ? `· ${account.name}` : ""}
-                    </div>
-                  </div>
-                  <TxnAmount txn={t} className="text-[14.5px] font-semibold" />
-                </button>
-              );
-            })
-          ) : (
-            <div className="py-8 text-center text-[13px] text-ink-faint">Nothing recorded yet</div>
-          )}
-        </Card>
-
+      ) : (
         <div className="flex flex-col gap-5">
-          <Card>
-            <div className="text-[14.5px] font-semibold">Budgets</div>
-            <div className="mb-3 text-[12.5px] text-ink-faint">Top categories against their limit ({monthLabel})</div>
-            {budgets.length ? (
-              budgets.map((b) => (
-                <div key={b.categoryId} className="mb-3.5 last:mb-0">
-                  <BudgetBar b={b} month={month} />
+          <section aria-label="This month">
+            <div className="grid grid-cols-3 divide-x divide-line overflow-hidden rounded-2xl border border-line bg-paper-raised">
+              {kpis.map((k) => (
+                <div key={k.label} className="min-w-0 px-3 py-3.5 sm:px-5 sm:py-4">
+                  <div className="text-[12px] text-ink-soft sm:text-[12.5px]">{k.label}</div>
+                  <div className={cn("ledger-figure truncate text-[18px] sm:text-[24px]", k.cls)}>{formatCurrency(k.value)}</div>
+                  <div className="hidden sm:block"><VsLastMonth current={k.label === "Overspent" ? -k.value : k.value} previous={k.prev} previousMonth={previousMonth} upIsGood={k.upIsGood} /></div>
                 </div>
-              ))
-            ) : (
-              <div className="py-6 text-center text-[13px] text-ink-faint">No budgets set up</div>
+              ))}
+            </div>
+            {savedPct !== null && (
+              <p className="mt-2 px-1 text-[12.5px] text-ink-soft" data-testid="savings-line">
+                {netFlow >= 0 ? `${formatCurrency(netFlow)} saved, ${savedPct}% of income` : `Spent ${formatCurrency(-netFlow)} more than came in`}
+              </p>
             )}
-            <Link to="/categories" className="mt-1 block rounded-[10px] py-2 text-center text-[12.5px] font-semibold text-ink-soft hover:bg-paper-sunken">
-              Manage budgets
-            </Link>
-          </Card>
+          </section>
 
-          <Card>
-            <div className="text-[14.5px] font-semibold">Splits & dues</div>
-            <div className="mb-2.5 text-[12.5px] text-ink-faint">Net position with friends</div>
-            <div className="flex items-center justify-between border-b border-dashed border-line py-3">
-              <span className="text-ink-soft">Owed to you</span>
-              <span className="ledger-figure text-accent">{formatCurrency(owedToYou)}</span>
+          <div className={cn("grid gap-5", donutRows.length ? "lg:grid-cols-[2fr_1fr]" : "")}>
+            <Card className="min-w-0">
+              {noSpend || !paceData ? (
+                <div>
+                  <h2 className="text-[14.5px] font-semibold">Spending pace</h2>
+                  <p className="mt-1 text-[13px] text-ink-soft">{pace.isLoading ? "Loading\u2026" : `Nothing spent in ${monthLabel} yet.`}</p>
+                  {paceData && paceData.budgetTotal == null && <SetBudgetHint />}
+                </div>
+              ) : (
+                <>
+                  <SpendingPace pace={paceData} month={month} monthName={monthLabel} />
+                  {paceData.budgetTotal == null && <SetBudgetHint />}
+                </>
+              )}
+            </Card>
+            {donutRows.length > 0 && (
+              <Card className="min-w-0">
+                <h2 className="text-[14.5px] font-semibold">Where it went</h2>
+                <p className="mb-3 text-[12.5px] text-ink-soft">Spending by category</p>
+                <SpendDonut rows={donutRows} total={expenses} month={month} />
+              </Card>
+            )}
+          </div>
+
+          {(hasHistory || spendRows.length > 0) && (
+            <div className={cn("grid gap-5", hasHistory && spendRows.length > 0 ? "md:grid-cols-2" : "")}>
+              {hasHistory && (
+                <Card className="min-w-0">
+                  <h2 className="text-[14.5px] font-semibold">Last six months</h2>
+                  <p className="mb-1 text-[12.5px] text-ink-soft">Money in against money out</p>
+                  <MonthlyBars points={buckets} />
+                </Card>
+              )}
+              {spendRows.length > 0 && (
+                <Card className="min-w-0">
+                  <div className="mb-4 flex items-baseline justify-between gap-2">
+                    <h2 className="text-[14.5px] font-semibold">Spending and budgets</h2>
+                    <Link to="/categories" className="text-[12.5px] font-semibold text-ink-soft hover:text-ink">Manage budgets</Link>
+                  </div>
+                  <SpendingBudgets rows={spendRows} month={month} />
+                </Card>
+              )}
             </div>
-            <div className="flex items-center justify-between py-3">
-              <span className="text-ink-soft">You owe</span>
-              <span className="ledger-figure text-negative">{formatCurrency(youOwe)}</span>
+          )}
+
+          {(recent.length > 0 || attention.length > 0 || hasSplits) && (
+            <div className={cn("grid items-start gap-5", recent.length > 0 && (attention.length > 0 || hasSplits) ? "lg:grid-cols-[1.2fr_1fr]" : "")}>
+              {recent.length > 0 && (
+                <Card className="min-w-0">
+                  <div className="mb-2 flex items-center justify-between">
+                    <h2 className="text-[14.5px] font-semibold">Recent activity</h2>
+                    <Link to="/transactions" className="flex items-center gap-1 text-[12.5px] font-semibold text-ink-soft hover:text-ink">
+                      View all <ChevronRight size={14} />
+                    </Link>
+                  </div>
+                  {recent.map((t) => {
+                    const account = lookups.getAccount(t.accountId);
+                    return (
+                      <button key={t.id} onClick={() => setSelectedTxn(t)} className="flex w-full items-center gap-3 border-b border-line py-3 text-left last:border-b-0">
+                        <TxnIconChip txn={t} />
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-[13.3px] font-semibold">{t.description}</div>
+                          <div className="truncate text-[12px] text-ink-faint">
+                            {formatDate(t.date, "short")} {account ? `\u00b7 ${account.name}` : ""}
+                          </div>
+                        </div>
+                        <TxnAmount txn={t} className="text-[14.5px] font-semibold" />
+                      </button>
+                    );
+                  })}
+                </Card>
+              )}
+              {(attention.length > 0 || hasSplits) && (
+                <div className="flex min-w-0 flex-col gap-5">
+                  {attention.length > 0 && (
+                    <Card>
+                      <h2 className="text-[14.5px] font-semibold">Needs your attention</h2>
+                      <ul className="mt-1 divide-y divide-line">
+                        {attention.map((i) => {
+                          const body = (
+                            <>
+                              {i.level === "warn" ? <AlertTriangle size={16} aria-hidden className="mt-0.5 flex-none text-danger" /> : <Info size={16} aria-hidden className="mt-0.5 flex-none text-info" />}
+                              <span className="min-w-0">
+                                <span className="block text-[13.3px] font-semibold">{i.title}</span>
+                                {i.detail && <span className="block text-[12px] text-ink-soft">{i.detail}</span>}
+                              </span>
+                            </>
+                          );
+                          return (
+                            <li key={i.id}>
+                              {i.to ? <Link to={i.to} className="flex items-start gap-3 py-3 hover:bg-paper-sunken">{body}</Link> : <div className="flex items-start gap-3 py-3">{body}</div>}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </Card>
+                  )}
+                  {hasSplits && (
+                    <Card>
+                      <h2 className="text-[14.5px] font-semibold">Splits & dues</h2>
+                      <div className="mb-2.5 text-[12.5px] text-ink-faint">Net position with friends</div>
+                      <div className="flex items-center justify-between border-b border-dashed border-line py-3">
+                        <span className="text-ink-soft">Owed to you</span>
+                        <span className="ledger-figure text-accent">{formatCurrency(owedToYou)}</span>
+                      </div>
+                      <div className="flex items-center justify-between py-3">
+                        <span className="text-ink-soft">You owe</span>
+                        <span className="ledger-figure text-negative">{formatCurrency(youOwe)}</span>
+                      </div>
+                      <Link to="/friends" className="mt-2 flex items-center justify-center gap-1 rounded-[10px] py-2 text-center text-[12.5px] font-semibold text-ink-soft hover:bg-paper-sunken">
+                        View friends <ChevronRight size={13} />
+                      </Link>
+                    </Card>
+                  )}
+                </div>
+              )}
             </div>
-            <Link to="/friends" className="mt-2 flex items-center justify-center gap-1 rounded-[10px] py-2 text-center text-[12.5px] font-semibold text-ink-soft hover:bg-paper-sunken">
-              View friends <ChevronRight size={13} />
-            </Link>
-          </Card>
+          )}
         </div>
-      </div>
+      )}
 
       <TransactionForm open={addOpen} onOpenChange={setAddOpen} initialType="expense" />
       <TxnDetailDrawer txn={selectedTxn} open={!!selectedTxn} onOpenChange={(o) => !o && setSelectedTxn(null)} />

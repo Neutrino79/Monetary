@@ -249,6 +249,21 @@ def total_debit_credit_for_account_type(conn, account_type, start_iso, end_iso) 
     return row["d"], row["c"]
 
 
+def expense_postings_in_range(conn, start_iso, end_iso) -> list[tuple[str, int]]:
+    """(entry_date, net spend points) for every posting on an EXPENSE account within [start, end),
+    POSTED entries only. Callers bucket these by the owner's local day."""
+    rows = conn.execute(
+        """SELECT je.entry_date AS entry_date, p.debit_amount - p.credit_amount AS points
+           FROM posting p
+           JOIN journal_entry je ON je.id = p.journal_entry_id
+           JOIN account a ON a.id = p.account_id
+           WHERE a.account_type = 'EXPENSE' AND je.status = 'POSTED' AND je.entry_type != 'REVERSAL'
+             AND je.entry_date >= ? AND je.entry_date < ?""",
+        (start_iso, end_iso),
+    ).fetchall()
+    return [(r["entry_date"], r["points"]) for r in rows]
+
+
 def budgeted_root_accounts(conn) -> list[dict]:
     q = ("SELECT * FROM account WHERE account_type = 'EXPENSE' AND parent_account_id IS NULL "
          "AND budget_limit IS NOT NULL AND is_active = 1 ORDER BY id")

@@ -6,7 +6,7 @@
  * remains the authority for every calculation.
  */
 import type {
-  Account, BudgetStatus, CashflowPoint, Category, CategoryTotal, Dashboard, Friend, FriendBalance, Page, StatementRow, Transaction, TransactionGroup, User,
+  Account, BudgetStatus, CashflowPoint, SpendingPace, Category, CategoryTotal, Dashboard, Friend, FriendBalance, Page, StatementRow, Transaction, TransactionGroup, User,
 } from "@/types";
 import type { AccountDto, CategoryDto, FriendDto, MoneyDto, OwnerDto, PageDto, TransactionDto, TransactionGroupDto } from "@/types/api";
 import { colorForId } from "@/lib/utils/entityVisuals";
@@ -136,4 +136,30 @@ export function toCashflow(c: CashflowDto, locale: string): CashflowPoint[] {
     label: new Date(p.year, p.month - 1, 1).toLocaleDateString(locale, { month: "short" }),
     income: fromMoney(p.income), expense: fromMoney(p.expense), net: fromMoney(p.net),
   }));
+}
+
+export interface SpendingPaceDto {
+  year: number; month: number; daysInMonth: number; elapsedDays: number; isCurrentMonth: boolean;
+  days: { day: number; spent: MoneyDto; cumulative: MoneyDto }[];
+  previous: { year: number; month: number; cumulative: MoneyDto[] };
+  budgetTotal: MoneyDto | null;
+  projection: null | {
+    method: "history" | "pace"; basisMonths: number; expected: MoneyDto; low: MoneyDto; high: MoneyDto;
+    days: { day: number; expected: MoneyDto; low: MoneyDto; high: MoneyDto }[];
+  };
+}
+
+export function toSpendingPace(d: SpendingPaceDto): SpendingPace {
+  return {
+    year: d.year, month: d.month, daysInMonth: d.daysInMonth, elapsedDays: d.elapsedDays, isCurrentMonth: d.isCurrentMonth,
+    days: d.days.map((x) => ({ day: x.day, spent: fromMoney(x.spent), cumulative: fromMoney(x.cumulative) })),
+    previousMonth: `${d.previous.year}-${String(d.previous.month).padStart(2, "0")}`,
+    previous: d.previous.cumulative.map(fromMoney),
+    budgetTotal: d.budgetTotal ? fromMoney(d.budgetTotal) : null,
+    projection: d.projection && {
+      method: d.projection.method, basisMonths: d.projection.basisMonths,
+      expected: fromMoney(d.projection.expected), low: fromMoney(d.projection.low), high: fromMoney(d.projection.high),
+      days: d.projection.days.map((x) => ({ day: x.day, expected: fromMoney(x.expected), low: fromMoney(x.low), high: fromMoney(x.high) })),
+    },
+  };
 }

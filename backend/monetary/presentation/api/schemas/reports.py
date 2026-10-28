@@ -130,3 +130,44 @@ class CashflowPointOut(ApiModel):
 class CashflowTrendOut(ApiModel):
     currency: str
     points: list[CashflowPointOut]
+
+
+class PaceDayOut(ApiModel):
+    day: int
+    spent: MoneyOut          # what was spent that day
+    cumulative: MoneyOut     # spent so far this month, up to and including that day
+
+
+class PaceComparisonOut(ApiModel):
+    year: int
+    month: int
+    cumulative: list[MoneyOut]   # the whole earlier month, one entry per day
+
+
+class PaceProjectionDayOut(ApiModel):
+    day: int
+    expected: MoneyOut
+    low: MoneyOut
+    high: MoneyOut
+
+
+class PaceProjectionOut(ApiModel):
+    method: str                  # "history": learned from earlier months; "pace": a plain daily-average line
+    basis_months: int
+    expected: MoneyOut           # where the month is expected to end
+    low: MoneyOut
+    high: MoneyOut
+    days: list[PaceProjectionDayOut]   # from the day after today to the last day of the month
+
+
+class SpendingPaceOut(ApiModel):
+    currency: str
+    year: int
+    month: int
+    days_in_month: int
+    elapsed_days: int            # days that count: today for the current month, all of them for a past one
+    is_current_month: bool
+    days: list[PaceDayOut]
+    previous: PaceComparisonOut
+    budget_total: MoneyOut | None   # the sum of every category budget; None when none are set
+    projection: PaceProjectionOut | None   # current month only, and only once there is enough to go on
