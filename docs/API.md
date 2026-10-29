@@ -215,6 +215,40 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
   the lowest..highest (3-4 months) or the middle half (5-6). `method: "history"` needs three earlier
   months with spending; with fewer it is `"pace"` (this month's daily average, `low == high`).
   It is `null` before day 3, once the month is over, or when nothing was spent yet.
+- **Reports & Trends analysis** -- five read-only endpoints behind the Reports page. All are in the
+  owner's home currency and calendar months (owner timezone). `months` (1-36, default 12) is a window
+  ending with the current month, compared with the equal window just before it. The current month is
+  partial: it is flagged `isPartial` and never counts toward "normal". Months before the ledger's first
+  activity are no data, not quiet months, and are left out of every "usual" range.
+  - **`GET /reports/overview?months=N`** -- `points` (income, expense, `net` kept, `savingsRate`, a trailing
+    3-month `rollingExpense`, and `unusual` / `versusUsualPct` for a month more than 1.75 standard
+    deviations from the window's typical spending), `previousPoints`, `current` / `previous` totals,
+    `netWorth` per month with `liabilities` (what is owed), `incomeSources` and `findings`. A finding is a
+    `code` (`savings_rate`, `unusual_months`, `main_income_cover`, `debt_change`) plus the numbers behind
+    it; the client words it.
+  - **`GET /reports/categories?months=N&kind=spending|income`** -- every root category against its own
+    normal: `points` (at least 6 months, so a 3-month window still has a range to judge against), `usual`
+    (the 20th / 50th / 80th percentile of the earlier months, `null` with fewer than 4), `state`
+    (`above` / `below` / `normal`, with a pad so small moves stay normal), `slope` (change per month),
+    `average` against `previousAverage`, `changePct` and `sharePct`.
+  - **`GET /reports/compare?aFrom=&aTo=&bFrom=&bTo=`** (`YYYY-MM`, each period at most 36 months) -- period A
+    against period B: `income` / `expense` / `kept` for each and per spending category the totals, purchase
+    counts, average purchase, and the change split into `volumeEffect` (bought more or less often) and
+    `ticketEffect` (paid more or less each time); the two always add up to `change`. A purchase is an entry
+    that debits the category; refunds change the total but are not counted as purchases.
+  - **`GET /reports/budget-history?months=N`** -- per budget: `points` per month, how many complete months
+    it `held`, `typicalPct` of the limit, and a `suggestion` (`keep`, `raise` to the limit that would have
+    held in about 10 of 12 months, or `tighten` when use is under 75% and it never went over). Also
+    `monthTotals` against `limitTotal`, `coveragePct` (spending that has a budget) and `unbudgeted`
+    categories with a suggested monthly limit, or a yearly one for lumpy spending.
+  - **`GET /reports/outlook?months=N`** -- net worth now, the last 12 months of it, and a 12-month
+    `forecast` (end of this month onward, `expected` with a `low`..`high` range of one standard
+    deviation of the running total). With a year of history each month repeats the same month a year
+    earlier (`method: "seasonal"`); with 3-11 complete months it uses their average (`"average"`); with
+    no history `method` is `"none"` and `forecast` is empty. The rest of the current month is what is
+    still expected after what has already happened. `yearEnd` is the current calendar year: income,
+    spending, kept and net worth at December. `levers` are budgets the last three complete months ran
+    over; holding the limit would save `monthlySaving` a month.
 - **`GET /reports/reference-data`** -- accounts + categories + friends in one call.
 - **`GET /reports/trends/...`** -- monthly time series for the last N months.
 - **Split/fronted `DELETE` takes `?force=true` / `?remove_settlements=true`** query params

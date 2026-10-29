@@ -288,6 +288,24 @@ def account_period_debit_credit(conn, account_ids, start_iso, end_iso) -> tuple[
     return row["d"], row["c"]
 
 
+def account_purchase_count(conn, account_ids, start_iso, end_iso) -> int:
+    """How many live entries put money INTO the given accounts (a debit on an expense account is a
+    purchase) within [start, end). Refunds credit the account, so they are not counted."""
+    if not account_ids:
+        return 0
+    placeholders = ",".join("?" for _ in account_ids)
+    row = conn.execute(
+        f"""SELECT COUNT(DISTINCT je.id) AS n
+            FROM posting p
+            JOIN journal_entry je ON je.id = p.journal_entry_id
+            WHERE p.account_id IN ({placeholders}) AND p.debit_amount > 0
+              AND je.status = 'POSTED' AND je.entry_type != 'REVERSAL'
+              AND je.entry_date >= ? AND je.entry_date < ?""",
+        list(account_ids) + [start_iso, end_iso],
+    ).fetchone()
+    return row["n"]
+
+
 # --------------------------------------------------------------------------- #
 # JOURNAL_ENTRY / POSTING / SPLIT_PARTICIPANT
 # --------------------------------------------------------------------------- #
