@@ -1,3 +1,4 @@
+import { Link, useNavigate } from "react-router-dom";
 import { BarChart3 } from "lucide-react";
 import type { BudgetHistory, BudgetHistoryRow, UnbudgetedCategory } from "@/types";
 import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
@@ -7,7 +8,8 @@ import { useUpdateCategory } from "@/hooks/mutations";
 import { useElementWidth } from "@/hooks/useElementWidth";
 import { linear, niceCeil } from "@/lib/utils/chartMath";
 import { formatCompact, formatCurrency } from "@/lib/utils/format";
-import { monthShort } from "@/lib/utils/reportText";
+import { monthKey, monthShort } from "@/lib/utils/reportText";
+import { categoryMonthLink, monthLink } from "@/lib/utils/reportLinks";
 import { cn } from "@/lib/utils/cn";
 
 /** Shade of a month by how much of the limit was used: under 60%, 60-85, 85-100, over. */
@@ -31,6 +33,7 @@ function Kpi({ label, value, hint }: { label: string; value: string; hint?: stri
 
 function TotalsChart({ h }: { h: BudgetHistory }) {
   const [ref, width] = useElementWidth<HTMLDivElement>(640);
+  const navigate = useNavigate();
   const H = 150;
   const m = { l: 44, r: 8, t: 8, b: 22 };
   const peak = niceCeil(Math.max(1, h.limitTotal, ...h.monthTotals.map((t) => t.spent)));
@@ -46,7 +49,17 @@ function TotalsChart({ h }: { h: BudgetHistory }) {
         {h.monthTotals.map((t, i) => {
           const cx = m.l + slot * (i + 0.5);
           return (
-            <g key={`${t.year}-${t.month}`} opacity={t.isPartial ? 0.55 : 1}>
+            <g
+              key={`${t.year}-${t.month}`}
+              opacity={t.isPartial ? 0.55 : 1}
+              role="link"
+              tabIndex={0}
+              aria-label={`${monthShort(t)} ${t.year}: ${formatCurrency(t.spent)} of ${formatCurrency(h.limitTotal)}. Open expenses.`}
+              className="cursor-pointer outline-none hover:opacity-80 focus-visible:opacity-80"
+              onClick={() => navigate(monthLink(monthKey(t), "spending"))}
+              onKeyDown={(e) => { if (e.key === "Enter") navigate(monthLink(monthKey(t), "spending")); }}
+            >
+              <rect x={cx - slot / 2} width={slot} y={m.t} height={H - m.t - m.b} fill="transparent" />
               <title>{`${monthShort(t)} ${t.year}: ${formatCurrency(t.spent)} of ${formatCurrency(h.limitTotal)}`}</title>
               <rect x={cx - bw / 2} width={bw} y={y(t.spent)} height={Math.max(0, y(0) - y(t.spent))} rx={2} fill={t.spent > h.limitTotal ? "var(--negative)" : "var(--accent)"} />
               {i % every === 0 && <text x={cx} y={H - 6} textAnchor="middle" fontSize={11} fill="var(--ink-soft)">{monthShort(t)}</text>}
@@ -65,7 +78,7 @@ const monthlyLimit = (u: UnbudgetedCategory) => (u.suggestion.period === "year" 
 
 const SUGGEST_LABEL = { raise: "Raise to", tighten: "Tighten to", keep: "Fits" } as const;
 
-function BudgetRow({ b, monthLabels, busy, onApply }: { b: BudgetHistoryRow; monthLabels: string[]; busy: boolean; onApply: (limit: number) => void }) {
+function BudgetRow({ b, monthLabels, monthKeys, busy, onApply }: { b: BudgetHistoryRow; monthLabels: string[]; monthKeys: string[]; busy: boolean; onApply: (limit: number) => void }) {
   const s = b.suggestion;
   return (
     <li className="py-3">
@@ -83,7 +96,9 @@ function BudgetRow({ b, monthLabels, busy, onApply }: { b: BudgetHistoryRow; mon
       </div>
       <ul className="mt-2 flex gap-1" aria-label={`${b.name} month by month`}>
         {b.points.map((p, i) => (
-          <li key={i} title={`${monthLabels[i] ?? ""}: ${formatCurrency(p)} of ${formatCurrency(b.limit)}`} className={cn("h-5 min-w-0 flex-1 rounded-[3px]", shade(p, b.limit))} />
+          <li key={i} className="min-w-0 flex-1">
+            <Link to={categoryMonthLink("spending", b.categoryId, monthKeys[i] ?? "")} title={`${monthLabels[i] ?? ""}: ${formatCurrency(p)} of ${formatCurrency(b.limit)}`} aria-label={`${b.name}, ${monthLabels[i] ?? ""}: ${formatCurrency(p)} of ${formatCurrency(b.limit)}. Open transactions.`} className={cn("block h-5 rounded-[3px] ring-ink hover:ring-2 focus-visible:ring-2", shade(p, b.limit))} />
+          </li>
         ))}
       </ul>
     </li>
@@ -98,6 +113,7 @@ export function BudgetsTab({ months }: { months: number }) {
   if (q.isError || !h) return <EmptyState icon={BarChart3} title="Couldn't load budgets" description="Try again in a moment." />;
   if (h.budgets.length === 0 && h.unbudgeted.length === 0) return <EmptyState icon={BarChart3} title="No budgets yet" description="Set a limit on a category and its history shows up here." />;
   const labels = h.monthTotals.map((t) => `${monthShort(t)} ${t.year}`);
+  const keys = h.monthTotals.map(monthKey);
   const tightest = [...h.budgets].sort((a, b) => b.typicalPct - a.typicalPct)[0];
   const room = h.budgets.filter((b) => b.suggestion.action === "tighten").reduce((a, b) => a + (b.limit - b.suggestion.limit), 0);
   return (
@@ -123,7 +139,7 @@ export function BudgetsTab({ months }: { months: number }) {
             {([["bg-accent/25", "under 60%"], ["bg-accent/60", "60–85%"], ["bg-warn", "85–100%"], ["bg-negative", "over"]] as const).map(([c, t]) => <span key={t} className="flex items-center gap-1"><span className={cn("h-2.5 w-2.5 rounded-[2px]", c)} />{t}</span>)}
           </div>
           <ul className="divide-y divide-dashed divide-line">
-            {h.budgets.map((b) => <BudgetRow key={b.categoryId} b={b} monthLabels={labels} busy={update.isPending} onApply={(limit) => update.mutate({ id: b.categoryId, patch: { budgetLimit: limit } })} />)}
+            {h.budgets.map((b) => <BudgetRow key={b.categoryId} b={b} monthLabels={labels} monthKeys={keys} busy={update.isPending} onApply={(limit) => update.mutate({ id: b.categoryId, patch: { budgetLimit: limit } })} />)}
           </ul>
         </Card>
       )}

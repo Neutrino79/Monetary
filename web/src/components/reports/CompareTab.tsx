@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { ArrowDown, ArrowUp, BarChart3 } from "lucide-react";
 import type { CompareCategory, MonthSpan } from "@/types";
 import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
@@ -6,6 +7,7 @@ import { useCompare } from "@/hooks/queries";
 import { formatCurrency } from "@/lib/utils/format";
 import { comparePeriods, spanIsValid, spanLabel, type CompareBasis, type ReportRange } from "@/lib/utils/reportRange";
 import { signedMoney, signedPct } from "@/lib/utils/reportText";
+import { categorySpanLink } from "@/lib/utils/reportLinks";
 import { Waterfall, type Step } from "./Waterfall";
 import { cn } from "@/lib/utils/cn";
 
@@ -43,6 +45,7 @@ const sorters: Record<SortKey, (c: CompareCategory) => number | string> = {
 export function CompareTab({ range }: { range: ReportRange }) {
   const [basis, setBasis] = useState<Basis>("previous");
   const [custom, setCustom] = useState<{ a: MonthSpan; b: MonthSpan } | null>(null);
+  const [picked, setPicked] = useState<number | null>(null);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "change", dir: -1 });
   const preset = comparePeriods(range, basis === "custom" ? "previous" : basis);
   const periods = basis === "custom" ? (custom ?? preset) : preset;
@@ -54,6 +57,7 @@ export function CompareTab({ range }: { range: ReportRange }) {
   };
   const r = valid ? q.data : undefined;
   const aLabel = spanLabel(periods.a);
+  const chosen = r?.categories.find((c) => c.categoryId === picked) ?? null;
   const bLabel = spanLabel(periods.b);
 
   const rows = [...(r?.categories ?? [])].sort((x, y) => {
@@ -62,7 +66,7 @@ export function CompareTab({ range }: { range: ReportRange }) {
     return (kx < ky ? -1 : kx > ky ? 1 : 0) * sort.dir;
   });
   const bySize = [...(r?.categories ?? [])].filter((c) => c.change !== 0).sort((x, y) => Math.abs(y.change) - Math.abs(x.change));
-  const steps: Step[] = bySize.slice(0, 6).map((c) => ({ name: c.name, change: c.change }));
+  const steps: Step[] = bySize.slice(0, 6).map((c) => ({ id: c.categoryId, name: c.name, change: c.change }));
   const rest = bySize.slice(6).reduce((a, c) => a + c.change, 0);
   if (Math.abs(rest) > 0.5) steps.push({ name: "Other", change: rest });
   const head = (key: SortKey, label: string, cls = "") => (
@@ -116,7 +120,17 @@ export function CompareTab({ range }: { range: ReportRange }) {
           <Card>
             <div className="text-[14.5px] font-semibold">What changed in spending</div>
             <div className="mb-3 text-[12.5px] text-ink-faint">{bLabel} to {aLabel}, by category.</div>
-            {steps.length === 0 ? <p className="text-[13px] text-ink-faint">Spending was the same in both periods.</p> : <Waterfall from={r.b.expense} to={r.a.expense} steps={steps} fromLabel="Before" toLabel="Now" />}
+            {steps.length === 0 ? <p className="text-[13px] text-ink-faint">Spending was the same in both periods.</p> : <Waterfall from={r.b.expense} to={r.a.expense} steps={steps} fromLabel="Before" toLabel="Now" selected={picked} onSelect={setPicked} />}
+            {chosen && (
+              <div className="mt-3 rounded-[10px] border border-line bg-paper-sunken p-3 text-[12.5px]" role="status">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <span className="text-[13.5px] font-semibold">{chosen.name}: {formatCurrency(chosen.b)} → {formatCurrency(chosen.a)} <span className={chosen.change > 0 ? "text-negative" : "text-accent"}>({signedMoney(chosen.change)}{chosen.changePct === null ? "" : `, ${signedPct(chosen.changePct)}`})</span></span>
+                  <button type="button" onClick={() => setPicked(null)} className="text-ink-faint hover:text-ink">Clear</button>
+                </div>
+                <div className="mt-1 text-ink-soft">{chosen.purchasesB} → {chosen.purchasesA} purchases · average {formatCurrency(chosen.averagePurchaseB)} → {formatCurrency(chosen.averagePurchaseA)} · {Math.round(chosen.shareOfChangePct)}% of the total change</div>
+                <div className="mt-2 flex gap-4 font-medium"><Link className="text-accent hover:underline" to={categorySpanLink("spending", chosen.categoryId, periods.a)}>See {aLabel}</Link><Link className="text-accent hover:underline" to={categorySpanLink("spending", chosen.categoryId, periods.b)}>See {bLabel}</Link></div>
+              </div>
+            )}
           </Card>
           <Card>
             <div className="text-[14.5px] font-semibold">How often, or how much?</div>
@@ -148,8 +162,8 @@ export function CompareTab({ range }: { range: ReportRange }) {
               </thead>
               <tbody>
                 {rows.map((c) => (
-                  <tr key={c.categoryId} className="border-t border-line">
-                    <td className="px-2 py-2">{c.name}</td>
+                  <tr key={c.categoryId} className={cn("border-t border-line", picked === c.categoryId && "bg-paper-sunken")}>
+                    <td className="px-2 py-2"><button type="button" aria-pressed={picked === c.categoryId} onClick={() => setPicked(picked === c.categoryId ? null : c.categoryId)} className="text-left hover:underline">{c.name}</button></td>
                     <td className="hidden px-2 py-2 text-right tabular-nums sm:table-cell">{formatCurrency(c.b)}</td>
                     <td className="hidden px-2 py-2 text-right tabular-nums sm:table-cell">{formatCurrency(c.a)}</td>
                     <td className={cn("px-2 py-2 text-right font-medium tabular-nums", c.change > 0 ? "text-negative" : c.change < 0 ? "text-accent" : "")}>{signedMoney(c.change)}</td>
