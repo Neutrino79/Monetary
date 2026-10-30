@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import type { Branding, Id } from "@/types";
+import type { Branding, Id, MonthSpan } from "@/types";
 import type { TransactionFilters } from "@/types/api";
 import { appConfig } from "@/config/app";
 import { useAuthStore } from "@/store/authStore";
@@ -32,6 +32,11 @@ export const qk = {
   dashboard: (month?: string) => ["reports", "dashboard", month ?? "current"] as const,
   cashflow: (months: number) => ["reports", "cashflow", months] as const,
   spending: (month?: string) => ["reports", "spending", month ?? "current"] as const,
+  overview: (months: number) => ["reports", "overview", months] as const,
+  categoriesReport: (months: number, kind: string) => ["reports", "categories", months, kind] as const,
+  compare: (a: MonthSpan, b: MonthSpan) => ["reports", "compare", a, b] as const,
+  budgetHistory: (months: number) => ["reports", "budget-history", months] as const,
+  outlook: (months: number) => ["reports", "outlook", months] as const,
   spendingPace: (month?: string) => ["reports", "spending-pace", month ?? "current"] as const,
 };
 
@@ -135,3 +140,11 @@ export function useSpendingPace(month?: string) {
     queryKey: qk.spendingPace(month), queryFn: () => reportsService.spendingPace(month), placeholderData: keepPreviousData,
   });
 }
+
+const keep = { placeholderData: keepPreviousData } as const;
+export const useOverview = (months: number) => useQuery({ queryKey: qk.overview(months), queryFn: () => reportsService.overview(months), ...keep });
+export const useCategoriesReport = (months: number, kind: "spending" | "income") =>
+  useQuery({ queryKey: qk.categoriesReport(months, kind), queryFn: () => reportsService.categoriesReport(months, kind), ...keep });
+export const useCompare = (a: MonthSpan, b: MonthSpan) => useQuery({ queryKey: qk.compare(a, b), queryFn: () => reportsService.compare(a, b), ...keep });
+export const useBudgetHistory = (months: number) => useQuery({ queryKey: qk.budgetHistory(months), queryFn: () => reportsService.budgetHistory(months), ...keep });
+export const useOutlook = (months: number) => useQuery({ queryKey: qk.outlook(months), queryFn: () => reportsService.outlook(months), ...keep });
