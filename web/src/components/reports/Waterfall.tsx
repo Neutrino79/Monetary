@@ -4,13 +4,15 @@ import { formatCompact, formatCurrency } from "@/lib/utils/format";
 import { signedMoney } from "@/lib/utils/reportText";
 
 export interface Step {
+  /** The category it stands for; absent for the combined "Other" step. */
+  id?: number;
   name: string;
   change: number;
 }
 
 /** From what was spent in period B to what was spent in period A, one step per category.
  *  The axis does not start at zero, so the steps stay readable; the axis labels say so. */
-export function Waterfall({ from, to, steps, fromLabel, toLabel }: { from: number; to: number; steps: Step[]; fromLabel: string; toLabel: string }) {
+export function Waterfall({ from, to, steps, fromLabel, toLabel, selected, onSelect }: { from: number; to: number; steps: Step[]; fromLabel: string; toLabel: string; selected?: number | null; onSelect?: (id: number | null) => void }) {
   const [ref, width] = useElementWidth<HTMLDivElement>(640);
   const h = 250;
   const m = { l: 46, r: 8, t: 12, b: 58 };
@@ -49,10 +51,21 @@ export function Waterfall({ from, to, steps, fromLabel, toLabel }: { from: numbe
           const up = b.change > 0;
           const top = y(Math.max(b.start, b.end));
           return (
-            <g key={b.name}>
+            <g
+              key={b.name}
+              opacity={selected == null || b.id === selected ? 1 : 0.4}
+              role={b.id === undefined ? undefined : "button"}
+              tabIndex={b.id === undefined ? undefined : 0}
+              aria-pressed={b.id === undefined ? undefined : b.id === selected}
+              aria-label={b.id === undefined ? undefined : `${b.name}: ${signedMoney(b.change)}. Show details.`}
+              className={b.id === undefined ? undefined : "cursor-pointer outline-none"}
+              onClick={() => b.id !== undefined && onSelect?.(b.id === selected ? null : b.id)}
+              onKeyDown={(e) => { if (b.id !== undefined && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); onSelect?.(b.id === selected ? null : b.id); } }}
+            >
               <title>{`${b.name}: ${signedMoney(b.change)}`}</title>
+              <rect x={cx(i + 1) - slot / 2} width={slot} y={m.t} height={h - m.t - m.b + 40} fill="transparent" />
               <line x1={cx(i) - slot / 2 + bw / 2 + 2} x2={cx(i + 1) - bw / 2} y1={y(b.start)} y2={y(b.start)} stroke="var(--line-strong)" />
-              <rect x={cx(i + 1) - bw / 2} width={bw} y={top} height={Math.max(2, Math.abs(y(b.start) - y(b.end)))} rx={2} fill={up ? "var(--negative)" : "var(--accent)"} />
+              <rect x={cx(i + 1) - bw / 2} width={bw} y={top} height={Math.max(2, Math.abs(y(b.start) - y(b.end)))} rx={2} fill={up ? "var(--negative)" : "var(--accent)"} stroke={b.id !== undefined && b.id === selected ? "var(--ink)" : "none"} strokeWidth={2} />
               <text x={cx(i + 1)} y={top - 5} textAnchor="middle" fontSize={10} fill={up ? "var(--negative)" : "var(--accent)"}>{`${up ? "+" : "\u2212"}${formatCompact(Math.abs(b.change))}`}</text>
               <text x={cx(i + 1)} y={h - m.b + 14} textAnchor="middle" fontSize={10.5} fill="var(--ink-soft)" transform={`rotate(28 ${cx(i + 1)} ${h - m.b + 14})`}>{b.name.length > 10 ? `${b.name.slice(0, 9)}…` : b.name}</text>
             </g>

@@ -1,9 +1,11 @@
+import { Link } from "react-router-dom";
 import type { Overview, OverviewMonth } from "@/types";
 import { BarChart3 } from "lucide-react";
 import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { useOverview } from "@/hooks/queries";
 import { formatCurrency } from "@/lib/utils/format";
-import { findingText, monthLong, signedPct } from "@/lib/utils/reportText";
+import { findingText, monthKey, monthLong, signedPct } from "@/lib/utils/reportText";
+import { monthLink } from "@/lib/utils/reportLinks";
 import { CashflowChart, IncomeMixChart, NetWorthChart } from "./OverviewCharts";
 import { Sparkline } from "./Sparkline";
 import { cn } from "@/lib/utils/cn";
@@ -91,7 +93,15 @@ export function OverviewTab({ months }: { months: number }) {
               return (
                 <li key={i} className="flex gap-3 py-2.5">
                   <span aria-hidden className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", f.tone === "good" ? "bg-accent" : f.tone === "watch" ? "bg-warn" : "bg-ink-faint")} />
-                  <div><div className="text-[13.5px] font-medium">{t.title}</div><div className="text-[12.5px] text-ink-soft">{t.body}</div></div>
+                  <div>
+                    <div className="text-[13.5px] font-medium">{t.title}</div>
+                    <div className="text-[12.5px] text-ink-soft">{t.body}</div>
+                    {f.code === "unusual_months" && (
+                      <div className="mt-1 flex flex-wrap gap-2">
+                        {f.flagged.map((m) => <Link key={monthKey(m)} to={monthLink(monthKey(m))} className="rounded-full border border-line px-2.5 py-0.5 text-[12px] font-medium text-accent hover:bg-paper-sunken">See {monthLong(m)}'s transactions</Link>)}
+                      </div>
+                    )}
+                  </div>
                 </li>
               );
             })}

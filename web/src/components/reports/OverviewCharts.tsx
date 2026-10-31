@@ -1,28 +1,72 @@
+import { useNavigate } from "react-router-dom";
 import type { NetWorthMonth, OverviewMonth, IncomeMixSource } from "@/types";
+import { useInspect } from "@/hooks/useInspect";
 import { useElementWidth } from "@/hooks/useElementWidth";
-import { linear, linePath, niceCeil } from "@/lib/utils/chartMath";
+import { linear, linePath, niceCeil, tipHeight } from "@/lib/utils/chartMath";
 import { formatCompact, formatCurrency } from "@/lib/utils/format";
-import { monthLong, monthShort } from "@/lib/utils/reportText";
+import { monthKey, monthLong, monthShort, signedMoney } from "@/lib/utils/reportText";
+import { monthLink } from "@/lib/utils/reportLinks";
+import { ChartTip } from "./ChartTip";
 import { colorForId } from "@/lib/utils/entityVisuals";
 
-const H = 220;
+
+/** A transparent column over one month: hover or focus shows its readout, a click (or Enter) opens it. */
+function MonthHit({ x, w, h, label, inspect, i, open }: { x: number; w: number; h: number; label: string; inspect: ReturnType<typeof useInspect<number>>; i: number; open: () => void }) {
+  return (
+    <rect
+      x={x}
+      width={w}
+      y={0}
+      height={h}
+      fill="transparent"
+      role="link"
+      tabIndex={0}
+      aria-label={label}
+      className="cursor-pointer outline-none"
+      {...inspect.itemProps(i)}
+      onKeyDown={(e) => { if (e.key === "Enter") open(); }}
+    />
+  );
+}
+
 const PAD = { l: 44, r: 8, t: 10, b: 38 };
+/** Room above the tallest bar for the readout, as the dashboard's bar chart leaves. */
+const HEAD = tipHeight(3, true) + 12;
+const H = HEAD + 188;
 
 /** Income and spending side by side per month, a 3-month rolling spend line, unusual months circled,
  *  and the savings rate under each month. */
 export function CashflowChart({ points }: { points: OverviewMonth[] }) {
-  const [ref, width] = useElementWidth<HTMLDivElement>(640);
+  const [ref, width, root] = useElementWidth<HTMLDivElement>(640);
+  const navigate = useNavigate();
+  const openMonth = (i: number) => navigate(monthLink(monthKey(points[i]!)));
+  const inspect = useInspect<number>(openMonth, root);
+  const on = inspect.active !== null ? points[inspect.active] : undefined;
   const peak = niceCeil(Math.max(1, ...points.flatMap((p) => [p.income, p.expense, p.rollingExpense])));
   const x0 = PAD.l;
   const x1 = width - PAD.r;
-  const y = linear(0, peak, H - PAD.b, PAD.t);
+  const y = linear(0, peak, H - PAD.b, HEAD);
   const slot = (x1 - x0) / Math.max(1, points.length);
   const bar = Math.max(3, Math.min(18, slot * 0.32));
   const cx = (i: number) => x0 + slot * (i + 0.5);
   const showEvery = slot < 34 ? 2 : 1;
   return (
-    <div ref={ref} className="w-full">
-      <svg width={width} height={H} role="img" aria-label="Income, spending and the rolling spending average by month">
+    <div ref={ref} className="relative w-full">
+      {on && inspect.active !== null && (
+        <ChartTip
+          x={cx(inspect.active)}
+          width={width}
+          anchorY={y(Math.max(on.income, on.expense)) - (on.unusual ? 16 : 0)}
+          touch={inspect.touch}
+          title={`${monthLong(on)} ${on.year}${on.isPartial ? " (so far)" : ""}${on.unusual ? " \u00b7 unusual" : ""}`}
+          rows={[
+            { label: "In", value: formatCurrency(on.income), color: "var(--accent)" },
+            { label: "Out", value: formatCurrency(on.expense), color: "var(--line-strong)" },
+            { label: on.net >= 0 ? "Kept" : "Overspent", value: `${formatCurrency(Math.abs(on.net))}${on.savingsRate === null ? "" : ` \u00b7 ${Math.round(on.savingsRate)}%`}` },
+          ]}
+        />
+      )}
+      <svg width={width} height={H} role="group" aria-label="Income, spending and the rolling spending average by month">
         {[0, 0.5, 1].map((f) => (
           <g key={f}>
             <line x1={x0} x2={x1} y1={y(peak * f)} y2={y(peak * f)} stroke="var(--line)" strokeDasharray={f === 0 ? undefined : "3 4"} />
@@ -30,7 +74,7 @@ export function CashflowChart({ points }: { points: OverviewMonth[] }) {
           </g>
         ))}
         {points.map((p, i) => (
-          <g key={`${p.year}-${p.month}`} opacity={p.isPartial ? 0.55 : 1}>
+          <g key={`${p.year}-${p.month}`} opacity={inspect.active !== null && inspect.active !== i ? 0.45 : p.isPartial ? 0.55 : 1}>
             <title>{`${monthLong(p)} ${p.year}: in ${formatCurrency(p.income)}, out ${formatCurrency(p.expense)}${p.savingsRate === null ? "" : `, kept ${Math.round(p.savingsRate)}%`}${p.isPartial ? " (month in progress)" : ""}`}</title>
             <rect x={cx(i) - bar - 1} width={bar} y={y(p.income)} height={Math.max(0, y(0) - y(p.income))} rx={2} fill="var(--accent)" />
             <rect x={cx(i) + 1} width={bar} y={y(p.expense)} height={Math.max(0, y(0) - y(p.expense))} rx={2} fill="var(--line-strong)" />
@@ -46,6 +90,9 @@ export function CashflowChart({ points }: { points: OverviewMonth[] }) {
           </g>
         ))}
         <path d={linePath(points.map((p, i) => ({ x: cx(i), y: y(p.rollingExpense) })))} fill="none" stroke="var(--negative)" strokeWidth={1.8} strokeLinejoin="round" />
+        {points.map((p, i) => (
+          <MonthHit key={`hit-${p.year}-${p.month}`} x={x0 + slot * i} w={slot} h={H} i={i} inspect={inspect} open={() => openMonth(i)} label={`${monthLong(p)} ${p.year}: income ${formatCurrency(p.income)}, spending ${formatCurrency(p.expense)}. Open transactions.`} />
+        ))}
       </svg>
       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-soft">
         <Key color="var(--accent)" label="Income" />
@@ -69,7 +116,11 @@ function Key({ color, label, line }: { color: string; label: string; line?: bool
 
 /** Net worth as a line, with what is owed as small bars underneath. */
 export function NetWorthChart({ points }: { points: NetWorthMonth[] }) {
-  const [ref, width] = useElementWidth<HTMLDivElement>(640);
+  const [ref, width, root] = useElementWidth<HTMLDivElement>(640);
+  const navigate = useNavigate();
+  const inspect = useInspect<number>(() => navigate("/accounts"), root);
+  const on = inspect.active !== null ? points[inspect.active] : undefined;
+  const before = inspect.active !== null && inspect.active > 0 ? points[inspect.active - 1] : undefined;
   const h = 190;
   const owedH = 34;
   const lo = Math.min(...points.map((p) => p.netWorth));
@@ -84,8 +135,22 @@ export function NetWorthChart({ points }: { points: NetWorthMonth[] }) {
   const slot = (x1 - x0) / Math.max(1, points.length);
   const showEvery = slot < 34 ? 2 : 1;
   return (
-    <div ref={ref} className="w-full">
-      <svg width={width} height={h} role="img" aria-label="Net worth by month, with what you owe underneath">
+    <div ref={ref} className="relative w-full">
+      {on && inspect.active !== null && (
+        <ChartTip
+          x={x(inspect.active)}
+          width={width}
+          anchorY={y(on.netWorth)}
+          touch={inspect.touch}
+          title={`${monthLong(on)} ${on.year}`}
+          rows={[
+            { label: "Net worth", value: formatCurrency(on.netWorth), color: "var(--accent)" },
+            { label: "Owe", value: formatCurrency(on.liabilities), color: "var(--negative)" },
+            ...(before ? [{ label: "Since last month", value: signedMoney(on.netWorth - before.netWorth) }] : []),
+          ]}
+        />
+      )}
+      <svg width={width} height={h} role="group" aria-label="Net worth by month, with what you owe underneath">
         {[lo, (lo + hi) / 2, hi].map((v, i) => (
           <g key={i}>
             <line x1={x0} x2={x1} y1={y(v)} y2={y(v)} stroke="var(--line)" strokeDasharray="3 4" />
@@ -96,10 +161,14 @@ export function NetWorthChart({ points }: { points: NetWorthMonth[] }) {
         {points.map((p, i) => (
           <g key={`${p.year}-${p.month}`}>
             <title>{`${monthLong(p)} ${p.year}: net worth ${formatCurrency(p.netWorth)}, owed ${formatCurrency(p.liabilities)}`}</title>
-            <circle cx={x(i)} cy={y(p.netWorth)} r={i === points.length - 1 ? 3.6 : 2} fill="var(--accent)" />
-            <rect x={x(i) - 5} width={10} y={oy(p.liabilities)} height={Math.max(0, h - 18 - oy(p.liabilities))} rx={2} fill="var(--negative)" opacity={0.5} />
+            <circle cx={x(i)} cy={y(p.netWorth)} r={inspect.active === i ? 5 : i === points.length - 1 ? 3.6 : 2} fill="var(--accent)" stroke={inspect.active === i ? "var(--paper-raised)" : "none"} strokeWidth={2} />
+            <rect x={x(i) - 5} width={10} y={oy(p.liabilities)} height={Math.max(0, h - 18 - oy(p.liabilities))} rx={2} fill="var(--negative)" opacity={inspect.active === null || inspect.active === i ? 0.5 : 0.2} />
             {i % showEvery === 0 && <text x={x(i)} y={h - 4} textAnchor="middle" fontSize={11} fill="var(--ink-soft)">{monthShort(p)}</text>}
           </g>
+        ))}
+        {inspect.active !== null && <line x1={x(inspect.active)} x2={x(inspect.active)} y1={8} y2={h - 18} stroke="var(--ink-faint)" strokeDasharray="3 3" />}
+        {points.map((p, i) => (
+          <MonthHit key={`hit-${p.year}-${p.month}`} x={x(i) - (x1 - x0) / Math.max(1, points.length - 1) / 2} w={(x1 - x0) / Math.max(1, points.length - 1)} h={h} i={i} inspect={inspect} open={() => navigate("/accounts")} label={`${monthLong(p)} ${p.year}: net worth ${formatCurrency(p.netWorth)}. Open accounts.`} />
         ))}
       </svg>
       <div className="mt-1 flex gap-4 text-[12px] text-ink-soft">
@@ -112,26 +181,44 @@ export function NetWorthChart({ points }: { points: NetWorthMonth[] }) {
 
 /** Where income came from, stacked by source for each month. */
 export function IncomeMixChart({ months, sources }: { months: OverviewMonth[]; sources: IncomeMixSource[] }) {
-  const [ref, width] = useElementWidth<HTMLDivElement>(640);
-  const h = 150;
+  const [ref, width, root] = useElementWidth<HTMLDivElement>(640);
+  const navigate = useNavigate();
+  const openMonth = (i: number) => navigate(monthLink(monthKey(months[i]!), "income"));
+  const inspect = useInspect<number>(openMonth, root);
+  const on = inspect.active !== null ? months[inspect.active] : undefined;
+  const head = tipHeight(sources.length + 1, true) + 12;
+  const h = head + 112;
   const totals = months.map((_, i) => sources.reduce((a, s) => a + (s.points[i] ?? 0), 0));
   const peak = niceCeil(Math.max(1, ...totals));
   const x0 = PAD.l;
   const x1 = width - PAD.r;
-  const y = linear(0, peak, h - 22, 8);
+  const y = linear(0, peak, h - 22, head);
   const slot = (x1 - x0) / Math.max(1, months.length);
   const bar = Math.max(6, Math.min(34, slot * 0.6));
   const showEvery = slot < 34 ? 2 : 1;
   const colorOf = (s: IncomeMixSource, i: number) => s.color ?? colorForId(s.categoryId ?? i);
   return (
-    <div ref={ref} className="w-full">
-      <svg width={width} height={h} role="img" aria-label="Income by source and month">
+    <div ref={ref} className="relative w-full">
+      {on && inspect.active !== null && (
+        <ChartTip
+          x={x0 + slot * (inspect.active + 0.5)}
+          width={width}
+          anchorY={y(totals[inspect.active] ?? 0)}
+          touch={inspect.touch}
+          title={`${monthLong(on)} ${on.year}`}
+          rows={[
+            ...sources.map((s, si) => ({ label: s.name, value: formatCurrency(s.points[inspect.active!] ?? 0), color: colorOf(s, si) })),
+            { label: "Total", value: formatCurrency(totals[inspect.active] ?? 0) },
+          ]}
+        />
+      )}
+      <svg width={width} height={h} role="group" aria-label="Income by source and month">
         <line x1={x0} x2={x1} y1={y(0)} y2={y(0)} stroke="var(--line)" />
         <text x={x0 - 6} y={y(peak) + 4} textAnchor="end" fontSize={10.5} fill="var(--ink-faint)">{formatCompact(peak)}</text>
         {months.map((m, i) => {
           let acc = 0;
           return (
-            <g key={`${m.year}-${m.month}`} opacity={m.isPartial ? 0.55 : 1}>
+            <g key={`${m.year}-${m.month}`} opacity={inspect.active !== null && inspect.active !== i ? 0.45 : m.isPartial ? 0.55 : 1}>
               {sources.map((s, si) => {
                 const v = s.points[i] ?? 0;
                 const top = y(acc + v);
@@ -143,6 +230,9 @@ export function IncomeMixChart({ months, sources }: { months: OverviewMonth[]; s
             </g>
           );
         })}
+        {months.map((m, i) => (
+          <MonthHit key={`hit-${m.year}-${m.month}`} x={x0 + slot * i} w={slot} h={h} i={i} inspect={inspect} open={() => openMonth(i)} label={`${monthLong(m)} ${m.year}: income ${formatCurrency(totals[i] ?? 0)}. Open income.`} />
+        ))}
       </svg>
       <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-soft">
         {sources.map((s, i) => <Key key={`${s.categoryId}-${i}`} color={colorOf(s, i)} label={s.name} />)}

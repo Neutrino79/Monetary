@@ -101,6 +101,14 @@ function TransactionTableInner({
     }
     if (category && /^\d+$/.test(category)) f.categoryId = category;
     if (month && /^\d{4}-(0[1-9]|1[0-2])$/.test(month)) f.range = { mode: "month", month };
+    // a run of months, from the Reports page: ?from=2026-05&to=2026-10 (the last month stops at today)
+    const from = params.get("from");
+    const to = params.get("to");
+    const isMonth = (v: string | null): v is string => !!v && /^\d{4}-(0[1-9]|1[0-2])$/.test(v);
+    if (isMonth(from) && isMonth(to) && from <= to) {
+      const r = rangeToFilters({ mode: "month", month: to });
+      f.range = { mode: "custom", from: `${from}-01`, to: r.dateTo ?? `${to}-01` };
+    }
     const date = params.get("date");
     if (date && /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/.test(date)) f.range = { mode: "custom", from: date, to: date };   // one day, from the pace chart
     return f;
