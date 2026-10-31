@@ -238,3 +238,23 @@
   .drawer-panel[data-state="open"] { animation-name: panel-in-x; }
   .drawer-panel[data-state="closed"] { animation-name: panel-out-x; }
 }
+
+/* Switching light and dark: one soft cross-fade of the whole page rather than a snap. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 340ms;
+  animation-timing-function: ease-in-out;
+}
+/* Browsers without View Transitions: let colours ease for a moment (class set by applyTheme). */
+html.theme-fade,
+html.theme-fade *,
+html.theme-fade *::before,
+html.theme-fade *::after {
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    border-color 300ms ease,
+    fill 300ms ease,
+    stroke 300ms ease,
+    box-shadow 300ms ease !important;
+}
