@@ -16,20 +16,25 @@ import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { today } from "@/lib/utils/clock";
 import { TransactionForm } from "./TransactionForm";
 import { SettleForm } from "./SettleForm";
-import { Landmark, Tag, Banknote, HandCoins, TrendingDown, Scale, SlidersHorizontal, Calendar, Edit, Check } from "lucide-react";
+import { Trash2 } from "lucide-react";
 import { useFormError } from "@/lib/hooks/useFormErrors";
 
-function MetaRow({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: React.ReactNode }) {
+interface ReceiptRow {
+  label: string;
+  value: React.ReactNode;
+}
+
+/** Label-left, value-right lines, like the itemised part of a receipt. */
+function ReceiptRows({ rows }: { rows: ReceiptRow[] }) {
   return (
-    <div className="flex items-center gap-3 border-b border-dashed border-line py-3 last:border-b-0">
-      <span className="flex h-7.5 w-7.5 flex-none items-center justify-center rounded-[10px] bg-paper-sunken text-ink-soft">
-        <Icon size={15} />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="text-[11.5px] text-ink-faint">{label}</div>
-        <div className="text-[13.3px] font-medium">{value}</div>
-      </div>
-    </div>
+    <dl>
+      {rows.map((r) => (
+        <div key={r.label} className="flex items-baseline justify-between gap-4 border-t border-dashed border-line px-5 py-2.5 text-[13.3px] first:border-t-0">
+          <dt className="flex-none text-ink-faint">{r.label}</dt>
+          <dd className="min-w-0 text-right font-medium">{r.value}</dd>
+        </div>
+      ))}
+    </dl>
   );
 }
 
@@ -42,6 +47,15 @@ function DetailSection({ title, children }: { title: string; children: React.Rea
   );
 }
 
+/** The cut between the headline of a receipt and its itemised lines: a dashed rule with a notch at each edge. */
+function Perforation() {
+  return (
+    <div className="relative h-0 border-t border-dashed border-line-strong" aria-hidden="true">
+      <span className="absolute -left-3 -top-3 h-6 w-6 rounded-full border border-line bg-paper-raised" />
+      <span className="absolute -right-3 -top-3 h-6 w-6 rounded-full border border-line bg-paper-raised" />
+    </div>
+  );
+}
 export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction | null; open: boolean; onOpenChange: (open: boolean) => void }) {
   const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
@@ -92,173 +106,141 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
     }
   }
 
+  const unpaidText = txn.unpaid == null ? "—" : txn.unpaid === 0 ? "Yes, fully paid back" : `Not yet: ${formatCurrency(txn.unpaid, true)} still owed`;
+  const rows: ReceiptRow[] = [{ label: "Date", value: formatDate(txn.date, "long") }];
+  if (txn.type === "transfer") {
+    rows.push({ label: "From account", value: account?.name ?? "—" }, { label: "To account", value: toAccount?.name ?? "—" }, { label: "Amount moved", value: formatCurrency(txn.amount) });
+  } else if (txn.type === "split") {
+    rows.push(
+      { label: "Category", value: category?.name ?? "—" },
+      { label: "Paid from", value: account?.name ?? "—" },
+      { label: "Total bill", value: formatCurrency(txn.amount, true) },
+      { label: "Your share", value: formatCurrency(txn.yourShare ?? 0, true) },
+    );
+  } else if (txn.type === "fronted") {
+    rows.push(
+      { label: "Paid by", value: friend?.name ?? "—" },
+      { label: "Category", value: category?.name ?? "—" },
+      { label: "Your share (you owe them)", value: formatCurrency(txn.amount, true) },
+      { label: "Paid back", value: unpaidText },
+    );
+  } else if (txn.type === "settlement") {
+    rows.push({ label: "Account", value: account?.name ?? "—" }, { label: "Direction", value: txn.direction === "receive" ? "Received from friend" : "Paid to friend" });
+  } else if (txn.type === "refund") {
+    rows.push({ label: "Refunded to", value: account?.name ?? "—" }, { label: "Category", value: category?.name ?? "—" });
+    if (refundOf.data) rows.push({ label: "Original expense", value: `${refundOf.data.description} (${formatCurrency(refundOf.data.amount)})` });
+  } else if (txn.type === "adjustment") {
+    rows.push(
+      { label: "Account", value: account?.name ?? "—" },
+      { label: "Direction", value: txn.direction === "increase" ? "Balance increased" : "Balance decreased" },
+      { label: "Posted against", value: "Adjustments (system account)" },
+    );
+  } else {
+    rows.push({ label: "Category", value: category?.name ?? "—" }, { label: txn.type === "income" ? "Deposited to" : "Paid from", value: account?.name ?? "—" });
+  }
+  const canRefund = txn.type === "expense" && txn.status === "posted";
   return (
     <>
       <Drawer
         open={open}
         onOpenChange={onOpenChange}
         title={txn.description}
-        subtitle={formatDate(txn.date, "long")}
+        hideTitle
+        eyebrow="Transaction"
         footer={
-          <>
-            <Button variant="ghost" onClick={() => onOpenChange(false)}>
-              Close
-            </Button>
-            {txn.type === "expense" && txn.status === "posted" && (
-              <Button variant="secondary" onClick={() => setRefundOpen(true)}>
-                Record refund
-              </Button>
-            )}
-            {editable && (
-              <Button variant="secondary" onClick={() => setEditOpen(true)}>
-                Edit
-              </Button>
-            )}
-            {deletable && (
-              <Button variant="danger" onClick={() => setConfirmDelete(true)}>
-                Delete
-              </Button>
-            )}
-          </>
+          editable || canRefund || deletable ? (
+            <>
+              {editable && <Button onClick={() => setEditOpen(true)}>Edit</Button>}
+              {canRefund && (
+                <Button variant="secondary" onClick={() => setRefundOpen(true)}>
+                  Record refund
+                </Button>
+              )}
+              {deletable && (
+                <Button variant="secondary" aria-label="Delete" title="Delete" className="flex-none! w-11 px-0 text-danger" onClick={() => setConfirmDelete(true)}>
+                  <Trash2 size={17} />
+                </Button>
+              )}
+            </>
+          ) : undefined
         }
       >
-        <div className="mb-5 flex items-center justify-between gap-3 rounded-2xl bg-paper-sunken p-5">
-          <TxnAmount txn={txn} className="text-[26px]" />
-          <TxnBadge txn={txn} />
+        <div className="mb-5 overflow-hidden rounded-2xl border border-line bg-paper-sunken">
+          <div className="px-5 pb-5 pt-5">
+            <div className="text-[15px] font-semibold leading-snug">{txn.description}</div>
+            <div className="mt-1 text-[34px] leading-tight">
+              <TxnAmount txn={txn} className="text-[34px]" />
+            </div>
+            <div className="mt-3">
+              <TxnBadge txn={txn} />
+            </div>
+          </div>
+          <Perforation />
+          <div className="pb-1 pt-1">
+            <ReceiptRows rows={rows} />
+          </div>
         </div>
 
         {txn.type === "transfer" && account && toAccount && (
-          <>
-            <DetailSection title="Transfer">
-              <div className="rounded-[10px] border border-line bg-paper-sunken p-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex flex-1 flex-col items-center gap-1.5 text-center text-[12px] text-ink-soft">
-                    <AccountChip account={account} size={44} />
-                    <span className="truncate">{account.name}</span>
-                  </div>
-                  <div className="h-0.5 flex-1 bg-line-strong" />
-                  <div className="flex flex-1 flex-col items-center gap-1.5 text-center text-[12px] text-ink-soft">
-                    <AccountChip account={toAccount} size={44} />
-                    <span className="truncate">{toAccount.name}</span>
-                  </div>
+          <DetailSection title="Transfer">
+            <div className="rounded-[10px] border border-line bg-paper-sunken p-4">
+              <div className="flex items-center gap-3">
+                <div className="flex flex-1 flex-col items-center gap-1.5 text-center text-[12px] text-ink-soft">
+                  <AccountChip account={account} size={44} />
+                  <span className="truncate">{account.name}</span>
+                </div>
+                <div className="h-0.5 flex-1 bg-line-strong" />
+                <div className="flex flex-1 flex-col items-center gap-1.5 text-center text-[12px] text-ink-soft">
+                  <AccountChip account={toAccount} size={44} />
+                  <span className="truncate">{toAccount.name}</span>
                 </div>
               </div>
-            </DetailSection>
-            <DetailSection title="Details">
-              <div className="rounded-[10px] border border-line bg-paper-sunken px-4">
-                <MetaRow icon={Landmark} label="From account" value={account.name} />
-                <MetaRow icon={Landmark} label="To account" value={toAccount.name} />
-                <MetaRow icon={Banknote} label="Amount moved" value={formatCurrency(txn.amount)} />
-              </div>
-            </DetailSection>
-          </>
+            </div>
+          </DetailSection>
         )}
 
         {txn.type === "split" && txn.splits && (
-          <>
-            <div className="mb-5 grid grid-cols-2 gap-3">
-              <Stat label="Total bill" value={formatCurrency(txn.amount, true)} />
-              <Stat label="Your share" value={formatCurrency(txn.yourShare ?? 0, true)} />
-            </div>
-            <DetailSection title="Participants">
-              <div className="rounded-[10px] border border-line bg-paper-sunken px-4">
-                {txn.splits.map((sp) => {
-                  const f = friends.find((x) => x.id === sp.friendId);
-                  if (!f) return null;
-                  const overall = balances.find((b) => b.friendId === sp.friendId)?.balance ?? 0;
-                  return (
-                    <div key={sp.friendId} className="flex items-center gap-3 border-b border-line py-3 last:border-b-0">
-                      <Avatar name={f.name} color={f.color} />
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[13.3px] font-semibold">{f.name}</div>
-                        <div className="text-[12px] text-ink-faint">Share {formatCurrency(sp.share, true)}</div>
-                      </div>
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${overall === 0 ? "bg-accent-soft text-accent" : overall > 0 ? "bg-danger-soft text-danger" : "bg-info-soft text-info"}`}
-                        title="Their running balance with you across all transactions"
-                      >
-                        {overall === 0 ? "Settled up" : overall > 0 ? `Owes you ${formatCurrency(overall, true)}` : `You owe ${formatCurrency(-overall, true)}`}
-                      </span>
+          <DetailSection title="Participants">
+            <div className="rounded-[10px] border border-line bg-paper-sunken px-4">
+              {txn.splits.map((sp) => {
+                const f = friends.find((x) => x.id === sp.friendId);
+                if (!f) return null;
+                const overall = balances.find((b) => b.friendId === sp.friendId)?.balance ?? 0;
+                return (
+                  <div key={sp.friendId} className="flex items-center gap-3 border-b border-line py-3 last:border-b-0">
+                    <Avatar name={f.name} color={f.color} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13.3px] font-semibold">{f.name}</div>
+                      <div className="text-[12px] text-ink-faint">Share {formatCurrency(sp.share, true)}</div>
                     </div>
-                  );
-                })}
-              </div>
-              <p className="mt-2 text-[11.5px] text-ink-faint">Balances are each friend's overall running balance with you — settlements apply across all shared expenses, not to a single bill.</p>
-            </DetailSection>
-            <DetailSection title="Details">
-              <div className="rounded-[10px] border border-line bg-paper-sunken px-4">
-                <MetaRow icon={Tag} label="Category" value={category?.name ?? "—"} />
-                <MetaRow icon={Landmark} label="Paid from" value={account?.name ?? "—"} />
-              </div>
-            </DetailSection>
-          </>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${overall === 0 ? "bg-accent-soft text-accent" : overall > 0 ? "bg-danger-soft text-danger" : "bg-info-soft text-info"}`}
+                      title="Their running balance with you across all transactions"
+                    >
+                      {overall === 0 ? "Settled up" : overall > 0 ? `Owes you ${formatCurrency(overall, true)}` : `You owe ${formatCurrency(-overall, true)}`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            <p className="mt-2 text-[11.5px] text-ink-faint">Balances are each friend's overall running balance with you — settlements apply across all shared expenses, not to a single bill.</p>
+          </DetailSection>
         )}
 
-        {txn.type === "fronted" && (
-          <DetailSection title="Details">
-            <div className="rounded-[10px] border border-line bg-paper-sunken px-4">
-              <MetaRow icon={HandCoins} label="Paid by" value={friend?.name ?? "—"} />
-              <MetaRow icon={Tag} label="Category" value={category?.name ?? "—"} />
-              <MetaRow icon={Banknote} label="Your share (you owe them)" value={formatCurrency(txn.amount, true)} />
-              <MetaRow
-                icon={HandCoins}
-                label="Paid back"
-                value={txn.unpaid == null ? "—" : txn.unpaid === 0 ? "Yes, fully paid back" : `Not yet: ${formatCurrency(txn.unpaid, true)} still owed`}
-              />
-            </div>
-            {txn.unpaid != null && txn.unpaid > 0 && friend && (
-              <Button className="mt-3" variant="secondary" onClick={() => setPayBackOpen(true)}>
-                Pay back {friend.name}
-              </Button>
-            )}
-          </DetailSection>
+        {txn.type === "fronted" && txn.unpaid != null && txn.unpaid > 0 && friend && (
+          <Button className="mb-5" variant="secondary" onClick={() => setPayBackOpen(true)}>
+            Pay back {friend.name}
+          </Button>
         )}
 
         {txn.type === "settlement" && friend && (
-          <>
-            <DetailSection title="Settlement">
-              <div className="flex items-center gap-3 rounded-[10px] border border-line bg-paper-sunken p-4">
-                <Avatar name={friend.name} color={friend.color} size={44} />
-                <div>
-                  <div className="text-[13.3px] font-semibold">{friend.name}</div>
-                  <div className="text-[12px] text-ink-faint">{txn.direction === "receive" ? "Paid you back" : "You paid them back"}</div>
-                </div>
+          <DetailSection title="Settlement">
+            <div className="flex items-center gap-3 rounded-[10px] border border-line bg-paper-sunken p-4">
+              <Avatar name={friend.name} color={friend.color} size={44} />
+              <div>
+                <div className="text-[13.3px] font-semibold">{friend.name}</div>
+                <div className="text-[12px] text-ink-faint">{txn.direction === "receive" ? "Paid you back" : "You paid them back"}</div>
               </div>
-            </DetailSection>
-            <DetailSection title="Details">
-              <div className="rounded-[10px] border border-line bg-paper-sunken px-4">
-                <MetaRow icon={Landmark} label="Account" value={account?.name ?? "—"} />
-                <MetaRow icon={HandCoins} label="Direction" value={txn.direction === "receive" ? "Received from friend" : "Paid to friend"} />
-              </div>
-            </DetailSection>
-          </>
-        )}
-
-        {txn.type === "refund" && (
-          <DetailSection title="Details">
-            <div className="rounded-[10px] border border-line bg-paper-sunken px-4">
-              <MetaRow icon={Landmark} label="Refunded to" value={account?.name ?? "—"} />
-              <MetaRow icon={Tag} label="Category" value={category?.name ?? "—"} />
-              {refundOf.data && <MetaRow icon={TrendingDown} label="Original expense" value={`${refundOf.data.description} (${formatCurrency(refundOf.data.amount)})`} />}
-            </div>
-          </DetailSection>
-        )}
-
-        {txn.type === "adjustment" && (
-          <DetailSection title="Details">
-            <div className="rounded-[10px] border border-line bg-paper-sunken px-4">
-              <MetaRow icon={Landmark} label="Account" value={account?.name ?? "—"} />
-              <MetaRow icon={Scale} label="Direction" value={txn.direction === "increase" ? "Balance increased" : "Balance decreased"} />
-              <MetaRow icon={SlidersHorizontal} label="Posted against" value="Adjustments (system account)" />
-            </div>
-          </DetailSection>
-        )}
-
-        {(txn.type === "income" || txn.type === "expense") && (
-          <DetailSection title="Details">
-            <div className="rounded-[10px] border border-line bg-paper-sunken px-4">
-              <MetaRow icon={Tag} label="Category" value={category?.name ?? "—"} />
-              <MetaRow icon={Landmark} label={txn.type === "income" ? "Deposited to" : "Paid from"} value={account?.name ?? "—"} />
             </div>
           </DetailSection>
         )}
@@ -267,7 +249,7 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
           <DetailSection title="Tags">
             <div className="flex flex-wrap gap-1.5">
               {txn.tags.map((tag) => (
-                <Link key={tag} to={`/transactions?tag=${encodeURIComponent(tag)}`} className="rounded-full bg-paper-sunken px-2.5 py-0.5 text-[12.5px] text-ink-soft hover:text-ink">
+                <Link key={tag} to={`/transactions?tag=${encodeURIComponent(tag)}`} className="inline-flex min-h-8 items-center rounded-full bg-paper-sunken px-3 text-[12.5px] text-ink-soft hover:text-ink">
                   {tag}
                 </Link>
               ))}
@@ -297,20 +279,22 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
         )}
 
         <DetailSection title="Record">
-          <div className="rounded-[10px] border border-line bg-paper-sunken px-4">
-            <MetaRow icon={Calendar} label="Recorded" value={formatDate(txn.createdAt, "long")} />
-            {txn.correctionOf && <MetaRow icon={Edit} label="Replaces" value={`#${txn.correctionOf} (reversed by this correction)`} />}
-            {txn.updatedAt && txn.updatedAt !== txn.createdAt && <MetaRow icon={Edit} label="Last updated" value={formatDate(txn.updatedAt, "long")} />}
-            <MetaRow
-              icon={Check}
-              label="Status"
-              value={
-                txn.status === "reversed" ? (
-                  <span className="rounded-full bg-danger-soft px-2.5 py-0.5 text-[11.5px] font-semibold text-danger">Reversed</span>
-                ) : (
-                  <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-[11.5px] font-semibold text-accent">Posted</span>
-                )
-              }
+          <div className="rounded-[10px] border border-line bg-paper-sunken py-1">
+            <ReceiptRows
+              rows={[
+                { label: "Recorded", value: formatDate(txn.createdAt, "long") },
+                ...(txn.correctionOf ? [{ label: "Replaces", value: `#${txn.correctionOf} (reversed by this correction)` }] : []),
+                ...(txn.updatedAt && txn.updatedAt !== txn.createdAt ? [{ label: "Last updated", value: formatDate(txn.updatedAt, "long") }] : []),
+                {
+                  label: "Status",
+                  value:
+                    txn.status === "reversed" ? (
+                      <span className="rounded-full bg-danger-soft px-2.5 py-0.5 text-[11.5px] font-semibold text-danger">Reversed</span>
+                    ) : (
+                      <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-[11.5px] font-semibold text-accent">Posted</span>
+                    ),
+                },
+              ]}
             />
           </div>
         </DetailSection>
@@ -350,14 +334,6 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
   );
 }
 
-function Stat({ label, value, className }: { label: string; value: string; className?: string }) {
-  return (
-    <div className="rounded-[10px] border border-line p-3">
-      <div className="text-[11px] text-ink-faint">{label}</div>
-      <div className={`ledger-figure text-[17px] ${className ?? ""}`}>{value}</div>
-    </div>
-  );
-}
 
 function RefundForm({ original, open, onOpenChange, onDone }: { original: Transaction; open: boolean; onOpenChange: (o: boolean) => void; onDone: () => void }) {
   const createTxn = useCreateTransaction();

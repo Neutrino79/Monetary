@@ -68,6 +68,23 @@ describe('accounts', () => {
     expect(items[1]).toHaveTextContent('Salary')
   })
 
+  it('filters the activity to money in or out and groups it by day', async () => {
+    const user = userEvent.setup()
+    renderPage()
+    await user.click(await screen.findByRole('button', { name: 'HDFC activity' }))
+    const list = await screen.findByRole('list', { name: 'HDFC activity' })
+    expect(within(list).getAllByRole('listitem')).toHaveLength(2)
+    await user.click(screen.getByRole('button', { name: 'Out' }))
+    let items = within(screen.getByRole('list', { name: 'HDFC activity' })).getAllByRole('listitem')
+    expect(items).toHaveLength(1)
+    expect(items[0]).toHaveTextContent('Rent')
+    await user.click(screen.getByRole('button', { name: 'In' }))
+    items = within(screen.getByRole('list', { name: 'HDFC activity' })).getAllByRole('listitem')
+    expect(items).toHaveLength(1)
+    expect(items[0]).toHaveTextContent('Salary')
+    expect(screen.getByRole('img', { name: /balance over its recent activity/ })).toBeInTheDocument()
+  })
+
   it('reconciles with the bank balance the person types', async () => {
     const user = userEvent.setup()
     renderPage()
