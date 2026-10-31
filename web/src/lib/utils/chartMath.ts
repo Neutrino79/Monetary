@@ -26,3 +26,9 @@ export function bandPath(upper: { x: number; y: number }[], lower: { x: number; 
   const back = [...lower].reverse();
   return `${linePath(upper)} ${back.map((p) => `L${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ")} Z`;
 }
+
+/** How tall a chart readout is for this many rows, so a chart can leave room for it (title line, rows, and the
+ *  "Tap again to open" line on touch). Matches the dashboard's dark readout. */
+export function tipHeight(rows: number, touch = false): number {
+  return 16 + (rows + 1 + (touch ? 1 : 0)) * 17;
+}

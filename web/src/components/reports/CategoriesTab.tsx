@@ -42,13 +42,14 @@ function GrowthBubbles({ cats, kind, span }: { cats: CategoryTrend[]; kind: Cate
         <ChartTip
           x={x(on.sharePct)}
           width={width}
+          anchorY={y(cap(on.changePct!)) - (5 + 14 * Math.sqrt(on.average / maxAvg))}
+          touch={inspect.touch}
           title={on.name}
           rows={[
             { label: "Share of total", value: `${on.sharePct.toFixed(0)}%` },
             { label: "Average a month", value: formatCurrency(on.average) },
-            { label: "Against before", value: signedPct(on.changePct), tone: on.changePct === null || on.changePct === 0 ? undefined : (on.changePct > 0) === (kind === "income") ? "good" : "bad" },
+            { label: "Against before", value: signedPct(on.changePct) },
           ]}
-          note="Click to see its transactions."
         />
       )}
       <svg width={width} height={h} role="img" aria-label="Categories by share of spending and change against the earlier window">

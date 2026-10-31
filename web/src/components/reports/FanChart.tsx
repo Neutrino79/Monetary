@@ -38,14 +38,15 @@ export function FanChart({ o, scenario }: { o: Outlook; scenario: number[] | nul
         <ChartTip
           x={x(at)}
           width={width}
-          title={`${monthLong((hp ?? fp)!)} ${(hp ?? fp)!.year}${fp ? " (forecast)" : ""}`}
+          anchorY={y(hp ? hp.netWorth : fp!.high)}
+          touch={inspect.touch}
+          title={`${monthLong((hp ?? fp)!)} ${(hp ?? fp)!.year}${fp ? " \u00b7 forecast" : ""}`}
           rows={
             hp
               ? [{ label: "Net worth", value: formatCurrency(hp.netWorth) }]
               : [
                   { label: "Expected", value: formatCurrency(fp!.expected), color: "var(--accent)" },
-                  { label: "Likely low", value: formatCurrency(fp!.low) },
-                  { label: "Likely high", value: formatCurrency(fp!.high) },
+                  { label: "Likely", value: `${formatCompact(fp!.low)} \u2013 ${formatCompact(fp!.high)}` },
                   ...(scenario && scenario[fi] !== undefined ? [{ label: "With what-ifs", value: formatCurrency(scenario[fi]!), color: "var(--info)" }] : []),
                 ]
           }
@@ -62,7 +63,12 @@ export function FanChart({ o, scenario }: { o: Outlook; scenario: number[] | nul
         <path d={linePath(hist.map((p, i) => ({ x: hx(i), y: y(p.netWorth) })))} fill="none" stroke="var(--ink)" strokeWidth={2} strokeLinejoin="round" />
         <path d={linePath([...join, ...o.forecast.map((f, i) => ({ x: fx(i), y: y(f.expected) }))])} fill="none" stroke="var(--accent)" strokeWidth={2} strokeDasharray="6 4" />
         {scenario && <path d={linePath([...join, ...scenario.map((v, i) => ({ x: fx(i), y: y(v) }))])} fill="none" stroke="var(--info)" strokeWidth={2.2} />}
-        {at !== null && <line x1={x(at)} x2={x(at)} y1={m.t} y2={h - m.b} stroke="var(--ink-faint)" strokeDasharray="3 3" />}
+        {at !== null && (hp || fp) && (
+          <g pointerEvents="none">
+            <line x1={x(at)} x2={x(at)} y1={m.t} y2={h - m.b} stroke="var(--ink)" strokeOpacity={0.35} />
+            <circle cx={x(at)} cy={y(hp ? hp.netWorth : fp!.expected)} r={5.5} fill={hp ? "var(--ink)" : "var(--paper-raised)"} stroke={hp ? "var(--paper-raised)" : "var(--accent)"} strokeWidth={2.4} />
+          </g>
+        )}
         {Array.from({ length: n }, (_, i) => {
           const p = i < hist.length ? hist[i]! : o.forecast[i - hist.length]!;
           return (
