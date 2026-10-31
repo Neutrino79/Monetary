@@ -1,12 +1,12 @@
 import { Link } from "react-router-dom";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import type { Transaction } from "@/types";
 import { Drawer, ConfirmDialog, Modal } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { AmountInput, FormField, Textarea } from "@/components/ui/form";
 import { DatePicker } from "@/components/ui/DatePicker";
 import { Avatar } from "@/components/ui/primitives";
-import { AccountChip, TxnBadge, TxnAmount, TxnIconChip } from "./chips";
+import { AccountChip, CategoryChip, IncomeSourceChip, TxnBadge, TxnAmount, TxnIconChip } from "./chips";
 import { useAccounts, useCategories, useFriendBalances, useFriends, useIncomeSources, useTransaction, useTransactions } from "@/hooks/queries";
 import { ApiError } from "@/lib/api/errors";
 import { useDeleteTransaction, useCreateTransaction } from "@/hooks/mutations";
@@ -138,6 +138,9 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
   } else {
     rows.push({ label: "Category", value: category?.name ?? "—" }, { label: txn.type === "income" ? "Deposited to" : "Paid from", value: account?.name ?? "—" });
   }
+  const catRow = categories.find((c) => c.id === txn.categoryId);
+  const srcRow = incomeSources.find((c) => c.id === txn.categoryId);
+  const flowCategory = catRow ? { name: catRow.name, chip: <CategoryChip category={catRow} size={44} /> } : srcRow ? { name: srcRow.name, chip: <IncomeSourceChip source={srcRow} size={44} /> } : null;
   const canRefund = txn.type === "expense" && txn.status === "posted";
   return (
     <>
@@ -166,10 +169,11 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
         }
       >
         <div className="mb-5 overflow-hidden rounded-2xl border border-line bg-paper-sunken">
-          <div className="px-5 pb-5 pt-5">
-            <div className="text-[15px] font-semibold leading-snug">{txn.description}</div>
-            <div className="mt-1 text-[34px] leading-tight">
-              <TxnAmount txn={txn} className="text-[34px]" />
+          <div className="flex flex-col items-center px-5 pb-6 pt-6 text-center">
+            <TxnIconChip txn={txn} size={52} />
+            <div className="mt-3 max-w-full break-words text-[15px] font-semibold leading-snug">{txn.description}</div>
+            <div className="mt-1 leading-tight">
+              <TxnAmount txn={txn} className="text-[38px]" />
             </div>
             <div className="mt-3">
               <TxnBadge txn={txn} />
@@ -180,6 +184,22 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
             <ReceiptRows rows={rows} />
           </div>
         </div>
+
+        {(txn.type === "income" || txn.type === "expense") && account && (
+          <DetailSection title={txn.type === "income" ? "Where it came from" : "Where it went"}>
+            <div className="flex items-center gap-3 rounded-[10px] border border-line bg-paper-sunken p-4">
+              {[txn.type === "income" ? flowCategory : { name: account.name, chip: <AccountChip account={account} size={44} /> }, txn.type === "income" ? { name: account.name, chip: <AccountChip account={account} size={44} /> } : flowCategory].map((end, i) => (
+                <Fragment key={i}>
+                  {i === 1 && <div className="h-0.5 flex-1 bg-line-strong" />}
+                  <div className="flex flex-1 flex-col items-center gap-1.5 text-center text-[12px] text-ink-soft">
+                    {end?.chip ?? <span className="h-11 w-11 rounded-[10px] bg-line" />}
+                    <span className="max-w-full truncate">{end?.name ?? "Uncategorised"}</span>
+                  </div>
+                </Fragment>
+              ))}
+            </div>
+          </DetailSection>
+        )}
 
         {txn.type === "transfer" && account && toAccount && (
           <DetailSection title="Transfer">
