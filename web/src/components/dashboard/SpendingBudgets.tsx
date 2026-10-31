@@ -14,7 +14,7 @@ export function SpendingBudgets({ rows, month }: { rows: SpendRow[]; month: stri
         const fill = pct == null ? r.color : over ? "var(--negative)" : pct > 80 ? "var(--warn)" : "var(--accent)";
         const scale = r.budget ? r.budget * 1.25 : unbudgetedPeak;
         return (
-          <li key={r.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 text-[13.5px] sm:grid-cols-[8.5rem_minmax(0,1fr)_7.5rem]">
+          <li key={r.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1.5 text-body sm:grid-cols-[8.5rem_minmax(0,1fr)_7.5rem]">
             <Link to={`/expenses?category=${r.id}&month=${month}`} aria-label={`${r.name} expenses for ${month}`} className="flex min-w-0 items-center gap-2 hover:underline">
               <span aria-hidden className="h-2 w-2 flex-none rounded-full" style={{ background: r.color }} />
               <span className="truncate">{r.name}</span>
@@ -27,11 +27,11 @@ export function SpendingBudgets({ rows, month }: { rows: SpendRow[]; month: stri
             </span>
             <span className="order-2 text-right sm:order-none">
               <span className="ledger-figure text-[15px]">{formatCurrency(r.spent)}</span>
-              <span className={cn("block text-[11.5px] font-semibold", tone)}>
+              <span className={cn("block text-micro font-semibold", tone)}>
                 {r.budget == null ? "no limit" : over ? `over by ${formatCurrency(r.spent - r.budget)}` : `${Math.round(pct ?? 0)}% of limit`}
               </span>
             </span>
-            {r.notPaidBack > 0 && <span className="order-4 col-span-2 text-[11.5px] text-info sm:col-start-2 sm:col-span-2">{formatCurrency(r.notPaidBack)} paid by a friend, not repaid yet</span>}
+            {r.notPaidBack > 0 && <span className="order-4 col-span-2 text-micro text-info sm:col-start-2 sm:col-span-2">{formatCurrency(r.notPaidBack)} paid by a friend, not repaid yet</span>}
           </li>
         );
       })}

@@ -30,7 +30,7 @@ export function ReportsPage() {
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Reports & Trends</h1>
-          <p className="mt-1 text-[13.5px] text-ink-soft">What your money is doing, why, and where it is heading.</p>
+          <p className="mt-1 text-body text-ink-soft">What your money is doing, why, and where it is heading.</p>
         </div>
         <RangePicker value={range} onChange={(r) => set("range", r)} />
       </div>

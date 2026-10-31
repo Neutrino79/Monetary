@@ -52,18 +52,18 @@ export function RangeCalendar({
   return (
     <div>
       <div className="mb-1 flex items-center justify-between">
-        <button type="button" aria-label="Previous month" onClick={() => shift(-1)} className="rounded-[8px] p-1.5 hover:bg-paper-sunken">
+        <button type="button" aria-label="Previous month" onClick={() => shift(-1)} className="rounded-control p-1.5 hover:bg-paper-sunken">
           <ChevronLeft size={16} />
         </button>
-        <div className="text-[13.5px] font-semibold" aria-live="polite">
+        <div className="text-body font-semibold" aria-live="polite">
           {MONTH_NAMES[view.m]} {view.y}
         </div>
-        <button type="button" aria-label="Next month" disabled={!canNext} onClick={() => shift(1)} className="rounded-[8px] p-1.5 hover:bg-paper-sunken disabled:opacity-35">
+        <button type="button" aria-label="Next month" disabled={!canNext} onClick={() => shift(1)} className="rounded-control p-1.5 hover:bg-paper-sunken disabled:opacity-35">
           <ChevronRight size={16} />
         </button>
       </div>
       <div role="grid" aria-label={`${MONTH_NAMES[view.m]} ${view.y}`} onMouseLeave={() => setHover("")}>
-        <div role="row" className="grid grid-cols-7 text-center text-[11px] font-semibold text-ink-faint">
+        <div role="row" className="grid grid-cols-7 text-center text-micro font-semibold text-ink-faint">
           {WEEKDAYS.map((w) => (
             <div key={w} role="columnheader" className="py-1">
               {w}
@@ -103,7 +103,7 @@ export function RangeCalendar({
                     onMouseEnter={() => setHover(iso)}
                     onFocus={() => setHover(iso)}
                     className={cn(
-                      "absolute inset-x-0.5 inset-y-0.5 rounded-[8px] text-[13px] hover:bg-paper-sunken disabled:cursor-not-allowed disabled:text-ink-faint disabled:opacity-40 disabled:hover:bg-transparent",
+                      "absolute inset-x-0.5 inset-y-0.5 rounded-control text-body hover:bg-paper-sunken disabled:cursor-not-allowed disabled:text-ink-faint disabled:opacity-40 disabled:hover:bg-transparent",
                       iso === todayIso && !isEdge && "font-semibold text-accent",
                       inside && "hover:bg-accent/25",
                       isEdge && "bg-ink font-semibold text-paper hover:bg-ink dark:bg-accent dark:text-accent-ink",
@@ -118,7 +118,7 @@ export function RangeCalendar({
         ))}
       </div>
       <div className="mt-2 flex min-h-8 items-center justify-between border-t border-line pt-2">
-        <span className="text-[12px] text-ink-soft" aria-live="polite">
+        <span className="text-caption text-ink-soft" aria-live="polite">
           {hint}
         </span>
         {footerRight}

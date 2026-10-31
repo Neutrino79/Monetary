@@ -34,18 +34,18 @@ export function Topbar({
       <button
         onClick={onOpenMobileNav}
         aria-label="Open navigation"
-        className="hidden h-9 w-9 flex-none items-center justify-center rounded-[10px] border border-line bg-paper-raised max-[980px]:inline-flex"
+        className="hidden h-9 w-9 flex-none items-center justify-center rounded-control border border-line bg-paper-raised max-[980px]:inline-flex"
       >
         <Menu size={18} />
       </button>
       <span className="flex-none text-[18px] font-semibold max-[980px]:hidden">{navItem?.label ?? name}</span>
       <button
         onClick={onOpenCommandPalette}
-        className="flex max-w-105 flex-1 items-center gap-2 rounded-[10px] bg-paper-sunken px-3 py-2 text-ink-faint max-[640px]:hidden"
+        className="flex max-w-105 flex-1 items-center gap-2 rounded-control bg-paper-sunken px-3 py-2 text-ink-faint max-[640px]:hidden"
       >
         <Search size={15} />
-        <span className="flex-1 text-left text-[13.5px]">Search transactions, friends, accounts…</span>
-        <span className="rounded border border-line-strong px-1.5 py-0.5 text-[11px] text-ink-faint">⌘K</span>
+        <span className="flex-1 text-left text-body">Search transactions, friends, accounts…</span>
+        <span className="rounded border border-line-strong px-1.5 py-0.5 text-micro text-ink-faint">⌘K</span>
       </button>
       <span className="flex-1" />
       <div className="flex items-center gap-2">

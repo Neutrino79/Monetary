@@ -39,7 +39,7 @@ export function DateRangePicker({ from, to, onChange, max, id, placeholder = "Se
           id={id}
           aria-label={rest["aria-label"]}
           className={cn(
-            "flex w-full items-center justify-between gap-2 rounded-[10px] border border-line-strong bg-paper-raised px-3 py-2.5 text-left text-[13.3px] transition-colors focus:border-focus-ring focus:outline-none",
+            "flex w-full items-center justify-between gap-2 rounded-control border border-line-strong bg-paper-raised px-3 py-2.5 text-left text-body transition-colors focus:border-focus-ring focus:outline-none",
             hasValue ? "text-ink" : "text-ink-faint",
             className,
           )}
@@ -49,7 +49,7 @@ export function DateRangePicker({ from, to, onChange, max, id, placeholder = "Se
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content align="start" sideOffset={6} collisionPadding={12} className="z-[90] w-[18.5rem] max-w-[calc(100vw-1.5rem)] rounded-[14px] border border-line-strong bg-paper-raised p-3 shadow-xl">
+        <Popover.Content align="start" sideOffset={6} collisionPadding={12} className="z-[90] w-[18.5rem] max-w-[calc(100vw-1.5rem)] rounded-card border border-line-strong bg-paper-raised p-3 shadow-xl">
           <div className="mb-2 flex flex-wrap gap-1.5">
             {RANGE_PRESETS.map((p) => (
               <button
@@ -59,7 +59,7 @@ export function DateRangePicker({ from, to, onChange, max, id, placeholder = "Se
                   const r = p.range(limit);
                   commit(r.start, r.end);
                 }}
-                className="rounded-full border border-line-strong px-2.5 py-1 text-[12px] font-medium text-ink-soft hover:bg-paper-sunken hover:text-ink"
+                className="rounded-full border border-line-strong px-2.5 py-1 text-caption font-medium text-ink-soft hover:bg-paper-sunken hover:text-ink"
               >
                 {p.label}
               </button>
@@ -72,7 +72,7 @@ export function DateRangePicker({ from, to, onChange, max, id, placeholder = "Se
             onPick={(r) => commit(r.from, r.to)}
             footerRight={
               (from || to) && (
-                <button type="button" onClick={() => commit("", "")} className="rounded-[8px] px-2 py-1 text-[12.5px] font-semibold text-ink-soft hover:bg-paper-sunken">
+                <button type="button" onClick={() => commit("", "")} className="rounded-control px-2 py-1 text-caption font-semibold text-ink-soft hover:bg-paper-sunken">
                   Clear
                 </button>
               )

@@ -103,7 +103,7 @@ export function CategoriesPanel() {
         <Card className="p-2.5">
           <div className="mb-1.5 flex items-center gap-2 border-b border-line px-2.5 pb-2 pt-1">
             <Search size={14} className="shrink-0 text-ink-faint" aria-hidden />
-            <input aria-label="Search categories" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search categories" className="min-w-0 flex-1 bg-transparent text-[13px] placeholder:text-ink-faint focus:outline-none" />
+            <input aria-label="Search categories" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search categories" className="min-w-0 flex-1 bg-transparent text-body placeholder:text-ink-faint focus:outline-none" />
             <Button size="sm" onClick={() => setForm({ edit: null, parentId: null })}><Plus size={13} /> Add category</Button>
           </div>
           {shown.length === 0 ? (
@@ -118,14 +118,14 @@ export function CategoriesPanel() {
                 const on = c.id === selectedId;
                 return (
                   <li key={c.id}>
-                    <button type="button" onClick={() => setPicked(c.id)} aria-pressed={on} className={cn("flex min-h-[52px] w-full items-center gap-3 rounded-[12px] px-3 py-2 text-left hover:bg-paper-sunken", on && "bg-accent-soft hover:bg-accent-soft")}>
+                    <button type="button" onClick={() => setPicked(c.id)} aria-pressed={on} className={cn("flex min-h-[52px] w-full items-center gap-3 rounded-card px-3 py-2 text-left hover:bg-paper-sunken", on && "bg-accent-soft hover:bg-accent-soft")}>
                       <span aria-hidden className="h-3 w-3 shrink-0 rounded-[4px]" style={{ background: c.color }} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[14px] font-semibold">{c.name}</span>
-                        <span className="block text-[12px] text-ink-faint">{kids === 0 ? "Top level only" : `${kids} subcategor${kids === 1 ? "y" : "ies"}`}</span>
+                        <span className="block text-caption text-ink-faint">{kids === 0 ? "Top level only" : `${kids} subcategor${kids === 1 ? "y" : "ies"}`}</span>
                       </span>
                       <span className="w-[76px] shrink-0 text-right">
-                        <span className="block text-[12.5px] font-semibold tabular-nums">{limit === null ? "No budget" : formatCurrency(limit)}</span>
+                        <span className="block text-caption font-semibold tabular-nums">{limit === null ? "No budget" : formatCurrency(limit)}</span>
                         <span className="mt-1 block h-[5px] overflow-hidden rounded-full bg-paper-sunken">
                           <span className="block h-full" style={{ width: `${Math.min(100, pct)}%`, background: pct > 100 ? "var(--negative)" : pct > 80 ? "var(--warn)" : "var(--accent)" }} />
                         </span>

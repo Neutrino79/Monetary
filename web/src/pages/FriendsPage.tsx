@@ -51,7 +51,7 @@ export function FriendsPage() {
         <Skeleton className="mb-6 h-7 w-40" />
         <div className="grid grid-cols-3 gap-4 max-[900px]:grid-cols-1">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-40 rounded-2xl" />
+            <Skeleton key={i} className="h-40 rounded-card" />
           ))}
         </div>
       </div>
@@ -63,7 +63,7 @@ export function FriendsPage() {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Friends</h1>
-          <p className="mt-1 text-[13.5px] text-ink-soft">People you split expenses with, and your net position with each.</p>
+          <p className="mt-1 text-body text-ink-soft">People you split expenses with, and your net position with each.</p>
         </div>
         <Button onClick={() => setAddOpen(true)}>
           <Plus size={15} /> Add friend
@@ -88,31 +88,31 @@ export function FriendsPage() {
                     <Avatar name={f.name} color={f.color} size={40} />
                     <div className="min-w-0">
                       <div className="truncate text-[14px] font-semibold">{f.name}</div>
-                      <div className="flex items-center gap-1 truncate text-[11.5px] text-ink-faint">
+                      <div className="flex items-center gap-1 truncate text-micro text-ink-faint">
                         <Mail size={11} /> {f.email}
                       </div>
                       {f.phone && (
-                        <div className="flex items-center gap-1 truncate text-[11.5px] text-ink-faint">
+                        <div className="flex items-center gap-1 truncate text-micro text-ink-faint">
                           <Phone size={11} /> {f.phone}
                         </div>
                       )}
                     </div>
                   </div>
                   <div className="flex gap-1">
-                    <button aria-label="Edit friend" onClick={() => setEditingFriend(f)} className="rounded-[8px] p-1.5 text-ink-faint hover:bg-paper-sunken hover:text-ink">
+                    <button aria-label="Edit friend" onClick={() => setEditingFriend(f)} className="rounded-control p-1.5 text-ink-faint hover:bg-paper-sunken hover:text-ink">
                       <Pencil size={14} />
                     </button>
-                    <button aria-label="Delete friend" onClick={() => setDeletingFriend(f)} className="rounded-[8px] p-1.5 text-ink-faint hover:bg-danger-soft hover:text-danger">
+                    <button aria-label="Delete friend" onClick={() => setDeletingFriend(f)} className="rounded-control p-1.5 text-ink-faint hover:bg-danger-soft hover:text-danger">
                       <Trash2 size={14} />
                     </button>
                   </div>
                 </div>
 
-                <div className="rounded-[10px] bg-paper-sunken p-3">
-                  <div className="text-[11px] text-ink-faint">{bal === 0 ? "Settled up" : bal > 0 ? "Owes you" : "You owe"}</div>
+                <div className="rounded-control bg-paper-sunken p-3">
+                  <div className="text-micro text-ink-faint">{bal === 0 ? "Settled up" : bal > 0 ? "Owes you" : "You owe"}</div>
                   <div className={`ledger-figure text-[18px] ${bal > 0 ? "text-accent" : bal < 0 ? "text-negative" : ""}`}>{formatCurrency(Math.abs(bal), true)}</div>
                   {pending > 0 && (
-                    <div className="mt-1.5 inline-flex items-center rounded-full bg-info-soft px-2 py-0.5 text-[11.5px] font-semibold text-info">
+                    <div className="mt-1.5 inline-flex items-center rounded-full bg-info-soft px-2 py-0.5 text-micro font-semibold text-info">
                       Paid for you, not paid back: {formatCurrency(pending, true)}
                     </div>
                   )}

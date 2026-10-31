@@ -21,7 +21,7 @@ export function Modal({ open, onOpenChange, title, subtitle, children, footer, s
         <Dialog.Overlay className="fixed inset-0 z-[80] bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out" />
         <Dialog.Content
           className={cn(
-            "fixed left-1/2 top-1/2 z-[81] w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-paper-raised shadow-2xl flex flex-col max-h-[92vh]",
+            "fixed left-1/2 top-1/2 z-[81] w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-card bg-paper-raised shadow-2xl flex flex-col max-h-[92vh]",
             "data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95",
             sizeClass,
           )}
@@ -29,7 +29,7 @@ export function Modal({ open, onOpenChange, title, subtitle, children, footer, s
           <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
             <div>
               <Dialog.Title className="text-[17px] font-semibold text-ink">{title}</Dialog.Title>
-              {subtitle && <Dialog.Description className="mt-0.5 text-[12.5px] text-ink-faint">{subtitle}</Dialog.Description>}
+              {subtitle && <Dialog.Description className="mt-0.5 text-caption text-ink-faint">{subtitle}</Dialog.Description>}
             </div>
             <Dialog.Close asChild>
               <IconButton aria-label="Close">
@@ -75,10 +75,10 @@ export function Drawer({ open, onOpenChange, title, subtitle, eyebrow, hideTitle
           </div>
           <div className={cn("flex items-start justify-between gap-3 px-5 pb-3 pt-2 sm:pt-4", !hero && "border-b border-line")}>
             <div className="min-w-0">
-              {eyebrow && <div className="text-[11.5px] font-bold uppercase tracking-wide text-ink-faint">{eyebrow}</div>}
+              {eyebrow && <div className="text-micro font-bold uppercase tracking-wide text-ink-faint">{eyebrow}</div>}
               <Dialog.Title className={cn("text-[17px] font-semibold text-ink", hideTitle && "sr-only")}>{title}</Dialog.Title>
               {subtitle ? (
-                <Dialog.Description className="mt-0.5 text-[12.5px] text-ink-faint">{subtitle}</Dialog.Description>
+                <Dialog.Description className="mt-0.5 text-caption text-ink-faint">{subtitle}</Dialog.Description>
               ) : (
                 <Dialog.Description className="sr-only">{title}</Dialog.Description>
               )}
@@ -126,7 +126,7 @@ export function ConfirmDialog({
       footer={
         <>
           <Dialog.Close asChild>
-            <button className="rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold text-ink-soft hover:bg-paper-sunken">Cancel</button>
+            <button className="rounded-control px-4 py-2.5 text-body font-semibold text-ink-soft hover:bg-paper-sunken">Cancel</button>
           </Dialog.Close>
           <button
             onClick={() => {
@@ -134,7 +134,7 @@ export function ConfirmDialog({
               onOpenChange(false);
             }}
             className={cn(
-              "rounded-[10px] px-4 py-2.5 text-[13.5px] font-semibold text-white",
+              "rounded-control px-4 py-2.5 text-body font-semibold text-white",
               variant === "danger" ? "bg-danger hover:opacity-90" : "bg-ink hover:opacity-90",
             )}
           >

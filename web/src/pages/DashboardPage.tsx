@@ -79,7 +79,7 @@ export function DashboardPage() {
       <div className="mb-5 flex flex-wrap items-end justify-between gap-x-4 gap-y-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-semibold">Good to see you, {(user?.name ?? "there").split(" ")[0]}</h1>
-          <p className="mt-1 text-[13.5px] text-ink-soft">Here's where things stand for {monthLabel}.</p>
+          <p className="mt-1 text-body text-ink-soft">Here's where things stand for {monthLabel}.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <MonthStepper value={month} max={currentMonth} onChange={setMonth} />
@@ -92,23 +92,23 @@ export function DashboardPage() {
       {firstTime ? (
         <Card className="mx-auto mt-6 max-w-lg text-center">
           <div className="mb-1 text-[16px] font-semibold">Nothing here yet</div>
-          <p className="mb-4 text-[13.5px] text-ink-soft">Add your first transaction and this page will start showing where your money goes, and how the month is pacing.</p>
+          <p className="mb-4 text-body text-ink-soft">Add your first transaction and this page will start showing where your money goes, and how the month is pacing.</p>
           <Button onClick={() => setAddOpen(true)}><Plus size={15} /> Add your first transaction</Button>
         </Card>
       ) : (
         <div className="flex flex-col gap-5">
           <section aria-label="This month">
-            <div className="grid grid-cols-3 divide-x divide-line overflow-hidden rounded-2xl border border-line bg-paper-raised">
+            <div className="grid grid-cols-3 divide-x divide-line overflow-hidden rounded-card border border-line bg-paper-raised">
               {kpis.map((k) => (
                 <div key={k.label} className="min-w-0 px-3 py-3.5 sm:px-5 sm:py-4">
-                  <div className="text-[12px] text-ink-soft sm:text-[12.5px]">{k.label}</div>
+                  <div className="text-caption text-ink-soft sm:text-caption">{k.label}</div>
                   <div className={cn("ledger-figure truncate text-[18px] sm:text-[24px]", k.cls)}>{formatCurrency(k.value)}</div>
                   <div className="hidden sm:block"><VsLastMonth current={k.label === "Overspent" ? -k.value : k.value} previous={k.prev} previousMonth={previousMonth} upIsGood={k.upIsGood} /></div>
                 </div>
               ))}
             </div>
             {savedPct !== null && (
-              <p className="mt-2 px-1 text-[12.5px] text-ink-soft" data-testid="savings-line">
+              <p className="mt-2 px-1 text-caption text-ink-soft" data-testid="savings-line">
                 {netFlow >= 0 ? `${formatCurrency(netFlow)} saved, ${savedPct}% of income` : `Spent ${formatCurrency(-netFlow)} more than came in`}
               </p>
             )}
@@ -118,8 +118,8 @@ export function DashboardPage() {
             <Card className="min-w-0">
               {noSpend || !paceData ? (
                 <div>
-                  <h2 className="text-[14.5px] font-semibold">Spending pace</h2>
-                  <p className="mt-1 text-[13px] text-ink-soft">{pace.isLoading ? "Loading\u2026" : `Nothing spent in ${monthLabel} yet.`}</p>
+                  <h2 className="text-lead font-semibold">Spending pace</h2>
+                  <p className="mt-1 text-body text-ink-soft">{pace.isLoading ? "Loading\u2026" : `Nothing spent in ${monthLabel} yet.`}</p>
                   {paceData && paceData.budgetTotal == null && <SetBudgetHint />}
                 </div>
               ) : (
@@ -131,8 +131,8 @@ export function DashboardPage() {
             </Card>
             {donutRows.length > 0 && (
               <Card className="min-w-0">
-                <h2 className="text-[14.5px] font-semibold">Where it went</h2>
-                <p className="mb-3 text-[12.5px] text-ink-soft">Spending by category</p>
+                <h2 className="text-lead font-semibold">Where it went</h2>
+                <p className="mb-3 text-caption text-ink-soft">Spending by category</p>
                 <SpendDonut rows={donutRows} total={expenses} month={month} />
               </Card>
             )}
@@ -142,16 +142,16 @@ export function DashboardPage() {
             <div className={cn("grid gap-5", hasHistory && spendRows.length > 0 ? "md:grid-cols-2" : "")}>
               {hasHistory && (
                 <Card className="min-w-0">
-                  <h2 className="text-[14.5px] font-semibold">Last six months</h2>
-                  <p className="mb-1 text-[12.5px] text-ink-soft">Money in against money out</p>
+                  <h2 className="text-lead font-semibold">Last six months</h2>
+                  <p className="mb-1 text-caption text-ink-soft">Money in against money out</p>
                   <MonthlyBars points={buckets} />
                 </Card>
               )}
               {spendRows.length > 0 && (
                 <Card className="min-w-0">
                   <div className="mb-4 flex items-baseline justify-between gap-2">
-                    <h2 className="text-[14.5px] font-semibold">Spending and budgets</h2>
-                    <Link to="/categories" className="text-[12.5px] font-semibold text-ink-soft hover:text-ink">Manage budgets</Link>
+                    <h2 className="text-lead font-semibold">Spending and budgets</h2>
+                    <Link to="/categories" className="text-caption font-semibold text-ink-soft hover:text-ink">Manage budgets</Link>
                   </div>
                   <SpendingBudgets rows={spendRows} month={month} />
                 </Card>
@@ -164,8 +164,8 @@ export function DashboardPage() {
               {recent.length > 0 && (
                 <Card className="min-w-0">
                   <div className="mb-2 flex items-center justify-between">
-                    <h2 className="text-[14.5px] font-semibold">Recent activity</h2>
-                    <Link to="/transactions" className="flex items-center gap-1 text-[12.5px] font-semibold text-ink-soft hover:text-ink">
+                    <h2 className="text-lead font-semibold">Recent activity</h2>
+                    <Link to="/transactions" className="flex items-center gap-1 text-caption font-semibold text-ink-soft hover:text-ink">
                       View all <ChevronRight size={14} />
                     </Link>
                   </div>
@@ -175,12 +175,12 @@ export function DashboardPage() {
                       <button key={t.id} onClick={() => setSelectedTxn(t)} className="flex w-full items-center gap-3 border-b border-line py-3 text-left last:border-b-0">
                         <TxnIconChip txn={t} />
                         <div className="min-w-0 flex-1">
-                          <div className="truncate text-[13.3px] font-semibold">{t.description}</div>
-                          <div className="truncate text-[12px] text-ink-faint">
+                          <div className="truncate text-body font-semibold">{t.description}</div>
+                          <div className="truncate text-caption text-ink-faint">
                             {formatDate(t.date, "short")} {account ? `\u00b7 ${account.name}` : ""}
                           </div>
                         </div>
-                        <TxnAmount txn={t} className="text-[14.5px] font-semibold" />
+                        <TxnAmount txn={t} className="text-lead font-semibold" />
                       </button>
                     );
                   })}
@@ -190,15 +190,15 @@ export function DashboardPage() {
                 <div className="flex min-w-0 flex-col gap-5">
                   {attention.length > 0 && (
                     <Card>
-                      <h2 className="text-[14.5px] font-semibold">Needs your attention</h2>
+                      <h2 className="text-lead font-semibold">Needs your attention</h2>
                       <ul className="mt-1 divide-y divide-line">
                         {attention.map((i) => {
                           const body = (
                             <>
                               {i.level === "warn" ? <AlertTriangle size={16} aria-hidden className="mt-0.5 flex-none text-danger" /> : <Info size={16} aria-hidden className="mt-0.5 flex-none text-info" />}
                               <span className="min-w-0">
-                                <span className="block text-[13.3px] font-semibold">{i.title}</span>
-                                {i.detail && <span className="block text-[12px] text-ink-soft">{i.detail}</span>}
+                                <span className="block text-body font-semibold">{i.title}</span>
+                                {i.detail && <span className="block text-caption text-ink-soft">{i.detail}</span>}
                               </span>
                             </>
                           );
@@ -213,8 +213,8 @@ export function DashboardPage() {
                   )}
                   {hasSplits && (
                     <Card>
-                      <h2 className="text-[14.5px] font-semibold">Splits & dues</h2>
-                      <div className="mb-2.5 text-[12.5px] text-ink-faint">Net position with friends</div>
+                      <h2 className="text-lead font-semibold">Splits & dues</h2>
+                      <div className="mb-2.5 text-caption text-ink-faint">Net position with friends</div>
                       <div className="flex items-center justify-between border-b border-dashed border-line py-3">
                         <span className="text-ink-soft">Owed to you</span>
                         <span className="ledger-figure text-accent">{formatCurrency(owedToYou)}</span>
@@ -223,7 +223,7 @@ export function DashboardPage() {
                         <span className="text-ink-soft">You owe</span>
                         <span className="ledger-figure text-negative">{formatCurrency(youOwe)}</span>
                       </div>
-                      <Link to="/friends" className="mt-2 flex items-center justify-center gap-1 rounded-[10px] py-2 text-center text-[12.5px] font-semibold text-ink-soft hover:bg-paper-sunken">
+                      <Link to="/friends" className="mt-2 flex items-center justify-center gap-1 rounded-control py-2 text-center text-caption font-semibold text-ink-soft hover:bg-paper-sunken">
                         View friends <ChevronRight size={13} />
                       </Link>
                     </Card>
@@ -247,10 +247,10 @@ function DashboardSkeleton() {
       <Skeleton className="mb-6 h-7 w-45" />
       <div className="mb-5 grid grid-cols-4 gap-5 max-[640px]:grid-cols-1">
         {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-24 rounded-2xl" />
+          <Skeleton key={i} className="h-24 rounded-card" />
         ))}
       </div>
-      <Skeleton className="h-65 rounded-2xl" />
+      <Skeleton className="h-65 rounded-card" />
     </div>
   );
 }
@@ -259,7 +259,7 @@ function DashboardError({ message, onRetry }: { message: string; onRetry: () => 
   return (
     <Card className="mx-auto mt-10 max-w-md text-center">
       <div className="mb-1 text-[15px] font-semibold">Couldn't load your dashboard</div>
-      <p className="mb-4 text-[13px] text-ink-faint">{message || `Please try again, or contact ${appConfig.supportEmail}.`}</p>
+      <p className="mb-4 text-body text-ink-faint">{message || `Please try again, or contact ${appConfig.supportEmail}.`}</p>
       <Button onClick={onRetry}>Try again</Button>
     </Card>
   );

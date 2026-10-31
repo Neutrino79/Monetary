@@ -46,7 +46,7 @@ export function CommandPalette({ open, onOpenChange, onAddTransaction }: { open:
     >
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[80] bg-black/50" />
-        <Dialog.Content className="fixed left-1/2 top-1/2 z-[81] w-[92vw] max-w-140 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl bg-paper-raised shadow-2xl">
+        <Dialog.Content className="fixed left-1/2 top-1/2 z-[81] w-[92vw] max-w-140 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-card bg-paper-raised shadow-2xl">
           <Dialog.Title className="sr-only">Command palette</Dialog.Title>
           <div className="flex items-center gap-3 border-b border-line px-5 py-4">
             <Search size={16} className="text-ink-faint" />
@@ -68,15 +68,15 @@ export function CommandPalette({ open, onOpenChange, onAddTransaction }: { open:
                     onOpenChange(false);
                     setQuery("");
                   }}
-                  className={cn("flex w-full items-center gap-3 rounded-[10px] px-3 py-3 text-left text-[13.5px] hover:bg-paper-sunken", idx === 0 && "bg-paper-sunken")}
+                  className={cn("flex w-full items-center gap-3 rounded-control px-3 py-3 text-left text-body hover:bg-paper-sunken", idx === 0 && "bg-paper-sunken")}
                 >
                   {item.icon}
                   <span>{item.label}</span>
-                  <span className="ml-auto text-[11.5px] text-ink-faint">{item.hint}</span>
+                  <span className="ml-auto text-micro text-ink-faint">{item.hint}</span>
                 </button>
               ))
             ) : (
-              <div className="px-3 py-8 text-center text-[13px] text-ink-faint">No matches</div>
+              <div className="px-3 py-8 text-center text-body text-ink-faint">No matches</div>
             )}
           </div>
         </Dialog.Content>

@@ -20,7 +20,7 @@ export function IncomeSourceChip({ source, size = 38 }: { source: IncomeSource; 
 export function TxnIconChip({ txn, size = 38 }: { txn: Transaction; size?: number }) {
   const meta = TXN_TYPE_META[txn.type];
   return (
-    <span className="inline-flex flex-none items-center justify-center rounded-[10px]" style={{ width: size, height: size, background: meta.bgVar, color: meta.colorVar }}>
+    <span className="inline-flex flex-none items-center justify-center rounded-control" style={{ width: size, height: size, background: meta.bgVar, color: meta.colorVar }}>
       <meta.icon size={Math.round(size * 0.46)} />
     </span>
   );
@@ -37,7 +37,7 @@ export function TxnAmount({ txn, className }: { txn: Transaction; className?: st
   return (
     <span className="inline-flex flex-col items-end">
       <span className={cn("ledger-figure", display.className, className)}>{display.text}</span>
-      <span className="text-[11.5px] font-normal text-ink-faint">{display.sub}</span>
+      <span className="text-micro font-normal text-ink-faint">{display.sub}</span>
     </span>
   );
 }

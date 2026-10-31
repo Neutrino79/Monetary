@@ -15,11 +15,11 @@ function Kpi({ label, value, delta, goodWhenUp, series, previous, color }: { lab
   const down = delta?.startsWith("−");
   const tone = goodWhenUp === null || (!up && !down) ? "text-ink-faint" : (up === goodWhenUp ? "text-accent" : "text-negative");
   return (
-    <div className="min-w-0 rounded-[12px] border border-line bg-paper-raised p-3.5">
-      <div className="text-[12px] text-ink-faint">{label}</div>
+    <div className="min-w-0 rounded-card border border-line bg-paper-raised p-3.5">
+      <div className="text-caption text-ink-faint">{label}</div>
       <div className="mt-1 truncate text-[19px] font-semibold tabular-nums">{value}</div>
       <div className="mt-1 flex items-end justify-between gap-2">
-        <span className={cn("text-[12px] font-medium", tone)}>{delta ? `${delta} vs before` : "no earlier data"}</span>
+        <span className={cn("text-caption font-medium", tone)}>{delta ? `${delta} vs before` : "no earlier data"}</span>
         <Sparkline values={series} previous={previous} color={color} width={64} height={24} />
       </div>
     </div>
@@ -53,18 +53,18 @@ function BestWorst({ months }: { months: OverviewMonth[] }) {
   const best = sorted.slice(0, 2);
   const worst = sorted.slice(-2).reverse();
   const Row = ({ m }: { m: OverviewMonth }) => (
-    <li className="flex items-center justify-between py-1.5 text-[13px]">
+    <li className="flex items-center justify-between py-1.5 text-body">
       <span>{monthLong(m)} {m.year}</span>
       <span className={cn("font-medium tabular-nums", m.net < 0 ? "text-negative" : "text-accent")}>{formatCurrency(m.net)}</span>
     </li>
   );
   return (
     <Card>
-      <div className="text-[14.5px] font-semibold">Best and worst months</div>
-      <div className="mb-2 text-[12.5px] text-ink-faint">By what you kept, complete months only.</div>
+      <div className="text-lead font-semibold">Best and worst months</div>
+      <div className="mb-2 text-caption text-ink-faint">By what you kept, complete months only.</div>
       <div className="grid gap-x-8 sm:grid-cols-2">
-        <div><div className="text-[12px] font-semibold text-ink-soft">Kept the most</div><ul>{best.map((m) => <Row key={`${m.year}${m.month}`} m={m} />)}</ul></div>
-        <div><div className="text-[12px] font-semibold text-ink-soft">Kept the least</div><ul>{worst.map((m) => <Row key={`${m.year}${m.month}`} m={m} />)}</ul></div>
+        <div><div className="text-caption font-semibold text-ink-soft">Kept the most</div><ul>{best.map((m) => <Row key={`${m.year}${m.month}`} m={m} />)}</ul></div>
+        <div><div className="text-caption font-semibold text-ink-soft">Kept the least</div><ul>{worst.map((m) => <Row key={`${m.year}${m.month}`} m={m} />)}</ul></div>
       </div>
     </Card>
   );
@@ -80,13 +80,13 @@ export function OverviewTab({ months }: { months: number }) {
     <div className="space-y-5">
       <Kpis o={o} />
       <Card>
-        <div className="text-[14.5px] font-semibold">Money in and out</div>
-        <div className="mb-3 text-[12.5px] text-ink-faint">Each month against a 3-month rolling average of spending.</div>
+        <div className="text-lead font-semibold">Money in and out</div>
+        <div className="mb-3 text-caption text-ink-faint">Each month against a 3-month rolling average of spending.</div>
         <CashflowChart points={o.points} />
       </Card>
       {o.findings.length > 0 && (
         <Card>
-          <div className="mb-2 text-[14.5px] font-semibold">What the numbers say</div>
+          <div className="mb-2 text-lead font-semibold">What the numbers say</div>
           <ul className="divide-y divide-dashed divide-line">
             {o.findings.map((f, i) => {
               const t = findingText(f);
@@ -94,11 +94,11 @@ export function OverviewTab({ months }: { months: number }) {
                 <li key={i} className="flex gap-3 py-2.5">
                   <span aria-hidden className={cn("mt-1.5 h-2 w-2 shrink-0 rounded-full", f.tone === "good" ? "bg-accent" : f.tone === "watch" ? "bg-warn" : "bg-ink-faint")} />
                   <div>
-                    <div className="text-[13.5px] font-medium">{t.title}</div>
-                    <div className="text-[12.5px] text-ink-soft">{t.body}</div>
+                    <div className="text-body font-medium">{t.title}</div>
+                    <div className="text-caption text-ink-soft">{t.body}</div>
                     {f.code === "unusual_months" && (
                       <div className="mt-1 flex flex-wrap gap-2">
-                        {f.flagged.map((m) => <Link key={monthKey(m)} to={monthLink(monthKey(m))} className="rounded-full border border-line px-2.5 py-0.5 text-[12px] font-medium text-accent hover:bg-paper-sunken">See {monthLong(m)}'s transactions</Link>)}
+                        {f.flagged.map((m) => <Link key={monthKey(m)} to={monthLink(monthKey(m))} className="rounded-full border border-line px-2.5 py-0.5 text-caption font-medium text-accent hover:bg-paper-sunken">See {monthLong(m)}'s transactions</Link>)}
                       </div>
                     )}
                   </div>
@@ -110,15 +110,15 @@ export function OverviewTab({ months }: { months: number }) {
       )}
       {o.netWorth.length > 1 && (
         <Card>
-          <div className="text-[14.5px] font-semibold">Net worth</div>
-          <div className="mb-3 text-[12.5px] text-ink-faint">What you own minus what you owe, at each month end.</div>
+          <div className="text-lead font-semibold">Net worth</div>
+          <div className="mb-3 text-caption text-ink-faint">What you own minus what you owe, at each month end.</div>
           <NetWorthChart points={o.netWorth} />
         </Card>
       )}
       {o.incomeSources.length > 0 && (
         <Card>
-          <div className="text-[14.5px] font-semibold">Where income comes from</div>
-          <div className="mb-3 text-[12.5px] text-ink-faint">Stacked by source.</div>
+          <div className="text-lead font-semibold">Where income comes from</div>
+          <div className="mb-3 text-caption text-ink-faint">Stacked by source.</div>
           <IncomeMixChart months={o.points} sources={o.incomeSources} />
         </Card>
       )}

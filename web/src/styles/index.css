@@ -134,6 +134,16 @@
   --radius-lg: 1rem;
   --radius-xl: 1.25rem;
 
+  /* Type scale: four sizes for everything smaller than a heading. */
+  --text-micro: 11.5px; /* badges, tiny labels */
+  --text-caption: 12.5px; /* secondary text, hints, table meta */
+  --text-body: 13.5px; /* default control and row text */
+  --text-lead: 14.5px; /* card titles, emphasised rows */
+
+  /* Corner scale: controls (buttons, inputs, chips) and cards/panels. */
+  --radius-control: 10px;
+  --radius-card: 16px;
+
   --sidebar-width: 15.25rem;
   --sidebar-width-collapsed: 4.75rem;
   --topbar-height: 4rem;

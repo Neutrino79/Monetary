@@ -117,7 +117,7 @@ export function CategoryForm({
           </FormField>
         )}
         <FormField label="Color">
-          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-10 w-full rounded-[10px] border border-line-strong bg-paper-raised" />
+          <input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-10 w-full rounded-control border border-line-strong bg-paper-raised" />
         </FormField>
       </div>
     </Modal>

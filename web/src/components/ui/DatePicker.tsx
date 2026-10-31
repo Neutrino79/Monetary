@@ -56,7 +56,7 @@ export function DatePicker({ value, onChange, min, max, id, placeholder = "Pick 
           id={id}
           aria-label={rest["aria-label"]}
           className={cn(
-            "flex w-full items-center justify-between gap-2 rounded-[10px] border border-line-strong bg-paper-raised px-3 py-2.5 text-left text-[13.3px] transition-colors focus:border-focus-ring focus:outline-none",
+            "flex w-full items-center justify-between gap-2 rounded-control border border-line-strong bg-paper-raised px-3 py-2.5 text-left text-body transition-colors focus:border-focus-ring focus:outline-none",
             value ? "text-ink" : "text-ink-faint",
             className,
           )}
@@ -66,20 +66,20 @@ export function DatePicker({ value, onChange, min, max, id, placeholder = "Pick 
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content align="start" sideOffset={6} collisionPadding={12} className="z-[90] w-[17.5rem] rounded-[14px] border border-line-strong bg-paper-raised p-3 shadow-xl">
+        <Popover.Content align="start" sideOffset={6} collisionPadding={12} className="z-[90] w-[17.5rem] rounded-card border border-line-strong bg-paper-raised p-3 shadow-xl">
           <div className="mb-2 flex items-center justify-between">
-            <button type="button" aria-label="Previous month" disabled={!canPrev} onClick={() => shift(-1)} className="rounded-[8px] p-1.5 hover:bg-paper-sunken disabled:opacity-35">
+            <button type="button" aria-label="Previous month" disabled={!canPrev} onClick={() => shift(-1)} className="rounded-control p-1.5 hover:bg-paper-sunken disabled:opacity-35">
               <ChevronLeft size={16} />
             </button>
-            <div className="text-[13.5px] font-semibold" aria-live="polite">
+            <div className="text-body font-semibold" aria-live="polite">
               {MONTH_NAMES[view.m]} {view.y}
             </div>
-            <button type="button" aria-label="Next month" disabled={!canNext} onClick={() => shift(1)} className="rounded-[8px] p-1.5 hover:bg-paper-sunken disabled:opacity-35">
+            <button type="button" aria-label="Next month" disabled={!canNext} onClick={() => shift(1)} className="rounded-control p-1.5 hover:bg-paper-sunken disabled:opacity-35">
               <ChevronRight size={16} />
             </button>
           </div>
           <div role="grid" aria-label={`${MONTH_NAMES[view.m]} ${view.y}`}>
-            <div role="row" className="grid grid-cols-7 text-center text-[11px] font-semibold text-ink-faint">
+            <div role="row" className="grid grid-cols-7 text-center text-micro font-semibold text-ink-faint">
               {WEEKDAYS.map((w) => (
                 <div key={w} role="columnheader" className="py-1">
                   {w}
@@ -99,7 +99,7 @@ export function DatePicker({ value, onChange, min, max, id, placeholder = "Pick 
                       disabled={disabled(iso)}
                       onClick={() => pick(iso)}
                       className={cn(
-                        "m-0.5 h-8 rounded-[8px] text-[13px] hover:bg-paper-sunken disabled:cursor-not-allowed disabled:text-ink-faint disabled:opacity-40 disabled:hover:bg-transparent",
+                        "m-0.5 h-8 rounded-control text-body hover:bg-paper-sunken disabled:cursor-not-allowed disabled:text-ink-faint disabled:opacity-40 disabled:hover:bg-transparent",
                         iso === todayIso && iso !== value && "font-semibold text-accent",
                         iso === value && "bg-ink font-semibold text-paper hover:bg-ink dark:bg-accent dark:text-accent-ink",
                       )}
@@ -114,11 +114,11 @@ export function DatePicker({ value, onChange, min, max, id, placeholder = "Pick 
             ))}
           </div>
           <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
-            <button type="button" disabled={disabled(todayIso)} onClick={() => pick(todayIso)} className="rounded-[8px] px-2 py-1 text-[12.5px] font-semibold text-accent hover:bg-paper-sunken disabled:opacity-40">
+            <button type="button" disabled={disabled(todayIso)} onClick={() => pick(todayIso)} className="rounded-control px-2 py-1 text-caption font-semibold text-accent hover:bg-paper-sunken disabled:opacity-40">
               Today
             </button>
             {clearable && value && (
-              <button type="button" onClick={() => pick("")} className="rounded-[8px] px-2 py-1 text-[12.5px] font-semibold text-ink-soft hover:bg-paper-sunken">
+              <button type="button" onClick={() => pick("")} className="rounded-control px-2 py-1 text-caption font-semibold text-ink-soft hover:bg-paper-sunken">
                 Clear
               </button>
             )}

@@ -13,11 +13,11 @@ import { RangeCalendar } from "@/components/ui/RangeCalendar";
  */
 
 const segment =
-  "flex items-center gap-2 px-3.5 text-[13.5px] font-medium text-ink transition-colors hover:bg-paper-sunken focus-visible:bg-paper-sunken focus-visible:outline-none";
+  "flex items-center gap-2 px-3.5 text-body font-medium text-ink transition-colors hover:bg-paper-sunken focus-visible:bg-paper-sunken focus-visible:outline-none";
 
 export function ControlStrip({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div role="toolbar" aria-label="Search, date, filters and grouping" className={cn("inline-flex h-10 max-w-full items-stretch divide-x divide-line overflow-hidden rounded-[12px] border border-line-strong bg-paper-raised", className)}>
+    <div role="toolbar" aria-label="Search, date, filters and grouping" className={cn("inline-flex h-10 max-w-full items-stretch divide-x divide-line overflow-hidden rounded-card border border-line-strong bg-paper-raised", className)}>
       {children}
     </div>
   );
@@ -73,7 +73,7 @@ export function StripSearch({
           }
         }}
         placeholder={placeholder}
-        className="w-40 min-w-0 flex-1 bg-transparent text-[13.5px] outline-none placeholder:text-ink-faint sm:w-56 sm:flex-none [&::-webkit-search-cancel-button]:hidden"
+        className="w-40 min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-ink-faint sm:w-56 sm:flex-none [&::-webkit-search-cancel-button]:hidden"
       />
       {value && (
         <button type="button" aria-label="Clear search" onMouseDown={(e) => e.preventDefault()} onClick={() => onChange("")} className="flex-none text-ink-soft hover:text-ink">
@@ -112,7 +112,7 @@ export function StripDate({ value, onChange }: { value: DateRange; onChange: (r:
           </button>
         </Popover.Trigger>
         <Popover.Portal>
-          <Popover.Content align="start" sideOffset={8} collisionPadding={12} className="z-50 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-[14px] border border-line-strong bg-paper-raised shadow-xl">
+          <Popover.Content align="start" sideOffset={8} collisionPadding={12} className="z-50 max-w-[calc(100vw-1.5rem)] overflow-hidden rounded-card border border-line-strong bg-paper-raised shadow-xl">
             <div className="flex flex-col sm:flex-row">
               <div className="flex flex-wrap gap-1 border-b border-line bg-paper p-2 sm:w-36 sm:flex-col sm:flex-nowrap sm:border-b-0 sm:border-r">
                 {DATE_PRESETS.map((p) => (
@@ -121,12 +121,12 @@ export function StripDate({ value, onChange }: { value: DateRange; onChange: (r:
                     type="button"
                     aria-pressed={active === p.id}
                     onClick={() => apply(presetRange(p.id))}
-                    className={cn("rounded-[8px] px-2.5 py-1.5 text-left text-[13px]", active === p.id ? "bg-ink font-semibold text-paper dark:bg-accent dark:text-accent-ink" : "hover:bg-paper-sunken")}
+                    className={cn("rounded-control px-2.5 py-1.5 text-left text-body", active === p.id ? "bg-ink font-semibold text-paper dark:bg-accent dark:text-accent-ink" : "hover:bg-paper-sunken")}
                   >
                     {p.label}
                   </button>
                 ))}
-                <div aria-pressed={active === "custom"} className={cn("rounded-[8px] px-2.5 py-1.5 text-[13px]", active === "custom" ? "bg-ink font-semibold text-paper dark:bg-accent dark:text-accent-ink" : "text-ink-soft")}>
+                <div aria-pressed={active === "custom"} className={cn("rounded-control px-2.5 py-1.5 text-body", active === "custom" ? "bg-ink font-semibold text-paper dark:bg-accent dark:text-accent-ink" : "text-ink-soft")}>
                   Custom range
                 </div>
               </div>
@@ -164,17 +164,17 @@ export function StripFilters({
         <button type="button" aria-label={count > 0 ? `Filters, ${count} on` : "Filters"} className={cn(segment, count > 0 && "text-accent")}>
           <ListFilter size={16} aria-hidden className={count > 0 ? "text-accent" : "text-ink-soft"} />
           <span className="hidden sm:inline">Filters</span>
-          {count > 0 && <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-[11px] font-semibold text-accent-ink">{count}</span>}
+          {count > 0 && <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-accent px-1 text-micro font-semibold text-accent-ink">{count}</span>}
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content align="end" sideOffset={8} collisionPadding={12} className="z-50 w-[min(21rem,calc(100vw-1.5rem))] rounded-[14px] border border-line-strong bg-paper-raised p-4 shadow-xl">
+        <Popover.Content align="end" sideOffset={8} collisionPadding={12} className="z-50 w-[min(21rem,calc(100vw-1.5rem))] rounded-card border border-line-strong bg-paper-raised p-4 shadow-xl">
           <div className="flex flex-col gap-3.5">{children}</div>
           <div className="mt-4 flex items-center justify-between border-t border-line pt-3">
-            <button type="button" onClick={onReset} className="rounded-[8px] px-2 py-1 text-[13px] font-semibold text-ink-soft hover:bg-paper-sunken">
+            <button type="button" onClick={onReset} className="rounded-control px-2 py-1 text-body font-semibold text-ink-soft hover:bg-paper-sunken">
               Reset
             </button>
-            <Popover.Close className="rounded-[10px] bg-ink px-4 py-2 text-[13px] font-semibold text-paper dark:bg-accent dark:text-accent-ink">
+            <Popover.Close className="rounded-control bg-ink px-4 py-2 text-body font-semibold text-paper dark:bg-accent dark:text-accent-ink">
               {resultCount == null ? "Done" : `Show ${resultCount} result${resultCount === 1 ? "" : "s"}`}
             </Popover.Close>
           </div>
@@ -203,8 +203,8 @@ export function StripGroup({ value, options, onChange }: { value: string; option
         </button>
       </Popover.Trigger>
       <Popover.Portal>
-        <Popover.Content align="end" sideOffset={8} collisionPadding={12} className="z-50 w-56 rounded-[14px] border border-line-strong bg-paper-raised p-2 shadow-xl">
-          <div className="px-2.5 pb-1 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Group transactions by</div>
+        <Popover.Content align="end" sideOffset={8} collisionPadding={12} className="z-50 w-56 rounded-card border border-line-strong bg-paper-raised p-2 shadow-xl">
+          <div className="px-2.5 pb-1 pt-1.5 text-micro font-semibold uppercase tracking-wide text-ink-faint">Group transactions by</div>
           <div role="menu" aria-label="Group by">
             {options.map((o) => {
               const on = o.value === value;
@@ -218,7 +218,7 @@ export function StripGroup({ value, options, onChange }: { value: string; option
                     onChange(o.value);
                     setOpen(false);
                   }}
-                  className={cn("flex w-full items-center justify-between rounded-[8px] px-2.5 py-2 text-left text-[13.5px]", on ? "bg-accent-soft font-semibold text-accent" : "hover:bg-paper-sunken")}
+                  className={cn("flex w-full items-center justify-between rounded-control px-2.5 py-2 text-left text-body", on ? "bg-accent-soft font-semibold text-accent" : "hover:bg-paper-sunken")}
                 >
                   {o.label}
                   {on && <Check size={15} aria-hidden />}
@@ -236,7 +236,7 @@ export function StripGroup({ value, options, onChange }: { value: string; option
 export function FilterField({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[12px] font-semibold text-ink-soft">{label}</span>
+      <span className="text-caption font-semibold text-ink-soft">{label}</span>
       {children}
     </div>
   );

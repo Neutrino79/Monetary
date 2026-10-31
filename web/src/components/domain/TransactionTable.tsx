@@ -336,13 +336,13 @@ function TransactionTableInner({
       {headerExtra}
 
       {groupBy === "tag" && (
-        <p className="mb-3 text-[12.5px] text-ink-faint">A transaction with several tags is listed under each of them, so group counts can add up to more than the total.</p>
+        <p className="mb-3 text-caption text-ink-faint">A transaction with several tags is listed under each of them, so group counts can add up to more than the total.</p>
       )}
 
-      <div className="overflow-hidden rounded-2xl border border-line bg-paper-raised">
+      <div className="overflow-hidden rounded-card border border-line bg-paper-raised">
         {query.isLoading ? (
           <div className="flex flex-col gap-2 p-5">
-            {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-11 rounded-[10px]" />)}
+            {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-11 rounded-control" />)}
           </div>
         ) : query.isError ? (
           <div className="p-5">
@@ -356,7 +356,7 @@ function TransactionTableInner({
           <>
             {!isPhone && (
             <div className="overflow-x-auto">
-              <table className="w-full min-w-176 border-collapse text-[13.3px]">
+              <table className="w-full min-w-176 border-collapse text-body">
                 <thead>
                   <tr className="border-b border-line bg-paper-sunken">
                     {sortHead("Date", "date")}
@@ -386,8 +386,8 @@ function TransactionTableInner({
                               >
                                 <ChevronDown size={14} aria-hidden className={cn("flex-none text-ink-faint transition-transform", folded && "-rotate-90")} />
                                 {groupBy === "category" && t.groupKey && <span aria-hidden className="h-2 w-2 flex-none rounded-full" style={{ background: lookups.getCategory(Number(t.groupKey))?.color ?? "var(--color-ink-faint)" }} />}
-                                <span className="text-[13px] font-semibold">{groupTitle(t.groupKey ?? "", g?.label ?? "")}</span>
-                                {g && <span className="text-[12px] text-ink-faint">{g.count} transaction{g.count === 1 ? "" : "s"}</span>}
+                                <span className="text-body font-semibold">{groupTitle(t.groupKey ?? "", g?.label ?? "")}</span>
+                                {g && <span className="text-caption text-ink-faint">{g.count} transaction{g.count === 1 ? "" : "s"}</span>}
                               </button>
                             </td>
                           </tr>
@@ -397,7 +397,7 @@ function TransactionTableInner({
                             <td className="whitespace-nowrap px-4 py-3 text-ink-soft">{formatDate(t.date)}</td>
                             <td className="max-w-80 px-4 py-3">
                               <div className="font-semibold">{t.description}</div>
-                              {t.memo && <div title={t.memo} className="truncate text-[12px] text-ink-soft">{t.memo.split(/\r?\n/)[0]}</div>}
+                              {t.memo && <div title={t.memo} className="truncate text-caption text-ink-soft">{t.memo.split(/\r?\n/)[0]}</div>}
                             </td>
                             <td className="px-4 py-3"><TxnBadge txn={t} /></td>
                             <td className="px-4 py-3">{categoryPill(t)}</td>
@@ -406,7 +406,7 @@ function TransactionTableInner({
                               {t.tags.length > 0 ? (
                                 <div className="flex flex-wrap gap-1" aria-label="Tags">
                                   {t.tags.map((tag) => (
-                                    <span key={tag} className="rounded-full bg-paper-sunken px-2 py-px text-[11.5px] text-ink-soft">{tag}</span>
+                                    <span key={tag} className="rounded-full bg-paper-sunken px-2 py-px text-micro text-ink-soft">{tag}</span>
                                   ))}
                                 </div>
                               ) : (
@@ -438,8 +438,8 @@ function TransactionTableInner({
                       <li className="-mx-4 border-y border-line bg-paper">
                         <button type="button" aria-expanded={!folded} onClick={() => toggleGroup(t.groupKey ?? "")} className="flex w-full items-center gap-2 px-4 py-2 text-left">
                           <ChevronDown size={14} aria-hidden className={cn("flex-none text-ink-faint transition-transform", folded && "-rotate-90")} />
-                          <span className="text-[13px] font-semibold">{groupTitle(t.groupKey ?? "", g?.label ?? "")}</span>
-                          {g && <span className="text-[12px] text-ink-faint">{g.count}</span>}
+                          <span className="text-body font-semibold">{groupTitle(t.groupKey ?? "", g?.label ?? "")}</span>
+                          {g && <span className="text-caption text-ink-faint">{g.count}</span>}
                         </button>
                       </li>
                     )}
@@ -448,7 +448,7 @@ function TransactionTableInner({
                         <button type="button" onClick={() => setSelectedTxn(t)} className="flex w-full items-start gap-3 py-3 text-left">
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-[14px] font-semibold">{t.description}</div>
-                            <div className="truncate text-[12px] text-ink-soft">
+                            <div className="truncate text-caption text-ink-soft">
                               {formatDate(t.date, "short")} · {rowSubtext(t)}
                             </div>
                           </div>
@@ -465,17 +465,17 @@ function TransactionTableInner({
             </ul>
             )}
             <div className="flex items-center justify-between border-t border-line px-4 py-3">
-              <span className="text-[12.5px] text-ink-soft">
+              <span className="text-caption text-ink-soft">
                 {total} transaction{total === 1 ? "" : "s"}
               </span>
               <div className="flex items-center gap-2">
-                <button disabled={currentPage <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-[10px] px-3 py-1.5 text-[12.5px] font-semibold text-ink-soft hover:bg-paper-sunken disabled:opacity-40">
+                <button disabled={currentPage <= 1} onClick={() => setPage((p) => p - 1)} className="rounded-control px-3 py-1.5 text-caption font-semibold text-ink-soft hover:bg-paper-sunken disabled:opacity-40">
                   Previous
                 </button>
-                <span className="text-[12.5px] text-ink-soft">
+                <span className="text-caption text-ink-soft">
                   Page {currentPage} of {totalPages}
                 </span>
-                <button disabled={currentPage >= totalPages} onClick={() => setPage((p) => p + 1)} className="rounded-[10px] px-3 py-1.5 text-[12.5px] font-semibold text-ink-soft hover:bg-paper-sunken disabled:opacity-40">
+                <button disabled={currentPage >= totalPages} onClick={() => setPage((p) => p + 1)} className="rounded-control px-3 py-1.5 text-caption font-semibold text-ink-soft hover:bg-paper-sunken disabled:opacity-40">
                   Next
                 </button>
               </div>
@@ -494,7 +494,7 @@ function TransactionTableInner({
 function SortTh({ label, active, dir, onClick, align }: { label: string; active: boolean; dir: "asc" | "desc"; onClick: () => void; align?: "right" }) {
   const Icon = !active ? ArrowUpDown : dir === "asc" ? ArrowUp : ArrowDown;
   return (
-    <th aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"} className={cn("whitespace-nowrap px-4 py-0 text-[12px] font-semibold", align === "right" ? "text-right" : "text-left")}>
+    <th aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : "none"} className={cn("whitespace-nowrap px-4 py-0 text-caption font-semibold", align === "right" ? "text-right" : "text-left")}>
       <button
         type="button"
         onClick={onClick}
@@ -508,5 +508,5 @@ function SortTh({ label, active, dir, onClick, align }: { label: string; active:
 }
 
 function Th({ children }: { children: React.ReactNode }) {
-  return <th className="h-[42px] whitespace-nowrap px-4 text-left text-[12px] font-semibold text-ink-soft">{children}</th>;
+  return <th className="h-[42px] whitespace-nowrap px-4 text-left text-caption font-semibold text-ink-soft">{children}</th>;
 }

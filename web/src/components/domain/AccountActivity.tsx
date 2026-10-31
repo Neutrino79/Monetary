@@ -36,8 +36,8 @@ export function AccountActivity({ account, open, onOpenChange }: { account: Acco
   ];
 
   const hero = (
-    <div className="mx-5 mb-1 rounded-2xl bg-ink p-5 text-paper dark:bg-paper-sunken dark:text-ink">
-      <div className="text-[12px] opacity-75">{isCard ? "Amount owed" : "Balance now"}</div>
+    <div className="mx-5 mb-1 rounded-card bg-ink p-5 text-paper dark:bg-paper-sunken dark:text-ink">
+      <div className="text-caption opacity-75">{isCard ? "Amount owed" : "Balance now"}</div>
       <div className="ledger-figure text-[32px] leading-tight">{formatCurrency(account.balance, true)}</div>
       {trend.length > 1 && (
         <div className="mt-2 text-accent-soft dark:text-accent">
@@ -62,9 +62,9 @@ export function AccountActivity({ account, open, onOpenChange }: { account: Acco
         }
       >
         {statement.isLoading ? (
-          <Skeleton className="h-40 w-full rounded-xl" />
+          <Skeleton className="h-40 w-full rounded-card" />
         ) : statement.isError ? (
-          <p className="text-[13px] text-danger">Couldn't load the activity.</p>
+          <p className="text-body text-danger">Couldn't load the activity.</p>
         ) : all.length === 0 ? (
           <EmptyState icon={Scale} title="No activity yet" description="Transactions on this account will show here." />
         ) : (
@@ -76,19 +76,19 @@ export function AccountActivity({ account, open, onOpenChange }: { account: Acco
                   type="button"
                   aria-pressed={show === f.id}
                   onClick={() => setShow(f.id)}
-                  className={`min-h-11 rounded-full border px-4 text-[13px] font-semibold transition-colors ${show === f.id ? "border-ink bg-ink text-paper dark:border-accent dark:bg-accent dark:text-accent-ink" : "border-line bg-paper-raised text-ink-soft hover:border-line-strong"}`}
+                  className={`min-h-11 rounded-full border px-4 text-body font-semibold transition-colors ${show === f.id ? "border-ink bg-ink text-paper dark:border-accent dark:bg-accent dark:text-accent-ink" : "border-line bg-paper-raised text-ink-soft hover:border-line-strong"}`}
                 >
                   {f.label}
                 </button>
               ))}
             </div>
             {rows.length === 0 ? (
-              <p className="py-6 text-center text-[13px] text-ink-faint">Nothing in this view.</p>
+              <p className="py-6 text-center text-body text-ink-faint">Nothing in this view.</p>
             ) : (
               <ul aria-label={`${account.name} activity`}>
                 {days.map((d) => (
                   <Fragment key={d.date}>
-                    <li role="presentation" className="pb-1 pt-4 text-[11.5px] font-bold uppercase tracking-wide text-ink-faint">
+                    <li role="presentation" className="pb-1 pt-4 text-micro font-bold uppercase tracking-wide text-ink-faint">
                       {formatDate(d.date, "long")}
                     </li>
                     {d.rows.map((r) => {
@@ -96,13 +96,13 @@ export function AccountActivity({ account, open, onOpenChange }: { account: Acco
                       return (
                         <li key={`${r.entryId}-${r.runningBalance}-${r.delta}`} className="border-t border-dashed border-line">
                           <button type="button" onClick={() => setOpenId(r.entryId)} className="flex min-h-14 w-full items-center gap-3 py-2.5 text-left hover:bg-paper-sunken">
-                            <div className="min-w-0 flex-1 truncate text-[13.3px] font-semibold">{r.description}</div>
+                            <div className="min-w-0 flex-1 truncate text-body font-semibold">{r.description}</div>
                             <div className="text-right">
-                              <div className={`ledger-figure text-[13.3px] ${worse ? "text-negative" : "text-accent"}`}>
+                              <div className={`ledger-figure text-body ${worse ? "text-negative" : "text-accent"}`}>
                                 {r.delta > 0 ? "+" : "−"}
                                 {formatCurrency(Math.abs(r.delta), true)}
                               </div>
-                              <div className="text-[11.5px] text-ink-faint">Balance {formatCurrency(r.runningBalance, true)}</div>
+                              <div className="text-micro text-ink-faint">Balance {formatCurrency(r.runningBalance, true)}</div>
                             </div>
                           </button>
                         </li>

@@ -33,13 +33,13 @@ export function IncomePanel() {
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[13px] text-ink-soft">Income sources group what you earn. They have no budgets.</p>
+        <p className="text-body text-ink-soft">Income sources group what you earn. They have no budgets.</p>
         <Button onClick={() => setForm({ edit: null })}><Plus size={15} /> Add income source</Button>
       </div>
       <Card className="flex flex-wrap gap-3">
-        {sources.length === 0 && <span className="text-[12.5px] text-ink-faint">No income sources yet. Add one to start recording income.</span>}
+        {sources.length === 0 && <span className="text-caption text-ink-faint">No income sources yet. Add one to start recording income.</span>}
         {sources.map((s) => (
-          <span key={s.id} className="flex items-center gap-2 rounded-full border border-line bg-paper-sunken px-3 py-1.5 text-[12.5px]">
+          <span key={s.id} className="flex items-center gap-2 rounded-full border border-line bg-paper-sunken px-3 py-1.5 text-caption">
             <IncomeSourceChip source={s} size={22} /> {s.name}
             <button type="button" aria-label={`Edit ${s.name}`} onClick={() => setForm({ edit: s })} className="text-ink-faint hover:text-ink"><Pencil size={11} /></button>
             <button type="button" aria-label={`Archive ${s.name}`} onClick={() => setArchiving(s)} className="text-ink-faint hover:text-ink"><Archive size={11} /></button>

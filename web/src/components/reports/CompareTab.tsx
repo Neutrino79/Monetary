@@ -16,9 +16,9 @@ type SortKey = "name" | "b" | "a" | "change" | "pct" | "share";
 
 function MonthInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   return (
-    <label className="flex items-center gap-1.5 text-[12px] text-ink-soft">
+    <label className="flex items-center gap-1.5 text-caption text-ink-soft">
       {label}
-      <input type="month" value={value} onChange={(e) => onChange(e.target.value)} className="rounded-[8px] border border-line bg-paper-raised px-2 py-1 text-[12.5px] text-ink" />
+      <input type="month" value={value} onChange={(e) => onChange(e.target.value)} className="rounded-control border border-line bg-paper-raised px-2 py-1 text-caption text-ink" />
     </label>
   );
 }
@@ -26,7 +26,7 @@ function MonthInput({ label, value, onChange }: { label: string; value: string; 
 function SpanInputs({ title, span, onChange }: { title: string; span: MonthSpan; onChange: (s: MonthSpan) => void }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <span className="w-16 text-[12px] font-semibold">{title}</span>
+      <span className="w-16 text-caption font-semibold">{title}</span>
       <MonthInput label="from" value={span.from} onChange={(from) => onChange({ ...span, from })} />
       <MonthInput label="to" value={span.to} onChange={(to) => onChange({ ...span, to })} />
     </div>
@@ -84,7 +84,7 @@ export function CompareTab({ range }: { range: ReportRange }) {
       <Card>
         <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Compare against">
           {(["previous", "year", "custom"] as const).map((b) => (
-            <button key={b} type="button" aria-pressed={basis === b} onClick={() => pickBasis(b)} className={cn("rounded-full border px-3 py-1.5 text-[12.5px] font-medium", basis === b ? "border-ink bg-ink text-paper" : "border-line bg-paper-raised text-ink-soft hover:text-ink")}>
+            <button key={b} type="button" aria-pressed={basis === b} onClick={() => pickBasis(b)} className={cn("rounded-full border px-3 py-1.5 text-caption font-medium", basis === b ? "border-ink bg-ink text-paper" : "border-line bg-paper-raised text-ink-soft hover:text-ink")}>
               {b === "previous" ? "Previous period" : b === "year" ? "Same period last year" : "Custom"}
             </button>
           ))}
@@ -93,10 +93,10 @@ export function CompareTab({ range }: { range: ReportRange }) {
           <div className="mt-3 space-y-2">
             <SpanInputs title="Period A" span={custom.a} onChange={(a) => setCustom({ ...custom, a })} />
             <SpanInputs title="Period B" span={custom.b} onChange={(b) => setCustom({ ...custom, b })} />
-            {!valid && <p className="text-[12px] text-negative">Each period must be 1 to 36 whole months, with the start before the end.</p>}
+            {!valid && <p className="text-caption text-negative">Each period must be 1 to 36 whole months, with the start before the end.</p>}
           </div>
         ) : (
-          <p className="mt-3 text-[13px] text-ink-soft"><strong className="text-ink">{aLabel}</strong> against <strong className="text-ink">{bLabel}</strong></p>
+          <p className="mt-3 text-body text-ink-soft"><strong className="text-ink">{aLabel}</strong> against <strong className="text-ink">{bLabel}</strong></p>
         )}
       </Card>
 
@@ -108,23 +108,23 @@ export function CompareTab({ range }: { range: ReportRange }) {
             {([["Spent", r.a.expense, r.b.expense, false], ["Income", r.a.income, r.b.income, true], ["Kept", r.a.kept, r.b.kept, true]] as const).map(([label, a, b, goodUp]) => {
               const d = a - b;
               return (
-                <div key={label} className="min-w-0 rounded-[12px] border border-line bg-paper-raised p-3 sm:p-3.5">
-                  <div className="text-[12px] text-ink-faint">{label}</div>
-                  <div className="mt-1 text-[14.5px] font-semibold tabular-nums sm:text-[17px]">{formatCurrency(a)}</div>
-                  <div className={cn("text-[12px] font-medium", Math.abs(d) < 0.5 ? "text-ink-faint" : (d > 0) === goodUp ? "text-accent" : "text-negative")}>{signedMoney(d)}</div>
-                  <div className="text-[11.5px] text-ink-faint">was {formatCurrency(b)}</div>
+                <div key={label} className="min-w-0 rounded-card border border-line bg-paper-raised p-3 sm:p-3.5">
+                  <div className="text-caption text-ink-faint">{label}</div>
+                  <div className="mt-1 text-lead font-semibold tabular-nums sm:text-[17px]">{formatCurrency(a)}</div>
+                  <div className={cn("text-caption font-medium", Math.abs(d) < 0.5 ? "text-ink-faint" : (d > 0) === goodUp ? "text-accent" : "text-negative")}>{signedMoney(d)}</div>
+                  <div className="text-micro text-ink-faint">was {formatCurrency(b)}</div>
                 </div>
               );
             })}
           </div>
           <Card>
-            <div className="text-[14.5px] font-semibold">What changed in spending</div>
-            <div className="mb-3 text-[12.5px] text-ink-faint">{bLabel} to {aLabel}, by category.</div>
-            {steps.length === 0 ? <p className="text-[13px] text-ink-faint">Spending was the same in both periods.</p> : <Waterfall from={r.b.expense} to={r.a.expense} steps={steps} fromLabel="Before" toLabel="Now" selected={picked} onSelect={setPicked} />}
+            <div className="text-lead font-semibold">What changed in spending</div>
+            <div className="mb-3 text-caption text-ink-faint">{bLabel} to {aLabel}, by category.</div>
+            {steps.length === 0 ? <p className="text-body text-ink-faint">Spending was the same in both periods.</p> : <Waterfall from={r.b.expense} to={r.a.expense} steps={steps} fromLabel="Before" toLabel="Now" selected={picked} onSelect={setPicked} />}
             {chosen && (
-              <div className="mt-3 rounded-[10px] border border-line bg-paper-sunken p-3 text-[12.5px]" role="status">
+              <div className="mt-3 rounded-control border border-line bg-paper-sunken p-3 text-caption" role="status">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="text-[13.5px] font-semibold">{chosen.name}: {formatCurrency(chosen.b)} → {formatCurrency(chosen.a)} <span className={chosen.change > 0 ? "text-negative" : "text-accent"}>({signedMoney(chosen.change)}{chosen.changePct === null ? "" : `, ${signedPct(chosen.changePct)}`})</span></span>
+                  <span className="text-body font-semibold">{chosen.name}: {formatCurrency(chosen.b)} → {formatCurrency(chosen.a)} <span className={chosen.change > 0 ? "text-negative" : "text-accent"}>({signedMoney(chosen.change)}{chosen.changePct === null ? "" : `, ${signedPct(chosen.changePct)}`})</span></span>
                   <button type="button" onClick={() => setPicked(null)} className="text-ink-faint hover:text-ink">Clear</button>
                 </div>
                 <div className="mt-1 text-ink-soft">{chosen.purchasesB} → {chosen.purchasesA} purchases · average {formatCurrency(chosen.averagePurchaseB)} → {formatCurrency(chosen.averagePurchaseA)} · {Math.round(chosen.shareOfChangePct)}% of the total change</div>
@@ -133,22 +133,22 @@ export function CompareTab({ range }: { range: ReportRange }) {
             )}
           </Card>
           <Card>
-            <div className="text-[14.5px] font-semibold">How often, or how much?</div>
-            <div className="mb-3 text-[12.5px] text-ink-faint">Every change splits into buying more or less often, and paying more or less each time.</div>
+            <div className="text-lead font-semibold">How often, or how much?</div>
+            <div className="mb-3 text-caption text-ink-faint">Every change splits into buying more or less often, and paying more or less each time.</div>
             <div className="grid gap-4 sm:grid-cols-2">
               {([["More or fewer purchases", r.volumeEffect, drivers("volumeEffect"), "volumeEffect"], ["Bigger or smaller purchases", r.ticketEffect, drivers("ticketEffect"), "ticketEffect"]] as const).map(([title, total, list, key]) => (
                 <div key={title}>
-                  <div className="text-[12.5px] text-ink-soft">{title}</div>
+                  <div className="text-caption text-ink-soft">{title}</div>
                   <div className={cn("text-[20px] font-semibold tabular-nums", total > 0 ? "text-negative" : total < 0 ? "text-accent" : "")}>{signedMoney(total)}</div>
-                  <ul className="mt-1 text-[12.5px] text-ink-soft">{list.map((c) => <li key={c.categoryId} className="flex justify-between py-0.5"><span>{c.name}</span><span className="tabular-nums">{signedMoney(c[key])}</span></li>)}</ul>
+                  <ul className="mt-1 text-caption text-ink-soft">{list.map((c) => <li key={c.categoryId} className="flex justify-between py-0.5"><span>{c.name}</span><span className="tabular-nums">{signedMoney(c[key])}</span></li>)}</ul>
                 </div>
               ))}
             </div>
           </Card>
           <Card className="px-0 sm:px-5">
-            <table className="w-full text-[13px]">
-              <caption className="px-4 pb-2 text-left text-[14.5px] font-semibold sm:px-0">Every category</caption>
-              <thead className="text-[11.5px] text-ink-faint">
+            <table className="w-full text-body">
+              <caption className="px-4 pb-2 text-left text-lead font-semibold sm:px-0">Every category</caption>
+              <thead className="text-micro text-ink-faint">
                 <tr>
                   <th scope="col" className="px-2 py-2 text-left font-semibold"><button type="button" onClick={() => setSort((s) => ({ key: "name", dir: s.key === "name" && s.dir === 1 ? -1 : 1 }))}>Category</button></th>
                   {head("b", "Before", "hidden sm:table-cell")}

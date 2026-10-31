@@ -25,7 +25,7 @@ export function Tabs({
             key={t.value}
             value={t.value}
             className={cn(
-              "whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-[13.3px] font-semibold text-ink-faint transition-colors",
+              "whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-body font-semibold text-ink-faint transition-colors",
               "hover:text-ink-soft data-[state=active]:border-ink data-[state=active]:text-ink",
             )}
           >

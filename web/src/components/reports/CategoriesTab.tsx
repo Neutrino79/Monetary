@@ -99,7 +99,7 @@ function Movers({ cats, kind, span }: { cats: CategoryTrend[]; kind: CategoriesR
         const w = `${Math.max(3, (Math.abs(d) / peak) * 50)}%`;
         return (
           <li key={c.categoryId}>
-           <Link to={categorySpanLink(kind, c.categoryId, span)} aria-label={`${c.name}: ${signedMoney(d)} a month. Open transactions.`} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] items-center gap-3 rounded-[6px] text-[13px] hover:bg-paper-sunken">
+           <Link to={categorySpanLink(kind, c.categoryId, span)} aria-label={`${c.name}: ${signedMoney(d)} a month. Open transactions.`} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] items-center gap-3 rounded-[6px] text-body hover:bg-paper-sunken">
             <span className="truncate">{c.name}</span>
             <span className="relative h-3.5 rounded-[3px] bg-paper-sunken">
               <span className="absolute inset-y-0 left-1/2 w-px bg-line-strong" />
@@ -133,22 +133,22 @@ function CategoryCard({ c, kind, month }: { c: CategoryTrend; kind: CategoriesRe
   const growing = c.slope > 0;
   return (
     <li>
-     <Link to={categoryMonthLink(kind, c.categoryId, month)} aria-label={`${c.name}: ${formatCurrency(c.current)} this month. Open this month's transactions.`} className="block rounded-[12px] border border-line bg-paper-raised p-3.5 transition-colors hover:border-line-strong hover:bg-paper-sunken">
+     <Link to={categoryMonthLink(kind, c.categoryId, month)} aria-label={`${c.name}: ${formatCurrency(c.current)} this month. Open this month's transactions.`} className="block rounded-card border border-line bg-paper-raised p-3.5 transition-colors hover:border-line-strong hover:bg-paper-sunken">
       <div className="flex items-start justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2">
           <span aria-hidden className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: colorOf(c) }} />
-          <span className="truncate text-[13.5px] font-semibold">{c.name}</span>
+          <span className="truncate text-body font-semibold">{c.name}</span>
         </div>
-        {c.state && <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold", bad ? "bg-negative/10 text-negative" : good ? "bg-accent/10 text-accent" : "bg-paper-sunken text-ink-soft")}>{STATE_LABEL[c.state]}</span>}
+        {c.state && <span className={cn("shrink-0 rounded-full px-2 py-0.5 text-micro font-semibold", bad ? "bg-negative/10 text-negative" : good ? "bg-accent/10 text-accent" : "bg-paper-sunken text-ink-soft")}>{STATE_LABEL[c.state]}</span>}
       </div>
       <div className="mt-2 flex items-end justify-between gap-3">
         <div>
           <div className="text-[18px] font-semibold tabular-nums">{formatCurrency(c.current)}</div>
-          <div className="text-[11.5px] text-ink-faint">this month{c.usual ? ` · usual ${formatCompact(c.usual.low)}–${formatCompact(c.usual.high)}` : ""}</div>
+          <div className="text-micro text-ink-faint">this month{c.usual ? ` · usual ${formatCompact(c.usual.low)}–${formatCompact(c.usual.high)}` : ""}</div>
         </div>
         <Sparkline values={c.points} band={c.usual ? { low: c.usual.low, high: c.usual.high } : null} color={colorOf(c)} width={104} height={40} />
       </div>
-      <div className="mt-2 flex items-center justify-between text-[12px] text-ink-soft">
+      <div className="mt-2 flex items-center justify-between text-caption text-ink-soft">
         <span>{Math.abs(c.slope) < 1 ? "Trend flat" : `Trend ${growing ? "▲" : "▼"} ${signedMoney(c.slope)} a month`}</span>
         <span>{c.sharePct.toFixed(0)}% of total</span>
       </div>
@@ -178,9 +178,9 @@ export function CategoriesTab({ months }: { months: number }) {
   const cats = (r?.categories ?? []).filter((c) => (filter === "all" ? true : filter === "growing" ? c.slope > 0 && c.changePct !== null && c.changePct > 0 : c.state === filter));
   return (
     <div className="space-y-5">
-      <div role="radiogroup" aria-label="Spending or income" className="inline-flex rounded-[10px] border border-line bg-paper-raised p-0.5">
+      <div role="radiogroup" aria-label="Spending or income" className="inline-flex rounded-control border border-line bg-paper-raised p-0.5">
         {(["spending", "income"] as const).map((k) => (
-          <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={cn("rounded-[8px] px-3.5 py-1.5 text-[12.8px] font-semibold", kind === k ? "bg-ink text-paper" : "text-ink-soft hover:text-ink")}>
+          <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={cn("rounded-control px-3.5 py-1.5 text-caption font-semibold", kind === k ? "bg-ink text-paper" : "text-ink-soft hover:text-ink")}>
             {k === "spending" ? "Spending" : "Income"}
           </button>
         ))}
@@ -193,21 +193,21 @@ export function CategoriesTab({ months }: { months: number }) {
           <div className="grid gap-5 lg:grid-cols-2">
             {r.categories.filter((c) => c.changePct !== null).length >= 2 && (
               <Card>
-                <div className="text-[14.5px] font-semibold">Size against growth</div>
-                <div className="mb-3 text-[12.5px] text-ink-faint">Big and rising categories sit top right.</div>
+                <div className="text-lead font-semibold">Size against growth</div>
+                <div className="mb-3 text-caption text-ink-faint">Big and rising categories sit top right.</div>
                 <GrowthBubbles cats={r.categories} kind={r.kind} span={span} />
               </Card>
             )}
             <Card>
-              <div className="text-[14.5px] font-semibold">Who moved the total</div>
-              <div className="mb-3 text-[12.5px] text-ink-faint">Change in monthly average against the window before.</div>
+              <div className="text-lead font-semibold">Who moved the total</div>
+              <div className="mb-3 text-caption text-ink-faint">Change in monthly average against the window before.</div>
               <Movers cats={r.categories} kind={r.kind} span={span} />
             </Card>
           </div>
           <div className="flex flex-wrap gap-2" role="group" aria-label="Filter categories">
-            {FILTERS.map((f) => <button key={f.value} type="button" aria-pressed={filter === f.value} onClick={() => setFilter(f.value)} className={cn("rounded-full border px-3 py-1.5 text-[12.5px] font-medium", filter === f.value ? "border-ink bg-ink text-paper" : "border-line bg-paper-raised text-ink-soft hover:text-ink")}>{f.label}</button>)}
+            {FILTERS.map((f) => <button key={f.value} type="button" aria-pressed={filter === f.value} onClick={() => setFilter(f.value)} className={cn("rounded-full border px-3 py-1.5 text-caption font-medium", filter === f.value ? "border-ink bg-ink text-paper" : "border-line bg-paper-raised text-ink-soft hover:text-ink")}>{f.label}</button>)}
           </div>
-          {cats.length === 0 ? <p className="text-[13px] text-ink-faint">No categories match this filter.</p> : (
+          {cats.length === 0 ? <p className="text-body text-ink-faint">No categories match this filter.</p> : (
             <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{cats.map((c) => <CategoryCard key={c.categoryId} c={c} kind={r.kind} month={month} />)}</ul>
           )}
         </>

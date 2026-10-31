@@ -52,14 +52,14 @@ function ReconcileDialog({ account, open, onOpenChange }: { account: Account | n
       }
     >
       <div className="flex flex-col gap-4">
-        <p className="text-[13px] text-ink-soft">
+        <p className="text-body text-ink-soft">
           Monetary currently shows <strong className="ledger-figure">{formatCurrency(account.balance, true)}</strong>{isCard ? " owed" : ""}. Enter what your {isCard ? "card statement" : "bank"} says and any difference is recorded as an adjustment.
         </p>
         <FormField label={isCard ? "Amount owed per statement" : "Balance per bank"} error={error}>
           <AmountInput value={value} onChange={(e) => setValue(e.target.value)} placeholder="0.00" />
         </FormField>
         {diff != null && (
-          <div role="status" className="rounded-[10px] bg-paper-sunken px-3 py-2.5 text-[13px]">
+          <div role="status" className="rounded-control bg-paper-sunken px-3 py-2.5 text-body">
             {diff === 0
               ? "Already matched — nothing to record."
               : `A ${formatCurrency(Math.abs(diff), true)} adjustment will be recorded (${isCard ? (diff > 0 ? "more owed" : "less owed") : diff > 0 ? "balance goes up" : "balance goes down"}).`}

@@ -74,12 +74,12 @@ export function FormField({
 
   return (
     <div className={cn("flex flex-col gap-1.5", full && "col-span-full")}>
-      <label htmlFor={fieldId} className="text-[12.5px] font-semibold text-ink-soft">
+      <label htmlFor={fieldId} className="text-caption font-semibold text-ink-soft">
         {label}
       </label>
       {control}
-      {hint && !error && <p className="text-[12px] text-ink-faint">{hint}</p>}
-      {error && <span className="text-[12px] text-danger">{error}</span>}
+      {hint && !error && <p className="text-caption text-ink-faint">{hint}</p>}
+      {error && <span className="text-caption text-danger">{error}</span>}
     </div>
   );
 }
