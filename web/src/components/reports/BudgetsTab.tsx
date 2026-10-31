@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router-dom";
 import { BarChart3 } from "lucide-react";
 import type { BudgetHistory, BudgetHistoryRow, UnbudgetedCategory } from "@/types";
-import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { Card, EmptyState, LoadFailed, Skeleton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
 import { useBudgetHistory } from "@/hooks/queries";
 import { useUpdateCategory } from "@/hooks/mutations";
@@ -110,7 +110,7 @@ export function BudgetsTab({ months }: { months: number }) {
   const update = useUpdateCategory();
   if (q.isLoading) return <Skeleton className="h-96 w-full" />;
   const h = q.data;
-  if (q.isError || !h) return <EmptyState icon={BarChart3} title="Couldn't load budgets" description="Try again in a moment." />;
+  if (q.isError || !h) return <LoadFailed what="budgets" error={q.error} onRetry={() => q.refetch()} />;
   if (h.budgets.length === 0 && h.unbudgeted.length === 0) return <EmptyState icon={BarChart3} title="No budgets yet" description="Set a limit on a category and its history shows up here." />;
   const labels = h.monthTotals.map((t) => `${monthShort(t)} ${t.year}`);
   const keys = h.monthTotals.map(monthKey);

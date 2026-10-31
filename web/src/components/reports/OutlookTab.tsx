@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { BarChart3 } from "lucide-react";
-import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { Card, EmptyState, LoadFailed, Skeleton } from "@/components/ui/primitives";
 import { useOutlook } from "@/hooks/queries";
 import { formatCurrency } from "@/lib/utils/format";
 import { scenarioLine } from "@/lib/utils/outlookScenario";
@@ -12,7 +12,7 @@ export function OutlookTab({ months }: { months: number }) {
   const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
   if (q.isLoading) return <Skeleton className="h-96 w-full" />;
   const o = q.data;
-  if (q.isError || !o) return <EmptyState icon={BarChart3} title="Couldn't load the outlook" description="Try again in a moment." />;
+  if (q.isError || !o) return <LoadFailed what="the outlook" error={q.error} onRetry={() => q.refetch()} />;
   if (o.method === "none") return <EmptyState icon={BarChart3} title="Not enough history to look ahead" description="Three months of income and spending are needed before a forecast means anything." />;
   const toggle = (id: number) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const scenario = picked.size > 0 ? scenarioLine(o.forecast, o.levers, picked) : null;

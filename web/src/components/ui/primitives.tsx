@@ -1,12 +1,12 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
-import type { LucideIcon } from "lucide-react";
+import { AlertCircle, RefreshCw, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 export function IconButton({ className, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
   return (
     <button
       className={cn(
-        "inline-flex items-center justify-center w-8.5 h-8.5 rounded-control text-ink-soft hover:bg-paper-sunken hover:text-ink transition-colors",
+        "inline-flex items-center justify-center w-8.5 h-8.5 pointer-coarse:h-11 pointer-coarse:w-11 rounded-control text-ink-soft hover:bg-paper-sunken hover:text-ink transition-colors",
         className,
       )}
       {...props}
@@ -98,14 +98,21 @@ export function IconChip({ icon: Icon, color, size = 38 }: { icon: LucideIcon; c
   );
 }
 
+/** The small uppercase label above a group of fields or rows. */
+export function SectionLabel({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cn("text-micro font-bold uppercase tracking-wide text-ink-faint", className)}>{children}</div>;
+}
+
 export function EmptyState({
   icon: Icon,
   title,
   description,
+  action,
 }: {
   icon: LucideIcon;
   title: string;
   description: string;
+  action?: ReactNode;
 }) {
   return (
     <div className="flex flex-col items-center gap-3 text-center px-5 py-14 text-ink-soft">
@@ -114,7 +121,26 @@ export function EmptyState({
       </span>
       <div className="text-[15px] font-semibold text-ink">{title}</div>
       <div className="max-w-80 text-body">{description}</div>
+      {action}
     </div>
+  );
+}
+
+/** The standard "this did not load" state: what failed, the reason when there is one, and a Retry. */
+export function LoadFailed({ what, error, onRetry, icon = AlertCircle }: { what: string; error?: unknown; onRetry?: () => void; icon?: LucideIcon }) {
+  return (
+    <EmptyState
+      icon={icon}
+      title={`Couldn't load ${what}`}
+      description={error instanceof Error && error.message ? error.message : "Try again in a moment."}
+      action={
+        onRetry && (
+          <button type="button" onClick={onRetry} className="inline-flex min-h-11 items-center gap-2 rounded-control border border-line bg-paper-sunken px-4 text-body font-semibold text-ink hover:border-line-strong">
+            <RefreshCw size={14} /> Retry
+          </button>
+        )
+      }
+    />
   );
 }
 

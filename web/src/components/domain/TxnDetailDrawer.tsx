@@ -5,7 +5,7 @@ import { Drawer, ConfirmDialog, Modal } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { AmountInput, FormField, Textarea } from "@/components/ui/form";
 import { DatePicker } from "@/components/ui/DatePicker";
-import { Avatar } from "@/components/ui/primitives";
+import { Avatar, SectionLabel } from "@/components/ui/primitives";
 import { AccountChip, CategoryChip, IncomeSourceChip, TxnBadge, TxnAmount, TxnIconChip } from "./chips";
 import { useAccounts, useCategories, useFriendBalances, useFriends, useIncomeSources, useTransaction, useTransactions } from "@/hooks/queries";
 import { ApiError } from "@/lib/api/errors";
@@ -41,7 +41,7 @@ function ReceiptRows({ rows }: { rows: ReceiptRow[] }) {
 function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-5 last:mb-0">
-      <div className="mb-3 text-micro font-bold uppercase tracking-wide text-ink-faint">{title}</div>
+      <SectionLabel className="mb-3">{title}</SectionLabel>
       {children}
     </div>
   );

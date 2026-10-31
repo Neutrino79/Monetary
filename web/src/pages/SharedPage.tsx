@@ -1,3 +1,4 @@
+import { Segmented } from "@/components/ui/Segmented";
 import { useState } from "react";
 import { HandCoins, ScrollText, Users } from "lucide-react";
 import type { Friend, TransactionType } from "@/types";
@@ -6,7 +7,6 @@ import { Button } from "@/components/ui/Button";
 import { useFriendBalances } from "@/hooks/queries";
 import { useLookups } from "@/hooks/useLookups";
 import { formatCurrency } from "@/lib/utils/format";
-import { cn } from "@/lib/utils/cn";
 import { TransactionTable } from "@/components/domain/TransactionTable";
 import { SettleForm } from "@/components/domain/SettleForm";
 import { FriendStatement } from "@/components/domain/FriendStatement";
@@ -79,25 +79,9 @@ export function SharedPage() {
         emptyTitle="Nothing shared yet"
         emptyDescription="Try widening your date range, or add a split bill or an expense a friend paid for."
         headerExtra={
-          <div role="group" aria-label="Paid by" className="mb-4 inline-flex items-center gap-2">
+          <div className="mb-4 inline-flex items-center gap-2">
             <span className="text-caption font-semibold text-ink-soft">Paid by</span>
-            <span className="inline-flex overflow-hidden rounded-control border border-line-strong">
-              {PAID_BY.map((p, i) => (
-                <button
-                  key={p.value}
-                  type="button"
-                  aria-pressed={paidBy === p.value}
-                  onClick={() => setPaidBy(p.value)}
-                  className={cn(
-                    "px-3.5 py-1.5 text-body font-medium",
-                    i > 0 && "border-l border-line-strong",
-                    paidBy === p.value ? "bg-ink text-paper dark:bg-accent dark:text-accent-ink" : "bg-paper-raised text-ink hover:bg-paper-sunken",
-                  )}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </span>
+            <Segmented label="Paid by" options={PAID_BY.map((p) => ({ value: p.value, label: p.label }))} value={paidBy} onChange={setPaidBy} />
           </div>
         }
       />

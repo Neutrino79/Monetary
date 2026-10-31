@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Archive, Pencil, Plus } from "lucide-react";
 import type { BudgetHistoryRow, Category, CategoryTrend, MonthRef, Transaction } from "@/types";
 import { Button } from "@/components/ui/Button";
+import { SectionLabel } from "@/components/ui/primitives";
 import { BUDGET_STEP, budgetAdvice, shareOf } from "@/lib/utils/budgetPlan";
 import { formatCurrency } from "@/lib/utils/format";
 import { monthShort } from "@/lib/utils/reportText";
@@ -16,7 +17,7 @@ export interface SubSpend {
 const tone = (pct: number) => (pct > 100 ? "var(--negative)" : pct > 80 ? "var(--warn)" : "var(--accent)");
 
 function Label({ children }: { children: React.ReactNode }) {
-  return <div className="text-micro font-bold uppercase tracking-wide text-ink-faint">{children}</div>;
+  return <SectionLabel>{children}</SectionLabel>;
 }
 
 /** Everything about one category, ready to edit: its budget, six months, subcategories, tags and latest spending. */

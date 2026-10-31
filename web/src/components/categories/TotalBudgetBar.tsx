@@ -1,4 +1,5 @@
 import type { PlanSummary } from "@/lib/utils/budgetPlan";
+import { SectionLabel } from "@/components/ui/primitives";
 import { shareOf } from "@/lib/utils/budgetPlan";
 import { formatCurrency } from "@/lib/utils/format";
 import { cn } from "@/lib/utils/cn";
@@ -32,7 +33,7 @@ export function TotalBudgetBar({
     <section aria-label="Total monthly budget" className="rounded-card border border-line bg-paper-raised p-4 sm:px-5">
       <div className="mb-3 flex flex-wrap items-end justify-between gap-x-8 gap-y-3">
         <div>
-          <div className="text-micro font-bold uppercase tracking-wide text-ink-faint">Total monthly budget</div>
+          <SectionLabel>Total monthly budget</SectionLabel>
           <div className="mt-1 flex flex-wrap items-baseline gap-2">
             <span data-testid="plan-total" className="text-[26px] font-semibold tabular-nums">{formatCurrency(summary.total)}</span>
             {changed && (

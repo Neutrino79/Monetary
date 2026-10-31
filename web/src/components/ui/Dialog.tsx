@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Dialog } from "radix-ui";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { IconButton } from "./primitives";
+import { IconButton, SectionLabel } from "./primitives";
 
 interface BaseProps {
   open: boolean;
@@ -75,7 +75,7 @@ export function Drawer({ open, onOpenChange, title, subtitle, eyebrow, hideTitle
           </div>
           <div className={cn("flex items-start justify-between gap-3 px-5 pb-3 pt-2 sm:pt-4", !hero && "border-b border-line")}>
             <div className="min-w-0">
-              {eyebrow && <div className="text-micro font-bold uppercase tracking-wide text-ink-faint">{eyebrow}</div>}
+              {eyebrow && <SectionLabel>{eyebrow}</SectionLabel>}
               <Dialog.Title className={cn("text-[17px] font-semibold text-ink", hideTitle && "sr-only")}>{title}</Dialog.Title>
               {subtitle ? (
                 <Dialog.Description className="mt-0.5 text-caption text-ink-faint">{subtitle}</Dialog.Description>

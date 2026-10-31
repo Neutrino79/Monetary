@@ -11,7 +11,7 @@ import { currentMonthRange, monthLabel, rangeToFilters, type DateRange } from "@
 import { TXN_TYPE_META } from "@/lib/utils/entityVisuals";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/form";
-import { EmptyState, Skeleton } from "@/components/ui/primitives";
+import { EmptyState, LoadFailed, Skeleton } from "@/components/ui/primitives";
 import { ControlStrip, FilterField, StripDate, StripFilters, StripGroup, StripSearch, type GroupOption } from "@/components/list/ControlStrip";
 import { TxnBadge, TxnAmount } from "./chips";
 import { cn } from "@/lib/utils/cn";
@@ -346,7 +346,7 @@ function TransactionTableInner({
           </div>
         ) : query.isError ? (
           <div className="p-5">
-            <EmptyState icon={Search} title="Couldn't load transactions" description={query.error instanceof Error ? query.error.message : "Please try again."} />
+            <LoadFailed what="transactions" error={query.error} onRetry={() => query.refetch()} icon={Search} />
           </div>
         ) : pageRows.length === 0 ? (
           <div className="p-5">

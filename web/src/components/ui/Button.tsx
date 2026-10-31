@@ -27,7 +27,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       ref={ref}
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-control font-semibold transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap",
-        size === "md" ? "px-4 py-2.5 text-body" : "px-3 py-1.5 text-caption",
+        size === "md" ? "px-4 py-2.5 text-body pointer-coarse:min-h-11" : "px-3 py-1.5 text-caption pointer-coarse:min-h-11",
         variantClasses[variant],
         block && "w-full",
         className,

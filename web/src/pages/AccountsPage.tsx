@@ -7,7 +7,7 @@ import { useCreateAccount, useUpdateAccount, useArchiveAccount, useRestoreAccoun
 import { useAuthStore } from "@/store/authStore";
 import { ApiError } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/Toast";
-import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { Card, EmptyState, SectionLabel, Skeleton } from "@/components/ui/primitives";
 import { AccountChip } from "@/components/domain/chips";
 import { Button } from "@/components/ui/Button";
 import { Modal, ConfirmDialog } from "@/components/ui/Dialog";
@@ -133,7 +133,7 @@ export function AccountsPage() {
 
           {archived.length > 0 && (
             <div className="mt-7">
-              <div className="mb-3 text-caption font-bold uppercase tracking-wide text-ink-faint">Archived</div>
+              <SectionLabel className="mb-3">Archived</SectionLabel>
               <div className="grid grid-cols-3 gap-4 max-[1100px]:grid-cols-2 max-[640px]:grid-cols-1">
                 {archived.map((a) => (
                   <Card key={a.id} className="flex items-center justify-between gap-3 opacity-70">

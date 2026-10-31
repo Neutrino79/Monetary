@@ -4,9 +4,10 @@ import type { Account } from "@/types";
 import { useAccountStatement, useTransaction } from "@/hooks/queries";
 import { Drawer } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
-import { EmptyState, Skeleton } from "@/components/ui/primitives";
+import { EmptyState, LoadFailed, Skeleton } from "@/components/ui/primitives";
 import { TxnDetailDrawer } from "@/components/domain/TxnDetailDrawer";
 import { ReconcileForm } from "@/components/domain/ReconcileForm";
+import { FilterChip } from "@/components/ui/Segmented";
 import { Sparkline } from "@/components/domain/Sparkline";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { groupByDay } from "@/lib/utils/statement";
@@ -64,22 +65,16 @@ export function AccountActivity({ account, open, onOpenChange }: { account: Acco
         {statement.isLoading ? (
           <Skeleton className="h-40 w-full rounded-card" />
         ) : statement.isError ? (
-          <p className="text-body text-danger">Couldn't load the activity.</p>
+          <LoadFailed what="the activity" error={statement.error} onRetry={() => statement.refetch()} />
         ) : all.length === 0 ? (
           <EmptyState icon={Scale} title="No activity yet" description="Transactions on this account will show here." />
         ) : (
           <>
             <div role="group" aria-label="Show" className="mb-2 flex gap-2">
               {filters.map((f) => (
-                <button
-                  key={f.id}
-                  type="button"
-                  aria-pressed={show === f.id}
-                  onClick={() => setShow(f.id)}
-                  className={`min-h-11 rounded-full border px-4 text-body font-semibold transition-colors ${show === f.id ? "border-ink bg-ink text-paper dark:border-accent dark:bg-accent dark:text-accent-ink" : "border-line bg-paper-raised text-ink-soft hover:border-line-strong"}`}
-                >
+                <FilterChip key={f.id} active={show === f.id} onClick={() => setShow(f.id)}>
                   {f.label}
-                </button>
+                </FilterChip>
               ))}
             </div>
             {rows.length === 0 ? (

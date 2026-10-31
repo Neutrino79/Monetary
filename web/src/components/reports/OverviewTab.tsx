@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import type { Overview, OverviewMonth } from "@/types";
 import { BarChart3 } from "lucide-react";
-import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { Card, EmptyState, LoadFailed, Skeleton } from "@/components/ui/primitives";
 import { useOverview } from "@/hooks/queries";
 import { formatCurrency } from "@/lib/utils/format";
 import { findingText, monthKey, monthLong, signedPct } from "@/lib/utils/reportText";
@@ -74,7 +74,7 @@ export function OverviewTab({ months }: { months: number }) {
   const q = useOverview(months);
   if (q.isLoading) return <Skeleton className="h-96 w-full" />;
   const o = q.data;
-  if (q.isError || !o) return <EmptyState icon={BarChart3} title="Couldn't load the overview" description="Try again in a moment." />;
+  if (q.isError || !o) return <LoadFailed what="the overview" error={q.error} onRetry={() => q.refetch()} />;
   if (o.points.every((p) => p.income === 0 && p.expense === 0)) return <EmptyState icon={BarChart3} title="Nothing to analyse yet" description="Add a few transactions and this page fills in." />;
   return (
     <div className="space-y-5">
