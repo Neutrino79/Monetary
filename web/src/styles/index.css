@@ -226,3 +226,35 @@
     }
   }
 }
+
+/* Detail panels: a sheet rising from the bottom on a phone, a panel sliding in from the right on a wide screen. */
+@keyframes panel-in-y { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes panel-out-y { from { transform: none; } to { transform: translateY(100%); } }
+@keyframes panel-in-x { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes panel-out-x { from { transform: none; } to { transform: translateX(100%); } }
+.drawer-panel[data-state="open"] { animation: panel-in-y 260ms cubic-bezier(0.22, 1, 0.36, 1); }
+.drawer-panel[data-state="closed"] { animation: panel-out-y 180ms ease-in forwards; }
+@media (min-width: 640px) {
+  .drawer-panel[data-state="open"] { animation-name: panel-in-x; }
+  .drawer-panel[data-state="closed"] { animation-name: panel-out-x; }
+}
+
+/* Switching light and dark: one soft cross-fade of the whole page rather than a snap. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 340ms;
+  animation-timing-function: ease-in-out;
+}
+/* Browsers without View Transitions: let colours ease for a moment (class set by applyTheme). */
+html.theme-fade,
+html.theme-fade *,
+html.theme-fade *::before,
+html.theme-fade *::after {
+  transition:
+    background-color 300ms ease,
+    color 300ms ease,
+    border-color 300ms ease,
+    fill 300ms ease,
+    stroke 300ms ease,
+    box-shadow 300ms ease !important;
+}
