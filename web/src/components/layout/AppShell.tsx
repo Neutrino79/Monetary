@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useLocation } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
@@ -13,6 +13,7 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const theme = useUiStore((s) => s.theme);
+  const { pathname } = useLocation();
 
   return (
     <div data-theme={theme} className="min-h-screen bg-paper text-ink">
@@ -25,7 +26,9 @@ export function AppShell() {
             onOpenQuickAdd={() => setQuickAddOpen(true)}
           />
           <main className="mx-auto w-full max-w-330 min-w-0 flex-1 p-6 max-[980px]:p-4 max-[980px]:pb-24">
-            <Outlet />
+            <div key={pathname} className="page-enter">
+              <Outlet />
+            </div>
           </main>
         </div>
       </div>
