@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { BarChart3 } from "lucide-react";
-import { Card, EmptyState, LoadFailed, Skeleton } from "@/components/ui/primitives";
+import { Card, EmptyState, LoadFailed } from "@/components/ui/primitives";
+import { SkeletonReport } from "@/components/ui/skeletons";
 import { useOutlook } from "@/hooks/queries";
 import { formatCurrency } from "@/lib/utils/format";
 import { scenarioLine } from "@/lib/utils/outlookScenario";
@@ -10,7 +11,7 @@ import { FanChart } from "./FanChart";
 export function OutlookTab({ months }: { months: number }) {
   const q = useOutlook(months);
   const [picked, setPicked] = useState<ReadonlySet<number>>(new Set());
-  if (q.isLoading) return <Skeleton className="h-96 w-full" />;
+  if (q.isLoading) return <SkeletonReport />;
   const o = q.data;
   if (q.isError || !o) return <LoadFailed what="the outlook" error={q.error} onRetry={() => q.refetch()} />;
   if (o.method === "none") return <EmptyState icon={BarChart3} title="Not enough history to look ahead" description="Three months of income and spending are needed before a forecast means anything." />;

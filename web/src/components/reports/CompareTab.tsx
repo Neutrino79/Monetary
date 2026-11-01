@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowDown, ArrowUp, BarChart3 } from "lucide-react";
 import type { CompareCategory, MonthSpan } from "@/types";
-import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { Card, EmptyState } from "@/components/ui/primitives";
+import { SkeletonReport } from "@/components/ui/skeletons";
 import { useCompare } from "@/hooks/queries";
 import { formatCurrency } from "@/lib/utils/format";
 import { comparePeriods, spanIsValid, spanLabel, type CompareBasis, type ReportRange } from "@/lib/utils/reportRange";
@@ -100,7 +101,7 @@ export function CompareTab({ range }: { range: ReportRange }) {
         )}
       </Card>
 
-      {!valid ? null : q.isLoading ? <Skeleton className="h-96 w-full" /> : !r ? (
+      {!valid ? null : q.isLoading ? <SkeletonReport /> : !r ? (
         <EmptyState icon={BarChart3} title="Couldn't compare these periods" description="Try again in a moment." />
       ) : (
         <>

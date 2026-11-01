@@ -6,7 +6,8 @@ import { useArchiveCategory } from "@/hooks/mutations";
 import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
-import { Card, Skeleton } from "@/components/ui/primitives";
+import { Card } from "@/components/ui/primitives";
+import { SkeletonList } from "@/components/ui/skeletons";
 import { IncomeSourceChip } from "@/components/domain/chips";
 import { CategoryForm } from "@/components/domain/CategoryForm";
 
@@ -29,7 +30,7 @@ export function IncomePanel() {
     }
   }
 
-  if (isLoading) return <Skeleton className="h-40 w-full" />;
+  if (isLoading) return <div className="rounded-card border border-line bg-paper-raised p-5"><SkeletonList rows={4} withIcon={false} /></div>;
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">

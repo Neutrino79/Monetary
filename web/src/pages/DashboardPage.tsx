@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { Plus, ChevronRight, AlertTriangle, Info } from "lucide-react";
-import { Card, Skeleton } from "@/components/ui/primitives";
+import { Card } from "@/components/ui/primitives";
+import { SkeletonChart, SkeletonList, SkeletonPageHeader, SkeletonStats } from "@/components/ui/skeletons";
 import { Button } from "@/components/ui/Button";
 import { MonthStepper } from "@/components/ui/MonthStepper";
 import { TxnIconChip, TxnAmount } from "@/components/domain/chips";
@@ -244,13 +245,14 @@ export function DashboardPage() {
 function DashboardSkeleton() {
   return (
     <div>
-      <Skeleton className="mb-6 h-7 w-45" />
-      <div className="mb-5 grid grid-cols-4 gap-5 max-[640px]:grid-cols-1">
-        {[1, 2, 3, 4].map((i) => (
-          <Skeleton key={i} className="h-24 rounded-card" />
-        ))}
+      <SkeletonPageHeader />
+      <SkeletonStats count={4} className="mb-5" />
+      <div className="grid grid-cols-[1.6fr_1fr] gap-5 max-[900px]:grid-cols-1">
+        <SkeletonChart height={220} />
+        <div className="rounded-card border border-line bg-paper-raised p-5">
+          <SkeletonList rows={5} />
+        </div>
       </div>
-      <Skeleton className="h-65 rounded-card" />
     </div>
   );
 }

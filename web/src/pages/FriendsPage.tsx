@@ -8,7 +8,8 @@ import { ApiError } from "@/lib/api/errors";
 import { SettleForm } from "@/components/domain/SettleForm";
 import { FriendStatement } from "@/components/domain/FriendStatement";
 import { useToast } from "@/components/ui/Toast";
-import { Card, Avatar, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { Card, Avatar, EmptyState } from "@/components/ui/primitives";
+import { SkeletonCardGrid, SkeletonPageHeader } from "@/components/ui/skeletons";
 import { Button } from "@/components/ui/Button";
 import { Modal, ConfirmDialog } from "@/components/ui/Dialog";
 import { Input, FormField } from "@/components/ui/form";
@@ -48,12 +49,8 @@ export function FriendsPage() {
   if (isLoading) {
     return (
       <div>
-        <Skeleton className="mb-6 h-7 w-40" />
-        <div className="grid grid-cols-3 gap-4 max-[900px]:grid-cols-1">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-40 rounded-card" />
-          ))}
-        </div>
+        <SkeletonPageHeader />
+        <SkeletonCardGrid count={3} avatarRound />
       </div>
     );
   }

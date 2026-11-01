@@ -11,7 +11,8 @@ import { currentMonthRange, monthLabel, rangeToFilters, type DateRange } from "@
 import { TXN_TYPE_META } from "@/lib/utils/entityVisuals";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/form";
-import { EmptyState, LoadFailed, Skeleton } from "@/components/ui/primitives";
+import { EmptyState, LoadFailed } from "@/components/ui/primitives";
+import { SkeletonList } from "@/components/ui/skeletons";
 import { ControlStrip, FilterField, StripDate, StripFilters, StripGroup, StripSearch, type GroupOption } from "@/components/list/ControlStrip";
 import { TxnBadge, TxnAmount } from "./chips";
 import { cn } from "@/lib/utils/cn";
@@ -341,9 +342,7 @@ function TransactionTableInner({
 
       <div className="overflow-hidden rounded-card border border-line bg-paper-raised">
         {query.isLoading ? (
-          <div className="flex flex-col gap-2 p-5">
-            {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-11 rounded-control" />)}
-          </div>
+          <SkeletonList rows={7} className="px-5" />
         ) : query.isError ? (
           <div className="p-5">
             <LoadFailed what="transactions" error={query.error} onRetry={() => query.refetch()} icon={Search} />

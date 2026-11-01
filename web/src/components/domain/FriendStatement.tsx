@@ -4,7 +4,8 @@ import type { Friend } from "@/types";
 import { useFriendBalances, useFriendStatement, useTransaction } from "@/hooks/queries";
 import { Drawer } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
-import { Avatar, EmptyState, LoadFailed, Skeleton } from "@/components/ui/primitives";
+import { Avatar, EmptyState, LoadFailed } from "@/components/ui/primitives";
+import { SkeletonStatement } from "@/components/ui/skeletons";
 import { SettleForm } from "@/components/domain/SettleForm";
 import { TxnDetailDrawer } from "@/components/domain/TxnDetailDrawer";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
@@ -74,7 +75,7 @@ export function FriendStatement({ friend, open, onOpenChange }: { friend: Friend
         }
       >
         {statement.isLoading ? (
-          <Skeleton className="h-40 w-full rounded-card" />
+          <SkeletonStatement />
         ) : statement.isError ? (
           <LoadFailed what="the statement" error={statement.error} onRetry={() => statement.refetch()} />
         ) : rows.length === 0 ? (

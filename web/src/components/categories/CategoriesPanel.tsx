@@ -6,7 +6,8 @@ import { useArchiveCategory, useUpdateCategory } from "@/hooks/mutations";
 import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
-import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { Card, EmptyState } from "@/components/ui/primitives";
+import { SkeletonChart, SkeletonList } from "@/components/ui/skeletons";
 import { CategoryForm } from "@/components/domain/CategoryForm";
 import { planSummary, startingLimit, type PlanItem } from "@/lib/utils/budgetPlan";
 import { formatCurrency } from "@/lib/utils/format";
@@ -85,7 +86,7 @@ export function CategoriesPanel() {
     }
   }
 
-  if (isLoading) return <div className="space-y-4"><Skeleton className="h-40 w-full" /><Skeleton className="h-96 w-full" /></div>;
+  if (isLoading) return <div className="space-y-4"><SkeletonChart height={90} /><div className="rounded-card border border-line bg-paper-raised p-5"><SkeletonList rows={6} /></div></div>;
 
   const segments = ordered
     .map((c) => ({ id: c.id, name: c.name, color: c.color, limit: limitOf(c), spent: spentBy.get(c.id)?.total ?? 0 }))

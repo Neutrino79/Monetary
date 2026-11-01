@@ -4,7 +4,8 @@ import type { Account } from "@/types";
 import { useAccountStatement, useTransaction } from "@/hooks/queries";
 import { Drawer } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
-import { EmptyState, LoadFailed, Skeleton } from "@/components/ui/primitives";
+import { EmptyState, LoadFailed } from "@/components/ui/primitives";
+import { SkeletonStatement } from "@/components/ui/skeletons";
 import { TxnDetailDrawer } from "@/components/domain/TxnDetailDrawer";
 import { ReconcileForm } from "@/components/domain/ReconcileForm";
 import { FilterChip } from "@/components/ui/Segmented";
@@ -63,7 +64,7 @@ export function AccountActivity({ account, open, onOpenChange }: { account: Acco
         }
       >
         {statement.isLoading ? (
-          <Skeleton className="h-40 w-full rounded-card" />
+          <SkeletonStatement />
         ) : statement.isError ? (
           <LoadFailed what="the activity" error={statement.error} onRetry={() => statement.refetch()} />
         ) : all.length === 0 ? (

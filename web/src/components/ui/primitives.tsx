@@ -1,4 +1,4 @@
-import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
+import type { ButtonHTMLAttributes, CSSProperties, HTMLAttributes, ReactNode } from "react";
 import { AlertCircle, RefreshCw, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
@@ -144,6 +144,6 @@ export function LoadFailed({ what, error, onRetry, icon = AlertCircle }: { what:
   );
 }
 
-export function Skeleton({ className }: { className?: string }) {
-  return <div className={cn("skeleton rounded-control", className)} />;
+export function Skeleton({ className, style }: { className?: string; style?: CSSProperties }) {
+  return <div className={cn("skeleton rounded-control", className)} style={style} />;
 }

@@ -5,7 +5,8 @@ import type { CategoryTrend, CategoriesReport, MonthSpan } from "@/types";
 import { useInspect } from "@/hooks/useInspect";
 import { categoryMonthLink, categorySpanLink } from "@/lib/utils/reportLinks";
 import { ChartTip } from "./ChartTip";
-import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { Card, EmptyState } from "@/components/ui/primitives";
+import { SkeletonReport } from "@/components/ui/skeletons";
 import { useCategoriesReport } from "@/hooks/queries";
 import { useElementWidth } from "@/hooks/useElementWidth";
 import { linear } from "@/lib/utils/chartMath";
@@ -185,7 +186,7 @@ export function CategoriesTab({ months }: { months: number }) {
           </button>
         ))}
       </div>
-      {q.isLoading ? <Skeleton className="h-96 w-full" /> : !r || r.categories.length === 0 ? (
+      {q.isLoading ? <SkeletonReport /> : !r || r.categories.length === 0 ? (
         <EmptyState icon={BarChart3} title={`No ${kind} in this range`} description="Pick a longer range, or add some transactions." />
       ) : (
         <>

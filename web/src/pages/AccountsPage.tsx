@@ -7,7 +7,8 @@ import { useCreateAccount, useUpdateAccount, useArchiveAccount, useRestoreAccoun
 import { useAuthStore } from "@/store/authStore";
 import { ApiError } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/Toast";
-import { Card, EmptyState, SectionLabel, Skeleton } from "@/components/ui/primitives";
+import { Card, EmptyState, SectionLabel } from "@/components/ui/primitives";
+import { SkeletonCardGrid, SkeletonPageHeader } from "@/components/ui/skeletons";
 import { AccountChip } from "@/components/domain/chips";
 import { Button } from "@/components/ui/Button";
 import { Modal, ConfirmDialog } from "@/components/ui/Dialog";
@@ -69,12 +70,8 @@ export function AccountsPage() {
   if (isLoading) {
     return (
       <div>
-        <Skeleton className="mb-6 h-7 w-40" />
-        <div className="grid grid-cols-3 gap-4 max-[900px]:grid-cols-1">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-32 rounded-card" />
-          ))}
-        </div>
+        <SkeletonPageHeader />
+        <SkeletonCardGrid count={3} />
       </div>
     );
   }
