@@ -1,5 +1,5 @@
 import type { InputHTMLAttributes, TextareaHTMLAttributes, ReactElement } from "react";
-import { forwardRef, useId, isValidElement, cloneElement } from "react";
+import { forwardRef, useEffect, useId, useRef, isValidElement, cloneElement } from "react";
 import { cn } from "@/lib/utils/cn";
 import { currencySymbol } from "@/lib/utils/format";
 
@@ -72,14 +72,27 @@ export function FormField({
   if (error) extra["aria-invalid"] = true; // lets the control draw a red border
   const control = isValidElement(children) && Object.keys(extra).length ? cloneElement(children, extra) : children;
 
+  // When a form is submitted with errors, move focus to the first invalid field (in page order) so the
+  // person sees what to fix. Every invalid field runs this, and they all pick the same first one.
+  const wrapper = useRef<HTMLDivElement>(null);
+  const hadError = useRef(false);
+  useEffect(() => {
+    if (error && !hadError.current) {
+      const scope = wrapper.current?.closest('[role="dialog"], form') ?? document;
+      const first = scope.querySelector<HTMLElement>('[aria-invalid="true"]');
+      if (first && !first.contains(document.activeElement)) first.focus({ preventScroll: false });
+    }
+    hadError.current = !!error;
+  }, [error]);
+
   return (
-    <div className={cn("flex flex-col gap-1.5", full && "col-span-full")}>
+    <div ref={wrapper} className={cn("flex flex-col gap-1.5", full && "col-span-full")}>
       <label htmlFor={fieldId} className="text-caption font-semibold text-ink-soft">
         {label}
       </label>
       {control}
       {hint && !error && <p className="text-caption text-ink-faint">{hint}</p>}
-      {error && <span className="text-caption text-danger">{error}</span>}
+      {error && <span role="alert" className="text-caption text-danger">{error}</span>}
     </div>
   );
 }

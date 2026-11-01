@@ -158,8 +158,8 @@ export function ConfirmDialog({
               onOpenChange(false);
             }}
             className={cn(
-              "rounded-control px-4 py-2.5 text-body font-semibold text-white",
-              variant === "danger" ? "bg-danger hover:opacity-90" : "bg-ink hover:opacity-90",
+              "rounded-control px-4 py-2.5 text-body font-semibold",
+              variant === "danger" ? "bg-danger text-danger-ink hover:opacity-90" : "bg-ink text-paper hover:opacity-90",
             )}
           >
             {confirmLabel}

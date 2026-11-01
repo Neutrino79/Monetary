@@ -15,7 +15,7 @@ const variantClasses: Record<Variant, string> = {
   primary: "bg-ink text-paper hover:opacity-90 dark:bg-accent dark:text-accent-ink",
   secondary: "bg-paper-sunken text-ink border border-line hover:border-line-strong",
   ghost: "bg-transparent text-ink-soft hover:bg-paper-sunken hover:text-ink",
-  danger: "bg-danger text-white hover:opacity-90",
+  danger: "bg-danger text-danger-ink hover:opacity-90",
 };
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(
