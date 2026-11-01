@@ -12,6 +12,8 @@ import { applyTheme } from '@/lib/utils/themeTransition'
 function Root() {
   const hydrate = useAuthStore((s) => s.hydrate)
   const theme = useUiStore((s) => s.theme)
+  const accent = useUiStore((s) => s.accent)
+  const density = useUiStore((s) => s.density)
 
   useEffect(() => {
     hydrate()
@@ -23,6 +25,14 @@ function Root() {
     applyTheme(theme, !firstTheme.current)
     firstTheme.current = false
   }, [theme])
+
+  // accent and density are plain attributes on <html>; the stylesheet does the rest
+  useEffect(() => {
+    const root = document.documentElement
+    if (accent === 'green') root.removeAttribute('data-accent')
+    else root.setAttribute('data-accent', accent)
+    root.setAttribute('data-density', density)
+  }, [accent, density])
 
   return <App />
 }

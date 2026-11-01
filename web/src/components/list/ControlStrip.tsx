@@ -121,12 +121,12 @@ export function StripDate({ value, onChange }: { value: DateRange; onChange: (r:
                     type="button"
                     aria-pressed={active === p.id}
                     onClick={() => apply(presetRange(p.id))}
-                    className={cn("rounded-control px-2.5 py-1.5 text-left text-body", active === p.id ? "bg-ink font-semibold text-paper dark:bg-accent dark:text-accent-ink" : "hover:bg-paper-sunken")}
+                    className={cn("rounded-control px-2.5 py-1.5 text-left text-body", active === p.id ? "bg-btn font-semibold text-btn-ink" : "hover:bg-paper-sunken")}
                   >
                     {p.label}
                   </button>
                 ))}
-                <div aria-pressed={active === "custom"} className={cn("rounded-control px-2.5 py-1.5 text-body", active === "custom" ? "bg-ink font-semibold text-paper dark:bg-accent dark:text-accent-ink" : "text-ink-soft")}>
+                <div aria-pressed={active === "custom"} className={cn("rounded-control px-2.5 py-1.5 text-body", active === "custom" ? "bg-btn font-semibold text-btn-ink" : "text-ink-soft")}>
                   Custom range
                 </div>
               </div>
@@ -174,7 +174,7 @@ export function StripFilters({
             <button type="button" onClick={onReset} className="rounded-control px-2 py-1 text-body font-semibold text-ink-soft hover:bg-paper-sunken">
               Reset
             </button>
-            <Popover.Close className="rounded-control bg-ink px-4 py-2 text-body font-semibold text-paper dark:bg-accent dark:text-accent-ink">
+            <Popover.Close className="rounded-control bg-btn px-4 py-2 text-body font-semibold text-btn-ink">
               {resultCount == null ? "Done" : `Show ${resultCount} result${resultCount === 1 ? "" : "s"}`}
             </Popover.Close>
           </div>

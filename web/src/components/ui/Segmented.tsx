@@ -14,7 +14,7 @@ export function FilterChip({ active, onClick, children }: { active: boolean; onC
       onClick={onClick}
       className={cn(
         "min-h-11 rounded-full border px-4 text-body font-semibold transition-colors",
-        active ? "border-ink bg-ink text-paper dark:border-accent dark:bg-accent dark:text-accent-ink" : "border-line bg-paper-raised text-ink-soft hover:border-line-strong",
+        active ? "border-btn bg-btn text-btn-ink" : "border-line bg-paper-raised text-ink-soft hover:border-line-strong",
       )}
     >
       {children}
@@ -35,7 +35,7 @@ export function Segmented<T extends string>({ label, options, value, onChange }:
           className={cn(
             "min-h-9 px-3.5 text-body font-medium transition-colors pointer-coarse:min-h-11",
             i > 0 && "border-l border-line-strong",
-            value === o.value ? "bg-ink text-paper dark:bg-accent dark:text-accent-ink" : "bg-paper-raised text-ink hover:bg-paper-sunken",
+            value === o.value ? "bg-btn text-btn-ink" : "bg-paper-raised text-ink hover:bg-paper-sunken",
           )}
         >
           {o.label}

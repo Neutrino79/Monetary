@@ -394,15 +394,15 @@ function TransactionTableInner({
                         )}
                         {!folded && (
                           <tr onClick={() => setSelectedTxn(t)} className="cursor-pointer border-b border-line last:border-b-0 hover:bg-paper-sunken">
-                            <td className="whitespace-nowrap px-4 py-3 text-ink-soft">{formatDate(t.date)}</td>
-                            <td className="max-w-80 px-4 py-3">
+                            <td className="whitespace-nowrap row-cell text-ink-soft">{formatDate(t.date)}</td>
+                            <td className="max-w-80 row-cell">
                               <div className="font-semibold">{t.description}</div>
                               {t.memo && <div title={t.memo} className="truncate text-caption text-ink-soft">{t.memo.split(/\r?\n/)[0]}</div>}
                             </td>
-                            <td className="px-4 py-3"><TxnBadge txn={t} /></td>
-                            <td className="px-4 py-3">{categoryPill(t)}</td>
-                            <td className="px-4 py-3 text-ink-soft">{accountText(t)}</td>
-                            <td className="px-4 py-3">
+                            <td className="row-cell"><TxnBadge txn={t} /></td>
+                            <td className="row-cell">{categoryPill(t)}</td>
+                            <td className="row-cell text-ink-soft">{accountText(t)}</td>
+                            <td className="row-cell">
                               {t.tags.length > 0 ? (
                                 <div className="flex flex-wrap gap-1" aria-label="Tags">
                                   {t.tags.map((tag) => (
@@ -413,7 +413,7 @@ function TransactionTableInner({
                                 <span className="text-ink-faint">{"—"}</span>
                               )}
                             </td>
-                            <td className="px-4 py-3 text-right">
+                            <td className="row-cell text-right">
                               <TxnAmount txn={t} />
                             </td>
                           </tr>
@@ -445,7 +445,7 @@ function TransactionTableInner({
                     )}
                     {!folded && (
                       <li className="border-b border-line last:border-b-0">
-                        <button type="button" onClick={() => setSelectedTxn(t)} className="flex w-full items-start gap-3 py-3 text-left">
+                        <button type="button" onClick={() => setSelectedTxn(t)} className="row-pad flex w-full items-start gap-3 text-left">
                           <div className="min-w-0 flex-1">
                             <div className="truncate text-[14px] font-semibold">{t.description}</div>
                             <div className="truncate text-caption text-ink-soft">

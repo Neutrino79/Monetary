@@ -62,7 +62,7 @@ export function MonthStepper({ value, onChange, max, className, "aria-label": ar
                     }}
                     className={cn(
                       "rounded-control py-2 text-body hover:bg-paper-sunken disabled:cursor-not-allowed disabled:opacity-35 disabled:hover:bg-transparent",
-                      selected && "bg-ink font-semibold text-paper hover:bg-ink dark:bg-accent dark:text-accent-ink",
+                      selected && "bg-btn font-semibold text-btn-ink hover:bg-btn",
                     )}
                   >
                     {name}

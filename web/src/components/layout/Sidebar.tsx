@@ -52,7 +52,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
                     cn(
                       "mb-0.5 flex items-center gap-3 rounded-control px-3 py-2 text-[13.7px] font-medium text-ink-soft transition-colors",
                       "hover:bg-paper-sunken hover:text-ink",
-                      isActive && "bg-accent-soft font-semibold text-accent hover:bg-accent-soft hover:text-accent",
+                      isActive && "bg-brand-soft font-semibold text-brand hover:bg-brand-soft hover:text-brand",
                     )
                   }
                 >

@@ -100,8 +100,8 @@ export function DatePicker({ value, onChange, min, max, id, placeholder = "Pick 
                       onClick={() => pick(iso)}
                       className={cn(
                         "m-0.5 h-8 rounded-control text-body hover:bg-paper-sunken disabled:cursor-not-allowed disabled:text-ink-faint disabled:opacity-40 disabled:hover:bg-transparent",
-                        iso === todayIso && iso !== value && "font-semibold text-accent",
-                        iso === value && "bg-ink font-semibold text-paper hover:bg-ink dark:bg-accent dark:text-accent-ink",
+                        iso === todayIso && iso !== value && "font-semibold text-brand",
+                        iso === value && "bg-btn font-semibold text-btn-ink hover:bg-btn",
                       )}
                     >
                       {Number(iso.slice(8))}
@@ -114,7 +114,7 @@ export function DatePicker({ value, onChange, min, max, id, placeholder = "Pick 
             ))}
           </div>
           <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
-            <button type="button" disabled={disabled(todayIso)} onClick={() => pick(todayIso)} className="rounded-control px-2 py-1 text-caption font-semibold text-accent hover:bg-paper-sunken disabled:opacity-40">
+            <button type="button" disabled={disabled(todayIso)} onClick={() => pick(todayIso)} className="rounded-control px-2 py-1 text-caption font-semibold text-brand hover:bg-paper-sunken disabled:opacity-40">
               Today
             </button>
             {clearable && value && (

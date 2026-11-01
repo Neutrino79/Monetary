@@ -12,7 +12,7 @@ export function MobileTabbar() {
           <NavLink
             key={path}
             to={path}
-            className={({ isActive }) => cn("flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[10px] text-ink-faint", isActive && "text-accent")}
+            className={({ isActive }) => cn("flex flex-1 flex-col items-center gap-0.5 py-1.5 text-[10px] text-ink-faint", isActive && "text-brand")}
           >
             <item.icon size={19} />
             <span>{item.label.split(" ")[0]}</span>

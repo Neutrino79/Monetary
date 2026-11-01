@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { Moon, Server, Sun } from "lucide-react";
+import { Check, Moon, Server, Sun } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
-import { useUiStore } from "@/store/uiStore";
+import { ACCENTS, useUiStore } from "@/store/uiStore";
 import { useToast } from "@/components/ui/Toast";
-import { Card } from "@/components/ui/primitives";
+import { Card, SectionLabel } from "@/components/ui/primitives";
+import { Segmented } from "@/components/ui/Segmented";
+import { ShortcutList } from "@/components/layout/ShortcutHelp";
 import { Button } from "@/components/ui/Button";
 import { Input, Select, FormField } from "@/components/ui/form";
 import { timezoneOptions } from "@/config/timezones";
@@ -19,6 +21,10 @@ export function SettingsPage() {
   const updateProfile = useAuthStore((s) => s.updateProfile);
   const theme = useUiStore((s) => s.theme);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
+  const accent = useUiStore((s) => s.accent);
+  const setAccent = useUiStore((s) => s.setAccent);
+  const density = useUiStore((s) => s.density);
+  const setDensity = useUiStore((s) => s.setDensity);
   const toast = useToast();
   const { name: appName, tagline } = useBranding();
 
@@ -119,15 +125,58 @@ export function SettingsPage() {
 
           <Card>
             <div className="mb-4 text-lead font-semibold">Appearance</div>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-body">
-                {theme === "dark" ? <Moon size={16} /> : <Sun size={16} />}
-                {theme === "dark" ? "Dark theme" : "Light theme"}
+            <div className="flex flex-col gap-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 text-body">
+                  {theme === "dark" ? <Moon size={16} /> : <Sun size={16} />}
+                  {theme === "dark" ? "Dark theme" : "Light theme"}
+                </div>
+                <Button variant="secondary" size="sm" onClick={toggleTheme}>
+                  Switch to {theme === "dark" ? "light" : "dark"}
+                </Button>
               </div>
-              <Button variant="secondary" size="sm" onClick={toggleTheme}>
-                Switch to {theme === "dark" ? "light" : "dark"}
-              </Button>
+
+              <div>
+                <SectionLabel className="mb-2">Accent colour</SectionLabel>
+                <div role="group" aria-label="Accent colour" className="flex flex-wrap gap-2">
+                  {ACCENTS.map((a) => (
+                    <button
+                      key={a.value}
+                      type="button"
+                      aria-pressed={accent === a.value}
+                      onClick={() => setAccent(a.value)}
+                      className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3.5 text-body font-medium transition-colors ${accent === a.value ? "border-ink bg-paper-sunken text-ink" : "border-line text-ink-soft hover:border-line-strong"}`}
+                    >
+                      <span className="flex h-4 w-4 items-center justify-center rounded-full" style={{ background: a.swatch }} aria-hidden="true">
+                        {accent === a.value && <Check size={11} className="text-white" strokeWidth={3} />}
+                      </span>
+                      {a.label}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-2 text-caption text-ink-faint">Used for navigation, selected states and buttons. Income stays green and spending stays red whatever you pick.</p>
+              </div>
+
+              <div>
+                <SectionLabel className="mb-2">Row density</SectionLabel>
+                <Segmented
+                  label="Row density"
+                  value={density}
+                  onChange={setDensity}
+                  options={[
+                    { value: "comfortable", label: "Comfortable" },
+                    { value: "compact", label: "Compact" },
+                  ]}
+                />
+                <p className="mt-2 text-caption text-ink-faint">Compact fits more transactions on screen by tightening list and table rows.</p>
+              </div>
             </div>
+          </Card>
+
+          <Card>
+            <div className="mb-1 text-lead font-semibold">Keyboard shortcuts</div>
+            <p className="mb-3 text-caption text-ink-faint">Quick keys for the things you do most. Press ? anywhere to see them.</p>
+            <ShortcutList />
           </Card>
         </div>
 

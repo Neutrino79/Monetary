@@ -524,7 +524,7 @@ function PayerChip({ active, children, ...rest }: { active: boolean; children: R
       {...rest}
       className={cn(
         "inline-flex h-9 items-center rounded-full border px-4 text-body font-medium disabled:opacity-40",
-        active ? "border-ink bg-ink text-paper dark:border-accent dark:bg-accent dark:text-accent-ink" : "border-line-strong bg-paper-raised text-ink hover:bg-paper-sunken",
+        active ? "border-btn bg-btn text-btn-ink" : "border-line-strong bg-paper-raised text-ink hover:bg-paper-sunken",
       )}
     >
       {children}
@@ -566,7 +566,7 @@ function SplitCard({
                 type="button"
                 aria-pressed={mode === m}
                 onClick={() => onMode(m)}
-                className={cn("px-3 py-1 text-caption font-medium", mode === m ? "bg-ink text-paper dark:bg-accent dark:text-accent-ink" : "text-ink-soft hover:bg-paper-sunken")}
+                className={cn("px-3 py-1 text-caption font-medium", mode === m ? "bg-btn text-btn-ink" : "text-ink-soft hover:bg-paper-sunken")}
               >
                 {m === "equal" ? "Equally" : "Custom"}
               </button>

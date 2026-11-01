@@ -85,9 +85,9 @@ export function RangeCalendar({
                   key={iso}
                   className={cn(
                     "relative h-9",
-                    inside && "bg-accent/15",
-                    !single && isStart && "rounded-l-[8px] bg-accent/15",
-                    !single && isEnd && "rounded-r-[8px] bg-accent/15",
+                    inside && "bg-brand/15",
+                    !single && isStart && "rounded-l-[8px] bg-brand/15",
+                    !single && isEnd && "rounded-r-[8px] bg-brand/15",
                     di === 0 && inside && "rounded-l-[8px]",
                     di === 6 && inside && "rounded-r-[8px]",
                   )}
@@ -104,9 +104,9 @@ export function RangeCalendar({
                     onFocus={() => setHover(iso)}
                     className={cn(
                       "absolute inset-x-0.5 inset-y-0.5 rounded-control text-body hover:bg-paper-sunken disabled:cursor-not-allowed disabled:text-ink-faint disabled:opacity-40 disabled:hover:bg-transparent",
-                      iso === todayIso && !isEdge && "font-semibold text-accent",
-                      inside && "hover:bg-accent/25",
-                      isEdge && "bg-ink font-semibold text-paper hover:bg-ink dark:bg-accent dark:text-accent-ink",
+                      iso === todayIso && !isEdge && "font-semibold text-brand",
+                      inside && "hover:bg-brand/25",
+                      isEdge && "bg-btn font-semibold text-btn-ink hover:bg-btn",
                     )}
                   >
                     {Number(iso.slice(8))}

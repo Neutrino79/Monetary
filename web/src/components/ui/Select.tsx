@@ -222,7 +222,7 @@ export function Select({ value, onChange, id, name, disabled, className, placeho
                       )}
                     >
                       <span className="min-w-0 truncate">{o.label || placeholder}</span>
-                      {isSel && <Check size={14} aria-hidden className="flex-none text-accent" />}
+                      {isSel && <Check size={14} aria-hidden className="flex-none text-brand" />}
                     </div>
                   );
                 })}
