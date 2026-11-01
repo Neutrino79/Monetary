@@ -33,7 +33,7 @@ export function Modal({ open, onOpenChange, title, subtitle, children, footer, s
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[80] bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out" />
+        <Dialog.Overlay className="overlay-scrim fixed inset-0 z-[80] data-[state=open]:animate-in data-[state=open]:fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out" />
         <Dialog.Content
           ref={panel}
           className={cn(
@@ -85,7 +85,7 @@ export function Drawer({ open, onOpenChange, title, subtitle, eyebrow, hideTitle
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[80] bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out" />
+        <Dialog.Overlay className="overlay-scrim fixed inset-0 z-[80] data-[state=open]:animate-in data-[state=open]:fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out" />
         <Dialog.Content
           ref={panel}
           className={cn(

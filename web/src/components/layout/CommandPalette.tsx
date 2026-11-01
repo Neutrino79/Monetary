@@ -45,7 +45,7 @@ export function CommandPalette({ open, onOpenChange, onAddTransaction }: { open:
       }}
     >
       <Dialog.Portal>
-        <Dialog.Overlay className="fixed inset-0 z-[80] bg-black/50" />
+        <Dialog.Overlay className="overlay-scrim fixed inset-0 z-[80] data-[state=open]:animate-in data-[state=open]:fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out" />
         <Dialog.Content className="fixed left-1/2 top-1/2 z-[81] w-[92vw] max-w-140 -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-card bg-paper-raised shadow-2xl">
           <Dialog.Title className="sr-only">Command palette</Dialog.Title>
           <div className="flex items-center gap-3 border-b border-line px-5 py-4">
