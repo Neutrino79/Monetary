@@ -169,9 +169,8 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
         }
       >
         <div className="mb-5 overflow-hidden rounded-card border border-line bg-paper-sunken">
-          <div className="flex flex-col items-center px-5 pb-6 pt-6 text-center">
-            <TxnIconChip txn={txn} size={52} />
-            <div className="mt-3 max-w-full break-words text-[15px] font-semibold leading-snug">{txn.description}</div>
+          <div className="flex flex-col items-center px-5 pb-5 pt-5 text-center">
+            <div className="max-w-full break-words text-[15px] font-semibold leading-snug">{txn.description}</div>
             <div className="mt-1 leading-tight">
               <TxnAmount txn={txn} className="text-[38px]" />
             </div>

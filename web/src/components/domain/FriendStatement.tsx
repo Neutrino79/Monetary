@@ -1,5 +1,5 @@
 import { Fragment, useState } from "react";
-import { HandCoins } from "lucide-react";
+import { ChevronRight, HandCoins } from "lucide-react";
 import type { Friend } from "@/types";
 import { useFriendBalances, useFriendStatement, useTransaction } from "@/hooks/queries";
 import { Drawer } from "@/components/ui/Dialog";
@@ -89,7 +89,7 @@ export function FriendStatement({ friend, open, onOpenChange }: { friend: Friend
                 </li>
                 {m.rows.map((r) => (
                   <li key={`${r.entryId}-${r.runningBalance}-${r.delta}`} className="border-t border-dashed border-line">
-                    <button type="button" onClick={() => setOpenId(r.entryId)} className="flex min-h-14 w-full items-start gap-3 py-3 text-left hover:bg-paper-sunken">
+                    <button type="button" onClick={() => setOpenId(r.entryId)} className="group -mx-2 my-1 flex min-h-14 w-[calc(100%+1rem)] items-center gap-3 rounded-control px-2 py-2 text-left transition-colors hover:bg-paper-sunken focus-visible:bg-paper-sunken">
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-body font-semibold">{r.description}</div>
                         <div className="text-caption text-ink-faint">
@@ -103,6 +103,7 @@ export function FriendStatement({ friend, open, onOpenChange }: { friend: Friend
                         </div>
                         <div className="text-micro text-ink-faint">{r.runningBalance === 0 ? "Settled" : `Balance ${formatCurrency(Math.abs(r.runningBalance), true)} ${r.runningBalance > 0 ? "owed to you" : "owed by you"}`}</div>
                       </div>
+                      <ChevronRight size={15} aria-hidden="true" className="-mr-1 flex-none text-ink-faint opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 pointer-coarse:hidden" />
                     </button>
                   </li>
                 ))}
