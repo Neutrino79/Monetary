@@ -268,3 +268,13 @@ html.theme-fade *::after {
     stroke 300ms ease,
     box-shadow 300ms ease !important;
 }
+
+/* Form dialogs: a sheet on a phone, a centred dialog that fades and scales in on a wide screen. */
+@keyframes modal-in { from { opacity: 0; transform: scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes modal-out { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(0.96); } }
+.modal-panel[data-state="open"] { animation: panel-in-y 260ms cubic-bezier(0.22, 1, 0.36, 1); }
+.modal-panel[data-state="closed"] { animation: panel-out-y 180ms ease-in forwards; }
+@media (min-width: 640px) {
+  .modal-panel[data-state="open"] { animation: modal-in 180ms ease-out; }
+  .modal-panel[data-state="closed"] { animation: modal-out 140ms ease-in forwards; }
+}

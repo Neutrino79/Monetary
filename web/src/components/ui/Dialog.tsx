@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Dialog } from "radix-ui";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { useSheetDrag } from "@/lib/hooks/useSheetDrag";
 import { IconButton, SectionLabel } from "./primitives";
 
 interface BaseProps {
@@ -13,32 +14,53 @@ interface BaseProps {
   footer?: ReactNode;
 }
 
+/** The grab handle at the top of a bottom sheet (phones only). */
+function Grabber() {
+  return (
+    <div className="flex justify-center pt-2.5 sm:hidden" aria-hidden="true">
+      <span className="h-1.5 w-10 rounded-full bg-line-strong" />
+    </div>
+  );
+}
+
+/**
+ * A centred dialog on a wide screen; on a phone the same content rises from the bottom as a sheet that can be
+ * pulled down to close, with a full-width action bar.
+ */
 export function Modal({ open, onOpenChange, title, subtitle, children, footer, size = "md" }: BaseProps & { size?: "sm" | "md" | "lg" | "xl" }) {
-  const sizeClass = { sm: "max-w-[400px]", md: "max-w-[560px]", lg: "max-w-[760px]", xl: "max-w-[900px]" }[size];
+  const sizeClass = { sm: "sm:max-w-[400px]", md: "sm:max-w-[560px]", lg: "sm:max-w-[760px]", xl: "sm:max-w-[900px]" }[size];
+  const { panel, handlers } = useSheetDrag(() => onOpenChange(false));
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[80] bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out" />
         <Dialog.Content
+          ref={panel}
           className={cn(
-            "fixed left-1/2 top-1/2 z-[81] w-[92vw] -translate-x-1/2 -translate-y-1/2 rounded-card bg-paper-raised shadow-2xl flex flex-col max-h-[92vh]",
-            "data-[state=open]:animate-in data-[state=open]:fade-in data-[state=open]:zoom-in-95 data-[state=closed]:animate-out data-[state=closed]:fade-out data-[state=closed]:zoom-out-95",
+            "modal-panel fixed z-[81] flex flex-col bg-paper-raised shadow-2xl outline-none",
+            "inset-x-0 bottom-0 max-h-[92dvh] rounded-t-[22px]",
+            "sm:inset-x-auto sm:bottom-auto sm:left-1/2 sm:top-1/2 sm:max-h-[92vh] sm:w-[92vw] sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-card",
             sizeClass,
           )}
         >
-          <div className="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
-            <div>
-              <Dialog.Title className="text-[17px] font-semibold text-ink">{title}</Dialog.Title>
-              {subtitle && <Dialog.Description className="mt-0.5 text-caption text-ink-faint">{subtitle}</Dialog.Description>}
+          <div {...handlers} className="touch-none">
+            <Grabber />
+            <div className="flex items-start justify-between gap-3 border-b border-line px-5 pb-3 pt-2 sm:py-4">
+              <div className="min-w-0">
+                <Dialog.Title className="text-[17px] font-semibold text-ink">{title}</Dialog.Title>
+                {subtitle && <Dialog.Description className="mt-0.5 text-caption text-ink-faint">{subtitle}</Dialog.Description>}
+              </div>
+              <Dialog.Close asChild>
+                <IconButton aria-label="Close">
+                  <X size={18} />
+                </IconButton>
+              </Dialog.Close>
             </div>
-            <Dialog.Close asChild>
-              <IconButton aria-label="Close">
-                <X size={18} />
-              </IconButton>
-            </Dialog.Close>
           </div>
-          <div className="flex-1 overflow-y-auto p-5">{children}</div>
-          {footer && <div className="flex justify-end gap-2 border-t border-line px-5 py-4">{footer}</div>}
+          <div className="flex-1 overflow-y-auto overscroll-contain p-5">{children}</div>
+          {footer && (
+            <div className="flex gap-2 border-t border-line px-5 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3 sm:justify-end sm:pb-4 [&>*]:min-h-11 [&>*]:flex-1 sm:[&>*]:flex-none">{footer}</div>
+          )}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -59,35 +81,37 @@ interface DrawerProps extends BaseProps {
  * The header and the action bar stay put; only the body scrolls.
  */
 export function Drawer({ open, onOpenChange, title, subtitle, eyebrow, hideTitle, hero, children, footer }: DrawerProps) {
+  const { panel, handlers } = useSheetDrag(() => onOpenChange(false));
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="fixed inset-0 z-[80] bg-black/50 data-[state=open]:animate-in data-[state=open]:fade-in data-[state=closed]:animate-out data-[state=closed]:fade-out" />
         <Dialog.Content
+          ref={panel}
           className={cn(
             "drawer-panel fixed z-[81] flex flex-col bg-paper-raised shadow-2xl outline-none",
             "inset-x-0 bottom-0 max-h-[92dvh] rounded-t-[22px]",
             "sm:inset-x-auto sm:bottom-auto sm:right-0 sm:top-0 sm:h-full sm:max-h-none sm:w-full sm:max-w-[440px] sm:rounded-none",
           )}
         >
-          <div className="flex justify-center pt-2.5 sm:hidden" aria-hidden="true">
-            <span className="h-1.5 w-10 rounded-full bg-line-strong" />
-          </div>
-          <div className={cn("flex items-start justify-between gap-3 px-5 pb-3 pt-2 sm:pt-4", !hero && "border-b border-line")}>
-            <div className="min-w-0">
-              {eyebrow && <SectionLabel>{eyebrow}</SectionLabel>}
-              <Dialog.Title className={cn("text-[17px] font-semibold text-ink", hideTitle && "sr-only")}>{title}</Dialog.Title>
-              {subtitle ? (
-                <Dialog.Description className="mt-0.5 text-caption text-ink-faint">{subtitle}</Dialog.Description>
-              ) : (
-                <Dialog.Description className="sr-only">{title}</Dialog.Description>
-              )}
+          <div {...handlers} className="touch-none">
+            <Grabber />
+            <div className={cn("flex items-start justify-between gap-3 px-5 pb-3 pt-2 sm:pt-4", !hero && "border-b border-line")}>
+              <div className="min-w-0">
+                {eyebrow && <SectionLabel>{eyebrow}</SectionLabel>}
+                <Dialog.Title className={cn("text-[17px] font-semibold text-ink", hideTitle && "sr-only")}>{title}</Dialog.Title>
+                {subtitle ? (
+                  <Dialog.Description className="mt-0.5 text-caption text-ink-faint">{subtitle}</Dialog.Description>
+                ) : (
+                  <Dialog.Description className="sr-only">{title}</Dialog.Description>
+                )}
+              </div>
+              <Dialog.Close asChild>
+                <IconButton aria-label="Close" className="-mr-2 -mt-1 h-11 w-11">
+                  <X size={18} />
+                </IconButton>
+              </Dialog.Close>
             </div>
-            <Dialog.Close asChild>
-              <IconButton aria-label="Close" className="-mr-2 -mt-1 h-11 w-11">
-                <X size={18} />
-              </IconButton>
-            </Dialog.Close>
           </div>
           {hero}
           <div className="flex-1 overflow-y-auto overscroll-contain p-5">{children}</div>
