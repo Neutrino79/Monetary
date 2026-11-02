@@ -6,7 +6,8 @@ import { useArchiveCategory } from "@/hooks/mutations";
 import { useToast } from "@/components/ui/Toast";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
-import { Card, Skeleton } from "@/components/ui/primitives";
+import { Card } from "@/components/ui/primitives";
+import { SkeletonList } from "@/components/ui/skeletons";
 import { IncomeSourceChip } from "@/components/domain/chips";
 import { CategoryForm } from "@/components/domain/CategoryForm";
 
@@ -29,17 +30,17 @@ export function IncomePanel() {
     }
   }
 
-  if (isLoading) return <Skeleton className="h-40 w-full" />;
+  if (isLoading) return <div className="rounded-card border border-line bg-paper-raised p-5"><SkeletonList rows={4} withIcon={false} /></div>;
   return (
     <div>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[13px] text-ink-soft">Income sources group what you earn. They have no budgets.</p>
+        <p className="text-body text-ink-soft">Income sources group what you earn. They have no budgets.</p>
         <Button onClick={() => setForm({ edit: null })}><Plus size={15} /> Add income source</Button>
       </div>
       <Card className="flex flex-wrap gap-3">
-        {sources.length === 0 && <span className="text-[12.5px] text-ink-faint">No income sources yet. Add one to start recording income.</span>}
+        {sources.length === 0 && <span className="text-caption text-ink-faint">No income sources yet. Add one to start recording income.</span>}
         {sources.map((s) => (
-          <span key={s.id} className="flex items-center gap-2 rounded-full border border-line bg-paper-sunken px-3 py-1.5 text-[12.5px]">
+          <span key={s.id} className="flex items-center gap-2 rounded-full border border-line bg-paper-sunken px-3 py-1.5 text-caption">
             <IncomeSourceChip source={s} size={22} /> {s.name}
             <button type="button" aria-label={`Edit ${s.name}`} onClick={() => setForm({ edit: s })} className="text-ink-faint hover:text-ink"><Pencil size={11} /></button>
             <button type="button" aria-label={`Archive ${s.name}`} onClick={() => setArchiving(s)} className="text-ink-faint hover:text-ink"><Archive size={11} /></button>

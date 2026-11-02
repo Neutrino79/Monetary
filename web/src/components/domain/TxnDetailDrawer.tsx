@@ -5,7 +5,7 @@ import { Drawer, ConfirmDialog, Modal } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { AmountInput, FormField, Textarea } from "@/components/ui/form";
 import { DatePicker } from "@/components/ui/DatePicker";
-import { Avatar } from "@/components/ui/primitives";
+import { Avatar, SectionLabel } from "@/components/ui/primitives";
 import { AccountChip, CategoryChip, IncomeSourceChip, TxnBadge, TxnAmount, TxnIconChip } from "./chips";
 import { useAccounts, useCategories, useFriendBalances, useFriends, useIncomeSources, useTransaction, useTransactions } from "@/hooks/queries";
 import { ApiError } from "@/lib/api/errors";
@@ -29,7 +29,7 @@ function ReceiptRows({ rows }: { rows: ReceiptRow[] }) {
   return (
     <dl>
       {rows.map((r) => (
-        <div key={r.label} className="flex items-baseline justify-between gap-4 border-t border-dashed border-line px-5 py-2.5 text-[13.3px] first:border-t-0">
+        <div key={r.label} className="flex items-baseline justify-between gap-4 border-t border-dashed border-line px-5 py-2.5 text-body first:border-t-0">
           <dt className="flex-none text-ink-faint">{r.label}</dt>
           <dd className="min-w-0 text-right font-medium">{r.value}</dd>
         </div>
@@ -41,7 +41,7 @@ function ReceiptRows({ rows }: { rows: ReceiptRow[] }) {
 function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-5 last:mb-0">
-      <div className="mb-3 text-[11.5px] font-bold uppercase tracking-wide text-ink-faint">{title}</div>
+      <SectionLabel className="mb-3">{title}</SectionLabel>
       {children}
     </div>
   );
@@ -168,10 +168,9 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
           ) : undefined
         }
       >
-        <div className="mb-5 overflow-hidden rounded-2xl border border-line bg-paper-sunken">
-          <div className="flex flex-col items-center px-5 pb-6 pt-6 text-center">
-            <TxnIconChip txn={txn} size={52} />
-            <div className="mt-3 max-w-full break-words text-[15px] font-semibold leading-snug">{txn.description}</div>
+        <div className="mb-5 overflow-hidden rounded-card border border-line bg-paper-sunken">
+          <div className="flex flex-col items-center px-5 pb-5 pt-5 text-center">
+            <div className="max-w-full break-words text-[15px] font-semibold leading-snug">{txn.description}</div>
             <div className="mt-1 leading-tight">
               <TxnAmount txn={txn} className="text-[38px]" />
             </div>
@@ -187,12 +186,12 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
 
         {(txn.type === "income" || txn.type === "expense") && account && (
           <DetailSection title={txn.type === "income" ? "Where it came from" : "Where it went"}>
-            <div className="flex items-center gap-3 rounded-[10px] border border-line bg-paper-sunken p-4">
+            <div className="flex items-center gap-3 rounded-control border border-line bg-paper-sunken p-4">
               {[txn.type === "income" ? flowCategory : { name: account.name, chip: <AccountChip account={account} size={44} /> }, txn.type === "income" ? { name: account.name, chip: <AccountChip account={account} size={44} /> } : flowCategory].map((end, i) => (
                 <Fragment key={i}>
                   {i === 1 && <div className="h-0.5 flex-1 bg-line-strong" />}
-                  <div className="flex flex-1 flex-col items-center gap-1.5 text-center text-[12px] text-ink-soft">
-                    {end?.chip ?? <span className="h-11 w-11 rounded-[10px] bg-line" />}
+                  <div className="flex flex-1 flex-col items-center gap-1.5 text-center text-caption text-ink-soft">
+                    {end?.chip ?? <span className="h-11 w-11 rounded-control bg-line" />}
                     <span className="max-w-full truncate">{end?.name ?? "Uncategorised"}</span>
                   </div>
                 </Fragment>
@@ -203,14 +202,14 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
 
         {txn.type === "transfer" && account && toAccount && (
           <DetailSection title="Transfer">
-            <div className="rounded-[10px] border border-line bg-paper-sunken p-4">
+            <div className="rounded-control border border-line bg-paper-sunken p-4">
               <div className="flex items-center gap-3">
-                <div className="flex flex-1 flex-col items-center gap-1.5 text-center text-[12px] text-ink-soft">
+                <div className="flex flex-1 flex-col items-center gap-1.5 text-center text-caption text-ink-soft">
                   <AccountChip account={account} size={44} />
                   <span className="truncate">{account.name}</span>
                 </div>
                 <div className="h-0.5 flex-1 bg-line-strong" />
-                <div className="flex flex-1 flex-col items-center gap-1.5 text-center text-[12px] text-ink-soft">
+                <div className="flex flex-1 flex-col items-center gap-1.5 text-center text-caption text-ink-soft">
                   <AccountChip account={toAccount} size={44} />
                   <span className="truncate">{toAccount.name}</span>
                 </div>
@@ -221,7 +220,7 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
 
         {txn.type === "split" && txn.splits && (
           <DetailSection title="Participants">
-            <div className="rounded-[10px] border border-line bg-paper-sunken px-4">
+            <div className="rounded-control border border-line bg-paper-sunken px-4">
               {txn.splits.map((sp) => {
                 const f = friends.find((x) => x.id === sp.friendId);
                 if (!f) return null;
@@ -230,11 +229,11 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
                   <div key={sp.friendId} className="flex items-center gap-3 border-b border-line py-3 last:border-b-0">
                     <Avatar name={f.name} color={f.color} />
                     <div className="min-w-0 flex-1">
-                      <div className="text-[13.3px] font-semibold">{f.name}</div>
-                      <div className="text-[12px] text-ink-faint">Share {formatCurrency(sp.share, true)}</div>
+                      <div className="text-body font-semibold">{f.name}</div>
+                      <div className="text-caption text-ink-faint">Share {formatCurrency(sp.share, true)}</div>
                     </div>
                     <span
-                      className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${overall === 0 ? "bg-accent-soft text-accent" : overall > 0 ? "bg-danger-soft text-danger" : "bg-info-soft text-info"}`}
+                      className={`rounded-full px-2.5 py-0.5 text-micro font-semibold ${overall === 0 ? "bg-accent-soft text-accent" : overall > 0 ? "bg-danger-soft text-danger" : "bg-info-soft text-info"}`}
                       title="Their running balance with you across all transactions"
                     >
                       {overall === 0 ? "Settled up" : overall > 0 ? `Owes you ${formatCurrency(overall, true)}` : `You owe ${formatCurrency(-overall, true)}`}
@@ -243,7 +242,7 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
                 );
               })}
             </div>
-            <p className="mt-2 text-[11.5px] text-ink-faint">Balances are each friend's overall running balance with you — settlements apply across all shared expenses, not to a single bill.</p>
+            <p className="mt-2 text-micro text-ink-faint">Balances are each friend's overall running balance with you — settlements apply across all shared expenses, not to a single bill.</p>
           </DetailSection>
         )}
 
@@ -255,11 +254,11 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
 
         {txn.type === "settlement" && friend && (
           <DetailSection title="Settlement">
-            <div className="flex items-center gap-3 rounded-[10px] border border-line bg-paper-sunken p-4">
+            <div className="flex items-center gap-3 rounded-control border border-line bg-paper-sunken p-4">
               <Avatar name={friend.name} color={friend.color} size={44} />
               <div>
-                <div className="text-[13.3px] font-semibold">{friend.name}</div>
-                <div className="text-[12px] text-ink-faint">{txn.direction === "receive" ? "Paid you back" : "You paid them back"}</div>
+                <div className="text-body font-semibold">{friend.name}</div>
+                <div className="text-caption text-ink-faint">{txn.direction === "receive" ? "Paid you back" : "You paid them back"}</div>
               </div>
             </div>
           </DetailSection>
@@ -269,7 +268,7 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
           <DetailSection title="Tags">
             <div className="flex flex-wrap gap-1.5">
               {txn.tags.map((tag) => (
-                <Link key={tag} to={`/transactions?tag=${encodeURIComponent(tag)}`} className="inline-flex min-h-8 items-center rounded-full bg-paper-sunken px-3 text-[12.5px] text-ink-soft hover:text-ink">
+                <Link key={tag} to={`/transactions?tag=${encodeURIComponent(tag)}`} className="inline-flex min-h-8 items-center rounded-full bg-paper-sunken px-3 text-caption text-ink-soft hover:text-ink">
                   {tag}
                 </Link>
               ))}
@@ -279,7 +278,7 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
 
         {txn.memo && (
           <DetailSection title="Memo">
-            <p className="text-[13.3px] leading-relaxed text-ink-soft">{txn.memo}</p>
+            <p className="text-body leading-relaxed text-ink-soft">{txn.memo}</p>
           </DetailSection>
         )}
 
@@ -289,8 +288,8 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
               <div key={r.id} className="flex items-center gap-3 py-3">
                 <TxnIconChip txn={r} size={32} />
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13.3px] font-semibold">{r.description}</div>
-                  <div className="text-[12px] text-ink-faint">{formatDate(r.date)}</div>
+                  <div className="truncate text-body font-semibold">{r.description}</div>
+                  <div className="text-caption text-ink-faint">{formatDate(r.date)}</div>
                 </div>
                 <TxnAmount txn={r} />
               </div>
@@ -299,7 +298,7 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
         )}
 
         <DetailSection title="Record">
-          <div className="rounded-[10px] border border-line bg-paper-sunken py-1">
+          <div className="rounded-control border border-line bg-paper-sunken py-1">
             <ReceiptRows
               rows={[
                 { label: "Recorded", value: formatDate(txn.createdAt, "long") },
@@ -309,9 +308,9 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
                   label: "Status",
                   value:
                     txn.status === "reversed" ? (
-                      <span className="rounded-full bg-danger-soft px-2.5 py-0.5 text-[11.5px] font-semibold text-danger">Reversed</span>
+                      <span className="rounded-full bg-danger-soft px-2.5 py-0.5 text-micro font-semibold text-danger">Reversed</span>
                     ) : (
-                      <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-[11.5px] font-semibold text-accent">Posted</span>
+                      <span className="rounded-full bg-accent-soft px-2.5 py-0.5 text-micro font-semibold text-accent">Posted</span>
                     ),
                 },
               ]}

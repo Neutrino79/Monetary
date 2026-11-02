@@ -73,7 +73,7 @@ export function Waterfall({ from, to, steps, fromLabel, toLabel, selected, onSel
         })}
         {total(cols - 1, toLabel, to)}
       </svg>
-      <div className="text-[11.5px] text-ink-faint">The axis starts at {formatCompact(Math.max(0, lo - pad))}, not zero. Red steps are spending that rose; green steps fell.</div>
+      <div className="text-micro text-ink-faint">The axis starts at {formatCompact(Math.max(0, lo - pad))}, not zero. Red steps are spending that rose; green steps fell.</div>
     </div>
   );
 }

@@ -19,7 +19,7 @@ export function CategoriesPage() {
     <div>
       <div className="mb-5">
         <h1 className="text-2xl font-semibold">Categories &amp; tags</h1>
-        <p className="mt-1 text-[13.5px] text-ink-soft">Set each budget and watch the total change. Pick a category in the list or on the bar to edit it.</p>
+        <p className="mt-1 text-body text-ink-soft">Set each budget and watch the total change. Pick a category in the list or on the bar to edit it.</p>
       </div>
       <Tabs tabs={TABS} value={tab} onValueChange={(v) => setParams(v === "categories" ? {} : { tab: v }, { replace: true })}>
         <TabPanel value="categories"><CategoriesPanel /></TabPanel>

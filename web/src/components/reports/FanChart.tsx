@@ -96,7 +96,7 @@ export function FanChart({ o, scenario }: { o: Outlook; scenario: number[] | nul
         )}
         {ticks.map(({ i, p }) => <text key={i} x={x(i)} y={h - 8} textAnchor="middle" fontSize={10.5} fill="var(--ink-soft)">{monthShort(p)}</text>)}
       </svg>
-      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-soft">
+      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-caption text-ink-soft">
         <span className="flex items-center gap-1.5"><span className="inline-block h-0.5 w-3.5 bg-ink" />Net worth so far</span>
         <span className="flex items-center gap-1.5"><span className="inline-block h-0.5 w-3.5 border-t-2 border-dashed border-accent" />Expected</span>
         <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-3.5 rounded-[3px] bg-accent/20" />Likely range</span>

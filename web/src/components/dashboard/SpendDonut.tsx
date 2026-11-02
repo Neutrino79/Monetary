@@ -62,13 +62,13 @@ export function SpendDonut({ rows, total, month }: { rows: DonutRow[]; total: nu
         </svg>
         <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-9 text-center" data-testid="donut-centre">
           <span className="ledger-figure text-[20px]">{formatCurrency(hovered ? hovered.value : total)}</span>
-          <span className="text-[11.5px] leading-tight text-ink-soft">
+          <span className="text-micro leading-tight text-ink-soft">
             {hovered ? `${hovered.name} · ${Math.round((hovered.value / sum) * 100)}%` : "total spent"}
           </span>
           {hovered && inspect.touch && <span className="mt-0.5 text-[10.5px] text-ink-faint">Tap again to open</span>}
         </div>
       </div>
-      <ul className="mt-4 flex flex-wrap gap-x-3.5 gap-y-1.5 text-[12.5px]">
+      <ul className="mt-4 flex flex-wrap gap-x-3.5 gap-y-1.5 text-caption">
         {rows.map((r) => (
           <li key={r.name}>
             <Link to={href(r)} {...inspect.itemProps(r.name)} className={cn("flex items-center gap-1.5 rounded-[6px] text-ink-soft hover:text-ink", hovered && hovered.name !== r.name && "opacity-50")}>

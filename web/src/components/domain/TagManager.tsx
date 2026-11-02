@@ -58,15 +58,15 @@ export function TagManager() {
 
   return (
     <Card>
-      <div className="text-[14.5px] font-semibold">Your tags</div>
-      <div className="mb-3 text-[12.5px] text-ink-faint">Add the labels you want (a trip, a project, a person), then pick them when you record a transaction. Renaming one onto another merges them.</div>
+      <div className="text-lead font-semibold">Your tags</div>
+      <div className="mb-3 text-caption text-ink-faint">Add the labels you want (a trip, a project, a person), then pick them when you record a transaction. Renaming one onto another merges them.</div>
       <form className="mb-4 flex gap-2" onSubmit={(e) => { e.preventDefault(); void add(); }}>
         <Input aria-label="New tag" value={newName} maxLength={MAX_TAG_LENGTH + 5} onChange={(e) => setNewName(e.target.value)} placeholder="e.g. goa trip" />
         <Button type="submit" disabled={!clean || exists || create.isPending}>Add tag</Button>
       </form>
-      {exists && <p className="-mt-2 mb-3 text-[12px] text-ink-faint">That tag already exists.</p>}
+      {exists && <p className="-mt-2 mb-3 text-caption text-ink-faint">That tag already exists.</p>}
       {isLoading ? null : tags.length === 0 ? (
-        <p className="py-2 text-[13px] text-ink-faint">No tags yet \u2014 add your first one above.</p>
+        <p className="py-2 text-body text-ink-faint">No tags yet \u2014 add your first one above.</p>
       ) : (
         <ul aria-label="Tags">
           {tags.map((t) => (
@@ -81,18 +81,18 @@ export function TagManager() {
                     autoFocus
                   />
                   <div className="flex gap-1">
-                    <button type="button" aria-label="Save tag name" onClick={saveRename} className="rounded-[8px] p-1.5 text-accent hover:bg-paper-sunken"><Check size={15} /></button>
-                    <button type="button" aria-label="Cancel renaming" onClick={() => setEditing(null)} className="rounded-[8px] p-1.5 text-ink-faint hover:bg-paper-sunken"><X size={15} /></button>
+                    <button type="button" aria-label="Save tag name" onClick={saveRename} className="rounded-control p-1.5 text-accent hover:bg-paper-sunken"><Check size={15} /></button>
+                    <button type="button" aria-label="Cancel renaming" onClick={() => setEditing(null)} className="rounded-control p-1.5 text-ink-faint hover:bg-paper-sunken"><X size={15} /></button>
                   </div>
                 </>
               ) : (
                 <>
-                  <Link to={`/transactions?tag=${encodeURIComponent(t.name)}`} className="min-w-0 truncate text-[13.3px] hover:underline">
-                    {t.name} <span className="text-[12px] text-ink-faint">· {t.uses} transaction{t.uses === 1 ? "" : "s"}</span>
+                  <Link to={`/transactions?tag=${encodeURIComponent(t.name)}`} className="min-w-0 truncate text-body hover:underline">
+                    {t.name} <span className="text-caption text-ink-faint">· {t.uses} transaction{t.uses === 1 ? "" : "s"}</span>
                   </Link>
                   <div className="flex gap-1">
-                    <button type="button" aria-label={`Rename ${t.name}`} onClick={() => setEditing({ id: t.id, name: t.name })} className="rounded-[8px] p-1.5 text-ink-faint hover:bg-paper-sunken hover:text-ink"><Pencil size={14} /></button>
-                    <button type="button" aria-label={`Delete ${t.name}`} onClick={() => setDeleting(t)} className="rounded-[8px] p-1.5 text-ink-faint hover:bg-paper-sunken hover:text-ink"><Trash2 size={14} /></button>
+                    <button type="button" aria-label={`Rename ${t.name}`} onClick={() => setEditing({ id: t.id, name: t.name })} className="rounded-control p-1.5 text-ink-faint hover:bg-paper-sunken hover:text-ink"><Pencil size={14} /></button>
+                    <button type="button" aria-label={`Delete ${t.name}`} onClick={() => setDeleting(t)} className="rounded-control p-1.5 text-ink-faint hover:bg-paper-sunken hover:text-ink"><Trash2 size={14} /></button>
                   </div>
                 </>
               )}

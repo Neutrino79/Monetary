@@ -66,7 +66,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           <ToastPrimitive.Root
             key={item.id}
             className={cn(
-              "flex items-start gap-3 rounded-[10px] bg-ink px-3.5 py-3 text-paper shadow-2xl",
+              "flex items-start gap-3 rounded-control bg-ink px-3.5 py-3 text-paper shadow-2xl",
               "data-[state=open]:animate-in data-[state=open]:slide-in-from-bottom-2 data-[state=open]:fade-in",
               "data-[state=closed]:animate-out data-[state=closed]:fade-out",
               "data-[swipe=end]:animate-out data-[swipe=end]:slide-out-to-right",
@@ -76,10 +76,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
           >
             <span className={cn("mt-0.5", VARIANT_ICON_CLASS[item.variant])}>{VARIANT_ICON[item.variant]}</span>
             <div className="flex-1">
-              <ToastPrimitive.Description className="text-[13px]">{item.message}</ToastPrimitive.Description>
+              <ToastPrimitive.Description className="text-body">{item.message}</ToastPrimitive.Description>
               {item.action && (
                 <ToastPrimitive.Action asChild altText={item.action.label}>
-                  <button onClick={item.action.onClick} className="mt-1 text-[12.5px] font-bold text-[#9FD8FF]">
+                  <button onClick={item.action.onClick} className="mt-1 text-caption font-bold text-[#9FD8FF]">
                     {item.action.label}
                   </button>
                 </ToastPrimitive.Action>

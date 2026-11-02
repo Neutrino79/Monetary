@@ -100,12 +100,12 @@ export function SpendingPace({ pace, month, monthName }: { pace: Pace; month: st
     <div ref={setRoot}>
       <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
         <div className="min-w-0">
-          <h2 className="text-[14.5px] font-semibold">Spending pace</h2>
-          <p className={cn("mt-0.5 text-[13px]", headline.tone === "good" ? "text-accent" : headline.tone === "bad" ? "text-negative" : "text-ink-soft")} data-testid="pace-headline">
+          <h2 className="text-lead font-semibold">Spending pace</h2>
+          <p className={cn("mt-0.5 text-body", headline.tone === "good" ? "text-accent" : headline.tone === "bad" ? "text-negative" : "text-ink-soft")} data-testid="pace-headline">
             {headline.text}
           </p>
         </div>
-        <ul className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5 text-[12px] text-ink-soft" aria-label="Key">
+        <ul className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5 text-caption text-ink-soft" aria-label="Key">
           <li className="flex items-center gap-1.5"><span aria-hidden className="w-3.5 border-t-[3px] border-negative" />{pace.isCurrentMonth ? "This month" : monthName}</li>
           {proj && <li className="flex items-center gap-1.5"><span aria-hidden className="w-3.5 border-t-[3px] border-dotted border-negative" />Expected</li>}
           {previous.length > 0 && <li className="flex items-center gap-1.5"><span aria-hidden className="w-3.5 border-t-2 border-line-strong" />{prevName}</li>}
@@ -113,7 +113,7 @@ export function SpendingPace({ pace, month, monthName }: { pace: Pace; month: st
         </ul>
       </div>
 
-      <div ref={ref} tabIndex={0} role="group" aria-label={`${summary} Use the arrow keys to move between days.`} onKeyDown={onKey} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) inspect.setActive(null); }} className="mt-2 rounded-[10px] outline-offset-2 focus-visible:outline-2 focus-visible:outline-focus-ring">
+      <div ref={ref} tabIndex={0} role="group" aria-label={`${summary} Use the arrow keys to move between days.`} onKeyDown={onKey} onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) inspect.setActive(null); }} className="mt-2 rounded-control outline-offset-2 focus-visible:outline-2 focus-visible:outline-focus-ring">
         <svg width={width} height={H} viewBox={`0 0 ${width} ${H}`} className="block touch-pan-y select-none" aria-hidden onPointerLeave={(e) => { if (e.pointerType !== "touch") inspect.setActive(null); }}>
           {axis.ticks.map((t) => (
             <g key={t}>
@@ -160,7 +160,7 @@ export function SpendingPace({ pace, month, monthName }: { pace: Pace; month: st
             <g pointerEvents="none" data-testid="pace-tooltip">
               <rect x={tip.x} y={tip.y} width={196} height={16 + tip.lines.length * 17} rx={8} fill="var(--ink)" />
               {tip.lines.map((l, i) => (
-                <text key={i} x={tip!.x + 10} y={tip!.y + 18 + i * 17} className={cn("text-[11px]", i === 0 ? "fill-paper font-semibold" : "fill-paper opacity-85")}>{l}</text>
+                <text key={i} x={tip!.x + 10} y={tip!.y + 18 + i * 17} className={cn("text-micro", i === 0 ? "fill-paper font-semibold" : "fill-paper opacity-85")}>{l}</text>
               ))}
             </g>
           )}
@@ -202,7 +202,7 @@ function PaceFacts({ pace, spent }: { pace: Pace; spent: number }) {
     <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-3 border-t border-line pt-3 sm:grid-cols-4">
       {facts.map((f) => (
         <div key={f.label} className="min-w-0">
-          <dt className="text-[12px] text-ink-soft">{f.label}</dt>
+          <dt className="text-caption text-ink-soft">{f.label}</dt>
           <dd className={cn("ledger-figure text-[17px]", f.tone)}>{f.value}</dd>
         </div>
       ))}
@@ -213,7 +213,7 @@ function PaceFacts({ pace, spent }: { pace: Pace; spent: number }) {
 /** One quiet line for a budget-less month: how to make the chart more useful. */
 export function SetBudgetHint() {
   return (
-    <p className="mt-2 text-[12.5px] text-ink-soft">
+    <p className="mt-2 text-caption text-ink-soft">
       Set a budget to see how you're pacing. <Link to="/categories" className="font-semibold text-ink underline-offset-2 hover:underline">Add budgets</Link>
     </p>
   );

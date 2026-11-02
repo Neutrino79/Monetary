@@ -40,12 +40,12 @@ export function LoginPage() {
   return (
     <AuthShell>
       <h1 className="mb-1 text-[19px] font-semibold">Welcome back</h1>
-      <p className="mb-6 text-[12.8px] text-ink-faint">Sign in to see your accounts, transactions and reports.</p>
+      <p className="mb-6 text-caption text-ink-faint">Sign in to see your accounts, transactions and reports.</p>
       {sessionExpired && !error && (
-        <div className="mb-4 rounded-[10px] bg-info-soft px-3 py-3 text-[12.8px] text-info">Your session has expired. Please sign in again.</div>
+        <div className="mb-4 rounded-control bg-info-soft px-3 py-3 text-caption text-info">Your session has expired. Please sign in again.</div>
       )}
       {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-[10px] bg-danger-soft px-3 py-3 text-[12.8px] text-danger">
+        <div className="mb-4 flex items-center gap-2 rounded-control bg-danger-soft px-3 py-3 text-caption text-danger">
           <TriangleAlert size={15} className="flex-none" />
           {error}
         </div>
@@ -61,7 +61,7 @@ export function LoginPage() {
         </FormField>
       </div>
       <div className="mb-5 text-right">
-        <Link to="/forgot-password" className="text-[12.8px] font-medium text-ink-faint hover:text-ink">
+        <Link to="/forgot-password" className="text-caption font-medium text-ink-faint hover:text-ink">
           Forgot password?
         </Link>
       </div>

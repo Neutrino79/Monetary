@@ -31,16 +31,16 @@ export function MonthlyBars({ points }: { points: CashflowPoint[] }) {
                 to={`/transactions?month=${k}`}
                 aria-label={`${p.label} ${p.year}: in ${formatCurrency(p.income)}, out ${formatCurrency(p.expense)}`}
                 {...inspect.itemProps(k)}
-                className={cn("flex flex-col items-center justify-end gap-2 rounded-[8px] pb-1 transition-opacity", inspect.active && !on && "opacity-45")}
+                className={cn("flex flex-col items-center justify-end gap-2 rounded-control pb-1 transition-opacity", inspect.active && !on && "opacity-45")}
               >
                 <span className="flex items-end gap-1" style={{ height: BAR_AREA }}>
                   <span className="w-3 rounded-t-[5px] bg-accent sm:w-[18px]" style={{ height: height(p.income) }} />
                   <span className="w-3 rounded-t-[5px] bg-line-strong sm:w-[18px]" style={{ height: height(p.expense) }} />
                 </span>
-                <span className="text-[12px] text-ink-soft">{p.label}</span>
+                <span className="text-caption text-ink-soft">{p.label}</span>
               </Link>
               {on && (
-                <div role="status" data-testid="bars-tooltip" className={cn("pointer-events-none absolute z-10 whitespace-nowrap rounded-[8px] bg-ink px-3 py-2 text-[12px] leading-relaxed text-paper", edge)} style={{ bottom: Math.max(height(p.income), height(p.expense)) + 40 }}>
+                <div role="status" data-testid="bars-tooltip" className={cn("pointer-events-none absolute z-10 whitespace-nowrap rounded-control bg-ink px-3 py-2 text-caption leading-relaxed text-paper", edge)} style={{ bottom: Math.max(height(p.income), height(p.expense)) + 40 }}>
                   <div className="font-semibold">{new Date(p.year, p.month - 1, 1).toLocaleDateString(undefined, { month: "long", year: "numeric" })}</div>
                   <div>In {formatCurrency(p.income)}</div>
                   <div>Out {formatCurrency(p.expense)}</div>
@@ -52,7 +52,7 @@ export function MonthlyBars({ points }: { points: CashflowPoint[] }) {
           );
         })}
       </ul>
-      <div className="mt-3 flex gap-4 text-[12.5px] text-ink-soft">
+      <div className="mt-3 flex gap-4 text-caption text-ink-soft">
         <span className="flex items-center gap-1.5"><span aria-hidden className="h-2.5 w-2.5 rounded-[3px] bg-accent" />In</span>
         <span className="flex items-center gap-1.5"><span aria-hidden className="h-2.5 w-2.5 rounded-[3px] bg-line-strong" />Out</span>
       </div>

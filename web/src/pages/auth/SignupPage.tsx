@@ -66,7 +66,7 @@ export function SignupPage() {
     return (
       <AuthShell>
         <h1 className="mb-1 text-[19px] font-semibold">{appName} is already set up</h1>
-        <p className="mb-6 text-[12.8px] text-ink-faint">
+        <p className="mb-6 text-caption text-ink-faint">
           This instance already has an owner, so setup can't be run again. Sign in with your account, or reset your password if you've forgotten it.
         </p>
         <div className="flex flex-col gap-3">
@@ -91,7 +91,7 @@ export function SignupPage() {
     return (
       <AuthShell>
         <h1 className="mb-1 text-[19px] font-semibold">Can't reach {appName}</h1>
-        <p className="mb-6 text-[12.8px] text-ink-faint">{status.error instanceof Error ? status.error.message : "Please try again."}</p>
+        <p className="mb-6 text-caption text-ink-faint">{status.error instanceof Error ? status.error.message : "Please try again."}</p>
         <Button block onClick={() => status.refetch()}>Try again</Button>
       </AuthShell>
     );
@@ -100,9 +100,9 @@ export function SignupPage() {
   return (
     <AuthShell wide>
       <h1 className="mb-1 text-[19px] font-semibold">Set up your ledger</h1>
-      <p className="mb-6 text-[12.8px] text-ink-faint">Create the owner account for this instance. This can only be done once.</p>
+      <p className="mb-6 text-caption text-ink-faint">Create the owner account for this instance. This can only be done once.</p>
       {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-[10px] bg-danger-soft px-3 py-3 text-[12.8px] text-danger">
+        <div className="mb-4 flex items-center gap-2 rounded-control bg-danger-soft px-3 py-3 text-caption text-danger">
           <TriangleAlert size={15} className="flex-none" />
           {error}
         </div>

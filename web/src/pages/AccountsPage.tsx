@@ -7,7 +7,8 @@ import { useCreateAccount, useUpdateAccount, useArchiveAccount, useRestoreAccoun
 import { useAuthStore } from "@/store/authStore";
 import { ApiError } from "@/lib/api/errors";
 import { useToast } from "@/components/ui/Toast";
-import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { Card, EmptyState, SectionLabel } from "@/components/ui/primitives";
+import { SkeletonCardGrid, SkeletonPageHeader } from "@/components/ui/skeletons";
 import { AccountChip } from "@/components/domain/chips";
 import { Button } from "@/components/ui/Button";
 import { Modal, ConfirmDialog } from "@/components/ui/Dialog";
@@ -69,12 +70,8 @@ export function AccountsPage() {
   if (isLoading) {
     return (
       <div>
-        <Skeleton className="mb-6 h-7 w-40" />
-        <div className="grid grid-cols-3 gap-4 max-[900px]:grid-cols-1">
-          {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-32 rounded-2xl" />
-          ))}
-        </div>
+        <SkeletonPageHeader />
+        <SkeletonCardGrid count={3} />
       </div>
     );
   }
@@ -84,7 +81,7 @@ export function AccountsPage() {
       <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold">Accounts</h1>
-          <p className="mt-1 text-[13.5px] text-ink-soft">Bank accounts, cash, wallets and credit cards that make up your ledger.</p>
+          <p className="mt-1 text-body text-ink-soft">Bank accounts, cash, wallets and credit cards that make up your ledger.</p>
         </div>
         <Button onClick={() => setAddOpen(true)}>
           <Plus size={15} /> Add account
@@ -109,37 +106,37 @@ export function AccountsPage() {
                       <button type="button" onClick={() => setActivityId(a.id)} aria-label={`${a.name} activity`} className="block max-w-full truncate text-left text-[14px] font-semibold hover:underline">
                         {a.name}
                       </button>
-                      <div className="text-[11.5px] text-ink-faint">{a.accountType === "LIABILITY" ? "Liability" : "Asset"}</div>
+                      <div className="text-micro text-ink-faint">{a.accountType === "LIABILITY" ? "Liability" : "Asset"}</div>
                     </div>
                   </div>
                   <div className="flex gap-1">
-                      <button aria-label="Edit account" onClick={() => setEditingAccount(a)} className="rounded-[8px] p-1.5 text-ink-faint hover:bg-paper-sunken hover:text-ink">
+                      <button aria-label="Edit account" onClick={() => setEditingAccount(a)} className="rounded-control p-1.5 text-ink-faint hover:bg-paper-sunken hover:text-ink">
                         <Pencil size={14} />
                       </button>
-                      <button aria-label="Archive account" onClick={() => setArchivingAccount(a)} className="rounded-[8px] p-1.5 text-ink-faint hover:bg-paper-sunken hover:text-ink">
+                      <button aria-label="Archive account" onClick={() => setArchivingAccount(a)} className="rounded-control p-1.5 text-ink-faint hover:bg-paper-sunken hover:text-ink">
                         <Archive size={14} />
                       </button>
                     </div>
                 </div>
-                <div className="rounded-[10px] bg-paper-sunken p-3">
-                  <div className="text-[11px] text-ink-faint">{a.accountType === "LIABILITY" ? "Amount owed" : "Current balance"}</div>
+                <div className="rounded-control bg-paper-sunken p-3">
+                  <div className="text-micro text-ink-faint">{a.accountType === "LIABILITY" ? "Amount owed" : "Current balance"}</div>
                   <div className="ledger-figure text-[18px]">{formatCurrency(a.balance, true)}</div>
                 </div>
                 {a.accountType === "LIABILITY" && <CardFigures account={a} now={now} />}
-                <div className="text-[11.5px] text-ink-faint">{a.lastActivity ? `Last activity ${relativeDate(a.lastActivity).toLowerCase()}` : "No activity yet"}</div>
+                <div className="text-micro text-ink-faint">{a.lastActivity ? `Last activity ${relativeDate(a.lastActivity).toLowerCase()}` : "No activity yet"}</div>
               </Card>
             ))}
           </div>
 
           {archived.length > 0 && (
             <div className="mt-7">
-              <div className="mb-3 text-[12.5px] font-bold uppercase tracking-wide text-ink-faint">Archived</div>
+              <SectionLabel className="mb-3">Archived</SectionLabel>
               <div className="grid grid-cols-3 gap-4 max-[1100px]:grid-cols-2 max-[640px]:grid-cols-1">
                 {archived.map((a) => (
                   <Card key={a.id} className="flex items-center justify-between gap-3 opacity-70">
                     <div className="flex items-center gap-3">
                       <AccountChip account={a} />
-                      <div className="truncate text-[13.5px] font-semibold">{a.name}</div>
+                      <div className="truncate text-body font-semibold">{a.name}</div>
                     </div>
                     <Button variant="secondary" size="sm" onClick={() => handleRestore(a)}>
                       <ArchiveRestore size={13} /> Restore
@@ -312,7 +309,7 @@ function CardFigures({ account, now }: { account: Account; now: Date }) {
   if (c.available == null && c.daysToStatement == null) return null;
   const pct = c.utilisationPct ?? 0;
   return (
-    <div className="flex flex-col gap-1.5 text-[11.5px] text-ink-soft">
+    <div className="flex flex-col gap-1.5 text-micro text-ink-soft">
       {c.available != null && c.utilisationPct != null && (
         <>
           <div className="flex justify-between">

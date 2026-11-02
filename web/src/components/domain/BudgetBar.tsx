@@ -21,7 +21,7 @@ export function BudgetBar({ b, month, large = false }: { b: BudgetStatus; month:
   const color = b.overBudget ? "var(--negative)" : b.percentageUsed > 80 ? "var(--warn)" : "var(--accent)";
   return (
     <div>
-      <div className={`mb-1.5 flex items-baseline justify-between gap-2 ${large ? "text-[13px]" : "text-[12.5px]"}`}>
+      <div className={`mb-1.5 flex items-baseline justify-between gap-2 ${large ? "text-body" : "text-caption"}`}>
         <Link
           to={`/expenses?category=${b.categoryId}&month=${month}`}
           className={`truncate hover:underline ${large ? "font-medium" : ""}`}
@@ -47,14 +47,14 @@ export function BudgetBar({ b, month, large = false }: { b: BudgetStatus; month:
           />
         )}
       </div>
-      <div className="mt-1 flex flex-wrap justify-between gap-x-3 text-[11.5px] text-ink-faint">
+      <div className="mt-1 flex flex-wrap justify-between gap-x-3 text-micro text-ink-faint">
         <span>
           {formatCurrency(b.spent)} of {formatCurrency(b.budget)} · {Math.round(b.percentageUsed)}%
         </span>
         {paceNote && <span className={pace.status === "on-track" ? "text-accent" : pace.status === "ahead" ? "text-warn" : "text-negative"}>{paceNote}</span>}
       </div>
       {b.notPaidBack > 0 && (
-        <div className="mt-1 text-[11.5px] text-info">{formatCurrency(b.notPaidBack)} of this is not paid back yet</div>
+        <div className="mt-1 text-micro text-info">{formatCurrency(b.notPaidBack)} of this is not paid back yet</div>
       )}
     </div>
   );

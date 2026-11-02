@@ -1,3 +1,4 @@
+import { Segmented } from "@/components/ui/Segmented";
 import { useState } from "react";
 import { HandCoins, ScrollText, Users } from "lucide-react";
 import type { Friend, TransactionType } from "@/types";
@@ -6,7 +7,6 @@ import { Button } from "@/components/ui/Button";
 import { useFriendBalances } from "@/hooks/queries";
 import { useLookups } from "@/hooks/useLookups";
 import { formatCurrency } from "@/lib/utils/format";
-import { cn } from "@/lib/utils/cn";
 import { TransactionTable } from "@/components/domain/TransactionTable";
 import { SettleForm } from "@/components/domain/SettleForm";
 import { FriendStatement } from "@/components/domain/FriendStatement";
@@ -34,16 +34,16 @@ export function SharedPage() {
   return (
     <div>
       <Card className="mb-5">
-        <div className="mb-3 text-[14.5px] font-semibold">Who owes what</div>
+        <div className="mb-3 text-lead font-semibold">Who owes what</div>
         {balances.length ? (
           <div className="flex flex-wrap gap-3">
             {balances.map(({ friend, name, bal, pending, id }) => (
-              <div key={id} className="flex min-w-60 flex-1 flex-col gap-2.5 rounded-[10px] border border-line p-3">
+              <div key={id} className="flex min-w-60 flex-1 flex-col gap-2.5 rounded-control border border-line p-3">
                 <div className="flex items-center gap-3">
                   <Avatar name={name} color={friend?.color ?? "#5A5A5A"} />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-[13.3px] font-semibold">{name}</div>
-                    <div className={`text-[12px] ${bal > 0 ? "text-accent" : "text-negative"}`}>{bal > 0 ? "owes you" : "you owe"} {formatCurrency(Math.abs(bal), true)}</div>
+                    <div className="truncate text-body font-semibold">{name}</div>
+                    <div className={`text-caption ${bal > 0 ? "text-accent" : "text-negative"}`}>{bal > 0 ? "owes you" : "you owe"} {formatCurrency(Math.abs(bal), true)}</div>
                   </div>
                   {friend && (
                     <>
@@ -57,7 +57,7 @@ export function SharedPage() {
                   )}
                 </div>
                 {pending > 0 && (
-                  <div className="rounded-full bg-info-soft px-2.5 py-1 text-[11.5px] font-semibold text-info">
+                  <div className="rounded-full bg-info-soft px-2.5 py-1 text-micro font-semibold text-info">
                     Paid for you, not paid back: {formatCurrency(pending, true)}
                   </div>
                 )}
@@ -79,25 +79,9 @@ export function SharedPage() {
         emptyTitle="Nothing shared yet"
         emptyDescription="Try widening your date range, or add a split bill or an expense a friend paid for."
         headerExtra={
-          <div role="group" aria-label="Paid by" className="mb-4 inline-flex items-center gap-2">
-            <span className="text-[12.5px] font-semibold text-ink-soft">Paid by</span>
-            <span className="inline-flex overflow-hidden rounded-[10px] border border-line-strong">
-              {PAID_BY.map((p, i) => (
-                <button
-                  key={p.value}
-                  type="button"
-                  aria-pressed={paidBy === p.value}
-                  onClick={() => setPaidBy(p.value)}
-                  className={cn(
-                    "px-3.5 py-1.5 text-[13px] font-medium",
-                    i > 0 && "border-l border-line-strong",
-                    paidBy === p.value ? "bg-ink text-paper dark:bg-accent dark:text-accent-ink" : "bg-paper-raised text-ink hover:bg-paper-sunken",
-                  )}
-                >
-                  {p.label}
-                </button>
-              ))}
-            </span>
+          <div className="mb-4 inline-flex items-center gap-2">
+            <span className="text-caption font-semibold text-ink-soft">Paid by</span>
+            <Segmented label="Paid by" options={PAID_BY.map((p) => ({ value: p.value, label: p.label }))} value={paidBy} onChange={setPaidBy} />
           </div>
         }
       />

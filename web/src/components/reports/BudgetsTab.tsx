@@ -1,7 +1,8 @@
 import { Link, useNavigate } from "react-router-dom";
 import { BarChart3 } from "lucide-react";
 import type { BudgetHistory, BudgetHistoryRow, UnbudgetedCategory } from "@/types";
-import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { Card, EmptyState, LoadFailed } from "@/components/ui/primitives";
+import { SkeletonReport } from "@/components/ui/skeletons";
 import { Button } from "@/components/ui/Button";
 import { useBudgetHistory } from "@/hooks/queries";
 import { useUpdateCategory } from "@/hooks/mutations";
@@ -23,10 +24,10 @@ function shade(spent: number, limit: number): string {
 
 function Kpi({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="min-w-0 rounded-[12px] border border-line bg-paper-raised p-3.5">
-      <div className="text-[12px] text-ink-faint">{label}</div>
+    <div className="min-w-0 rounded-card border border-line bg-paper-raised p-3.5">
+      <div className="text-caption text-ink-faint">{label}</div>
       <div className="mt-1 truncate text-[18px] font-semibold tabular-nums">{value}</div>
-      {hint && <div className="text-[11.5px] leading-snug text-ink-faint">{hint}</div>}
+      {hint && <div className="text-micro leading-snug text-ink-faint">{hint}</div>}
     </div>
   );
 }
@@ -84,11 +85,11 @@ function BudgetRow({ b, monthLabels, monthKeys, busy, onApply }: { b: BudgetHist
     <li className="py-3">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
         <div className="min-w-0">
-          <div className="truncate text-[13.5px] font-semibold">{b.name}</div>
-          <div className="text-[12px] text-ink-faint">Limit {formatCurrency(b.limit)} · held {b.held} of {b.completeMonths} · typical use {Math.round(b.typicalPct)}%</div>
+          <div className="truncate text-body font-semibold">{b.name}</div>
+          <div className="text-caption text-ink-faint">Limit {formatCurrency(b.limit)} · held {b.held} of {b.completeMonths} · typical use {Math.round(b.typicalPct)}%</div>
         </div>
         <div className="flex items-center gap-2">
-          <span className={cn("rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold", s.action === "raise" ? "bg-negative/10 text-negative" : s.action === "tighten" ? "bg-info/10 text-info" : "bg-accent/10 text-accent")}>
+          <span className={cn("rounded-full px-2.5 py-0.5 text-micro font-semibold", s.action === "raise" ? "bg-negative/10 text-negative" : s.action === "tighten" ? "bg-info/10 text-info" : "bg-accent/10 text-accent")}>
             {SUGGEST_LABEL[s.action]}{s.action === "keep" ? "" : ` ${formatCurrency(s.limit)}`}
           </span>
           {s.action !== "keep" && <Button variant="secondary" disabled={busy} onClick={() => onApply(s.limit)} aria-label={`Apply ${formatCurrency(s.limit)} to ${b.name}`}>Apply</Button>}
@@ -108,9 +109,9 @@ function BudgetRow({ b, monthLabels, monthKeys, busy, onApply }: { b: BudgetHist
 export function BudgetsTab({ months }: { months: number }) {
   const q = useBudgetHistory(months);
   const update = useUpdateCategory();
-  if (q.isLoading) return <Skeleton className="h-96 w-full" />;
+  if (q.isLoading) return <SkeletonReport />;
   const h = q.data;
-  if (q.isError || !h) return <EmptyState icon={BarChart3} title="Couldn't load budgets" description="Try again in a moment." />;
+  if (q.isError || !h) return <LoadFailed what="budgets" error={q.error} onRetry={() => q.refetch()} />;
   if (h.budgets.length === 0 && h.unbudgeted.length === 0) return <EmptyState icon={BarChart3} title="No budgets yet" description="Set a limit on a category and its history shows up here." />;
   const labels = h.monthTotals.map((t) => `${monthShort(t)} ${t.year}`);
   const keys = h.monthTotals.map(monthKey);
@@ -126,15 +127,15 @@ export function BudgetsTab({ months }: { months: number }) {
       </div>
       {h.budgets.length > 0 && (
         <Card>
-          <div className="text-[14.5px] font-semibold">All budgets together</div>
-          <div className="mb-3 text-[12.5px] text-ink-faint">Spending in budgeted categories against the combined limit.</div>
+          <div className="text-lead font-semibold">All budgets together</div>
+          <div className="mb-3 text-caption text-ink-faint">Spending in budgeted categories against the combined limit.</div>
           <TotalsChart h={h} />
         </Card>
       )}
       {h.budgets.length > 0 && (
         <Card>
-          <div className="text-[14.5px] font-semibold">Budget by budget</div>
-          <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-ink-faint">
+          <div className="text-lead font-semibold">Budget by budget</div>
+          <div className="mb-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-ink-faint">
             Each square is a month, oldest first.
             {([["bg-accent/25", "under 60%"], ["bg-accent/60", "60–85%"], ["bg-warn", "85–100%"], ["bg-negative", "over"]] as const).map(([c, t]) => <span key={t} className="flex items-center gap-1"><span className={cn("h-2.5 w-2.5 rounded-[2px]", c)} />{t}</span>)}
           </div>
@@ -145,14 +146,14 @@ export function BudgetsTab({ months }: { months: number }) {
       )}
       {h.unbudgeted.length > 0 && (
         <Card>
-          <div className="text-[14.5px] font-semibold">Spending with no budget</div>
-          <div className="mb-2 text-[12.5px] text-ink-faint">Suggested from what these categories usually cost. Budgets are monthly, so lumpy ones are spread: a yearly total divided by 12.</div>
+          <div className="text-lead font-semibold">Spending with no budget</div>
+          <div className="mb-2 text-caption text-ink-faint">Suggested from what these categories usually cost. Budgets are monthly, so lumpy ones are spread: a yearly total divided by 12.</div>
           <ul className="divide-y divide-dashed divide-line">
             {h.unbudgeted.map((u) => (
               <li key={u.categoryId} className="flex items-center justify-between gap-3 py-2.5">
                 <div className="min-w-0">
-                  <div className="truncate text-[13.3px] font-medium">{u.name}</div>
-                  <div className="text-[12px] text-ink-faint">{formatCurrency(u.average)} a month on average · peak {formatCurrency(u.peak)}</div>
+                  <div className="truncate text-body font-medium">{u.name}</div>
+                  <div className="text-caption text-ink-faint">{formatCurrency(u.average)} a month on average · peak {formatCurrency(u.peak)}</div>
                 </div>
                 <Button variant="secondary" disabled={update.isPending} onClick={() => update.mutate({ id: u.categoryId, patch: { budgetLimit: monthlyLimit(u) } })} aria-label={`Set ${u.name} budget to ${formatCurrency(monthlyLimit(u))} a month`}>
                   Set {formatCurrency(monthlyLimit(u))} / mo

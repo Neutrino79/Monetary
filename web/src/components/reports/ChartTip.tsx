@@ -21,7 +21,7 @@ export function ChartTip({ x, width, anchorY, title, rows, touch = false }: { x:
     <div
       role="status"
       data-testid="chart-tip"
-      className="pointer-events-none absolute z-10 rounded-[8px] bg-ink px-3 py-2 text-[12px] leading-[17px] text-paper"
+      className="pointer-events-none absolute z-10 rounded-control bg-ink px-3 py-2 text-caption leading-[17px] text-paper"
       style={{ left, top, width: TIP_WIDTH }}
     >
       <div className="font-semibold">{title}</div>

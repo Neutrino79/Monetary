@@ -94,7 +94,7 @@ export function CashflowChart({ points }: { points: OverviewMonth[] }) {
           <MonthHit key={`hit-${p.year}-${p.month}`} x={x0 + slot * i} w={slot} h={H} i={i} inspect={inspect} open={() => openMonth(i)} label={`${monthLong(p)} ${p.year}: income ${formatCurrency(p.income)}, spending ${formatCurrency(p.expense)}. Open transactions.`} />
         ))}
       </svg>
-      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-soft">
+      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-caption text-ink-soft">
         <Key color="var(--accent)" label="Income" />
         <Key color="var(--line-strong)" label="Spending" />
         <Key color="var(--negative)" label="3-month average spend" line />
@@ -171,7 +171,7 @@ export function NetWorthChart({ points }: { points: NetWorthMonth[] }) {
           <MonthHit key={`hit-${p.year}-${p.month}`} x={x(i) - (x1 - x0) / Math.max(1, points.length - 1) / 2} w={(x1 - x0) / Math.max(1, points.length - 1)} h={h} i={i} inspect={inspect} open={() => navigate("/accounts")} label={`${monthLong(p)} ${p.year}: net worth ${formatCurrency(p.netWorth)}. Open accounts.`} />
         ))}
       </svg>
-      <div className="mt-1 flex gap-4 text-[12px] text-ink-soft">
+      <div className="mt-1 flex gap-4 text-caption text-ink-soft">
         <Key color="var(--accent)" label="Net worth" line />
         <Key color="var(--negative)" label="Owed (cards and loans)" />
       </div>
@@ -234,7 +234,7 @@ export function IncomeMixChart({ months, sources }: { months: OverviewMonth[]; s
           <MonthHit key={`hit-${m.year}-${m.month}`} x={x0 + slot * i} w={slot} h={h} i={i} inspect={inspect} open={() => openMonth(i)} label={`${monthLong(m)} ${m.year}: income ${formatCurrency(totals[i] ?? 0)}. Open income.`} />
         ))}
       </svg>
-      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-[12px] text-ink-soft">
+      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-caption text-ink-soft">
         {sources.map((s, i) => <Key key={`${s.categoryId}-${i}`} color={colorOf(s, i)} label={s.name} />)}
       </div>
     </div>

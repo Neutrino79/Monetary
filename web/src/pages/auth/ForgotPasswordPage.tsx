@@ -53,12 +53,12 @@ export function ForgotPasswordPage() {
 
   return (
     <AuthShell>
-      <button onClick={() => navigate("/login")} className="mb-4 inline-flex items-center gap-1 text-[12.5px] text-ink-faint hover:text-ink">
+      <button onClick={() => navigate("/login")} className="mb-4 inline-flex items-center gap-1 text-caption text-ink-faint hover:text-ink">
         <ChevronLeft size={13} /> Back to sign in
       </button>
 
       {error && (
-        <div className="mb-4 flex items-center gap-2 rounded-[10px] bg-danger-soft px-3 py-3 text-[12.8px] text-danger">
+        <div className="mb-4 flex items-center gap-2 rounded-control bg-danger-soft px-3 py-3 text-caption text-danger">
           <TriangleAlert size={15} className="flex-none" />
           {error}
         </div>
@@ -67,7 +67,7 @@ export function ForgotPasswordPage() {
       {step === "email" && (
         <>
           <h1 className="mb-1 text-[19px] font-semibold">Reset your password</h1>
-          <p className="mb-6 text-[12.8px] text-ink-faint">Enter the email on your account and we'll ask your security question.</p>
+          <p className="mb-6 text-caption text-ink-faint">Enter the email on your account and we'll ask your security question.</p>
           <div className="mb-5">
             <FormField label="Email" htmlFor="fp-email">
               <Input id="fp-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" onKeyDown={(e) => e.key === "Enter" && submitEmail()} />
@@ -82,7 +82,7 @@ export function ForgotPasswordPage() {
       {step === "question" && question && (
         <>
           <h1 className="mb-1 text-[19px] font-semibold">Security question</h1>
-          <p className="mb-6 text-[12.8px] text-ink-faint">
+          <p className="mb-6 text-caption text-ink-faint">
             Answer the question you set up for <strong>{email}</strong>.
           </p>
           <div className="mb-4">
@@ -107,7 +107,7 @@ export function ForgotPasswordPage() {
       {step === "done" && (
         <>
           <h1 className="mb-1 text-[19px] font-semibold">Password reset</h1>
-          <p className="mb-6 text-[12.8px] text-ink-faint">You're all set — sign in with your new password.</p>
+          <p className="mb-6 text-caption text-ink-faint">You're all set — sign in with your new password.</p>
           <Button block onClick={() => navigate("/login")}>
             Go to sign in
           </Button>

@@ -63,7 +63,7 @@ function parseGroups(children: ReactNode): Group[] {
 }
 
 export const fieldBase =
-  "w-full rounded-[10px] border border-line-strong bg-paper-raised px-3 py-2.5 text-[13.3px] text-ink transition-colors focus:border-focus-ring focus:outline-none aria-[invalid=true]:border-danger";
+  "w-full rounded-control border border-line-strong bg-paper-raised px-3 py-2.5 text-body text-ink transition-colors focus:border-focus-ring focus:outline-none aria-[invalid=true]:border-danger";
 
 const SEARCH_THRESHOLD = 12;
 
@@ -178,7 +178,7 @@ export function Select({ value, onChange, id, name, disabled, className, placeho
           collisionPadding={12}
           onKeyDown={onKeyDown}
           style={{ width: "max(var(--radix-popover-trigger-width), 11rem)" }}
-          className="z-[90] overflow-hidden rounded-[12px] border border-line-strong bg-paper-raised shadow-xl"
+          className="z-[90] overflow-hidden rounded-card border border-line-strong bg-paper-raised shadow-xl"
         >
           {searchable && (
             <label className="flex items-center gap-2 border-b border-line px-3 py-2">
@@ -191,15 +191,15 @@ export function Select({ value, onChange, id, name, disabled, className, placeho
                   setActive(0);
                 }}
                 placeholder="Search…"
-                className="min-w-0 flex-1 bg-transparent text-[13px] outline-none placeholder:text-ink-faint"
+                className="min-w-0 flex-1 bg-transparent text-body outline-none placeholder:text-ink-faint"
               />
             </label>
           )}
           <div ref={listRef} id={listId} role="listbox" aria-label={rest["aria-label"]} className="max-h-64 overflow-y-auto p-1">
-            {shown.length === 0 && <div className="px-3 py-2 text-[13px] text-ink-faint">No matches</div>}
+            {shown.length === 0 && <div className="px-3 py-2 text-body text-ink-faint">No matches</div>}
             {shownGroups.map((g, gi) => (
               <div key={g.label ?? `g${gi}`} role={g.label ? "group" : undefined} aria-label={g.label}>
-                {g.label && <div className="px-2.5 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{g.label}</div>}
+                {g.label && <div className="px-2.5 pb-1 pt-2 text-micro font-semibold uppercase tracking-wide text-ink-faint">{g.label}</div>}
                 {g.options.map((o) => {
                   const i = indexOf.get(o) ?? 0;
                   const isSel = o.value === current;
@@ -214,7 +214,7 @@ export function Select({ value, onChange, id, name, disabled, className, placeho
                       onMouseMove={() => active !== i && !o.disabled && setActive(i)}
                       onClick={() => choose(o)}
                       className={cn(
-                        "flex cursor-pointer items-center justify-between gap-2 rounded-[8px] px-2.5 py-2 text-[13.3px]",
+                        "flex cursor-pointer items-center justify-between gap-2 rounded-control px-2.5 py-2 text-body",
                         i === active && "bg-paper-sunken",
                         isSel && "font-semibold",
                         o.value === "" && !isSel && "text-ink-faint",
@@ -222,7 +222,7 @@ export function Select({ value, onChange, id, name, disabled, className, placeho
                       )}
                     >
                       <span className="min-w-0 truncate">{o.label || placeholder}</span>
-                      {isSel && <Check size={14} aria-hidden className="flex-none text-accent" />}
+                      {isSel && <Check size={14} aria-hidden className="flex-none text-brand" />}
                     </div>
                   );
                 })}

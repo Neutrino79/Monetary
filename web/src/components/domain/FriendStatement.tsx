@@ -1,10 +1,11 @@
 import { Fragment, useState } from "react";
-import { HandCoins } from "lucide-react";
+import { ChevronRight, HandCoins } from "lucide-react";
 import type { Friend } from "@/types";
 import { useFriendBalances, useFriendStatement, useTransaction } from "@/hooks/queries";
 import { Drawer } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
-import { Avatar, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { Avatar, EmptyState, LoadFailed } from "@/components/ui/primitives";
+import { SkeletonStatement } from "@/components/ui/skeletons";
 import { SettleForm } from "@/components/domain/SettleForm";
 import { TxnDetailDrawer } from "@/components/domain/TxnDetailDrawer";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
@@ -30,11 +31,11 @@ export function FriendStatement({ friend, open, onOpenChange }: { friend: Friend
   const months = groupByMonth(rows);
 
   const hero = (
-    <div className="mx-5 mb-1 rounded-2xl border border-line bg-paper-sunken p-4">
+    <div className="mx-5 mb-1 rounded-card border border-line bg-paper-sunken p-4">
       <div className="flex items-center gap-3">
         <Avatar name={friend.name} color={friend.color} size={40} />
         <div className="min-w-0 flex-1">
-          <div className="text-[11.5px] text-ink-faint">{balance === 0 ? "Balance now" : balance > 0 ? "Owes you" : "You owe"}</div>
+          <div className="text-micro text-ink-faint">{balance === 0 ? "Balance now" : balance > 0 ? "Owes you" : "You owe"}</div>
           <div className={`ledger-figure text-[28px] leading-tight ${balance > 0 ? "text-accent" : balance < 0 ? "text-negative" : ""}`}>{formatCurrency(Math.abs(balance), true)}</div>
         </div>
       </div>
@@ -45,7 +46,7 @@ export function FriendStatement({ friend, open, onOpenChange }: { friend: Friend
             { label: `${friend.name} paid for you`, value: totals.theyPaid, color: "bg-warn" },
           ].map((bar) => (
             <div key={bar.label}>
-              <div className="mb-1 flex justify-between text-[12px] text-ink-soft">
+              <div className="mb-1 flex justify-between text-caption text-ink-soft">
                 <span>{bar.label}</span>
                 <span className="ledger-figure font-semibold text-ink">{formatCurrency(bar.value, true)}</span>
               </div>
@@ -74,35 +75,36 @@ export function FriendStatement({ friend, open, onOpenChange }: { friend: Friend
         }
       >
         {statement.isLoading ? (
-          <Skeleton className="h-40 w-full rounded-xl" />
+          <SkeletonStatement />
         ) : statement.isError ? (
-          <p className="text-[13px] text-danger">Couldn't load the statement.</p>
+          <LoadFailed what="the statement" error={statement.error} onRetry={() => statement.refetch()} />
         ) : rows.length === 0 ? (
           <EmptyState icon={HandCoins} title="Nothing shared yet" description={`Split a bill or settle up and it will show here.`} />
         ) : (
           <ul aria-label={`Statement with ${friend.name}`}>
             {months.map((m) => (
               <Fragment key={m.key}>
-                <li role="presentation" className="flex justify-between pb-1 pt-4 text-[11.5px] font-bold uppercase tracking-wide text-ink-faint first:pt-0">
+                <li role="presentation" className="flex justify-between pb-1 pt-4 text-micro font-bold uppercase tracking-wide text-ink-faint first:pt-0">
                   <span>{m.label}</span>
                   <span className="ledger-figure normal-case">{`${m.net >= 0 ? "Net " : "Net −"}${formatCurrency(Math.abs(m.net), true)}`}</span>
                 </li>
                 {m.rows.map((r) => (
                   <li key={`${r.entryId}-${r.runningBalance}-${r.delta}`} className="border-t border-dashed border-line">
-                    <button type="button" onClick={() => setOpenId(r.entryId)} className="flex min-h-14 w-full items-start gap-3 py-3 text-left hover:bg-paper-sunken">
+                    <button type="button" onClick={() => setOpenId(r.entryId)} className="group -mx-2 my-1 flex min-h-(--row-h) w-[calc(100%+1rem)] items-center gap-3 rounded-control px-2 py-2 text-left transition-colors hover:bg-paper-sunken focus-visible:bg-paper-sunken">
                       <div className="min-w-0 flex-1">
-                        <div className="truncate text-[13.3px] font-semibold">{r.description}</div>
-                        <div className="text-[12px] text-ink-faint">
+                        <div className="truncate text-body font-semibold">{r.description}</div>
+                        <div className="text-caption text-ink-faint">
                           {formatDate(r.date)} · {describeStatementRow(r, friend.name)}
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className={`ledger-figure text-[13.3px] ${r.delta > 0 ? "text-accent" : "text-negative"}`}>
+                        <div className={`ledger-figure text-body ${r.delta > 0 ? "text-accent" : "text-negative"}`}>
                           {r.delta > 0 ? "+" : "−"}
                           {formatCurrency(Math.abs(r.delta), true)}
                         </div>
-                        <div className="text-[11.5px] text-ink-faint">{r.runningBalance === 0 ? "Settled" : `Balance ${formatCurrency(Math.abs(r.runningBalance), true)} ${r.runningBalance > 0 ? "owed to you" : "owed by you"}`}</div>
+                        <div className="text-micro text-ink-faint">{r.runningBalance === 0 ? "Settled" : `Balance ${formatCurrency(Math.abs(r.runningBalance), true)} ${r.runningBalance > 0 ? "owed to you" : "owed by you"}`}</div>
                       </div>
+                      <ChevronRight size={15} aria-hidden="true" className="-mr-1 flex-none text-ink-faint opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100 pointer-coarse:hidden" />
                     </button>
                   </li>
                 ))}

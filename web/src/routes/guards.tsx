@@ -9,7 +9,7 @@ function HydratingScreen() {
     <div className="flex min-h-screen items-center justify-center bg-paper">
       <div className="flex flex-col items-center gap-3">
         <span className="h-9 w-9 animate-spin rounded-full border-[3px] border-line-strong border-t-ink" />
-        <span className="text-[12.5px] text-ink-faint">Loading {name}…</span>
+        <span className="text-caption text-ink-faint">Loading {name}…</span>
       </div>
     </div>
   );
@@ -21,7 +21,7 @@ function UnreachableScreen({ message, onRetry }: { message: string; onRetry: () 
     <div className="flex min-h-screen items-center justify-center bg-paper p-6">
       <div className="max-w-sm text-center">
         <h1 className="mb-2 text-[17px] font-semibold">Can't reach {name}</h1>
-        <p className="mb-5 text-[13px] text-ink-faint">{message}</p>
+        <p className="mb-5 text-body text-ink-faint">{message}</p>
         <Button onClick={onRetry}>Try again</Button>
       </div>
     </div>

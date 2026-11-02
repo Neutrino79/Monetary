@@ -325,7 +325,7 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
                 setErrors({}); // a tab you haven't submitted yet shouldn't show another tab's errors
               }}
               className={cn(
-                "border-b-2 border-transparent px-4 py-2 text-[13.5px] font-semibold text-ink-soft hover:text-ink",
+                "border-b-2 border-transparent px-4 py-2 text-body font-semibold text-ink-soft hover:text-ink",
                 kind === t.value && "border-ink text-ink",
               )}
             >
@@ -392,7 +392,7 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
 
                 {canChoosePayer && (
                   <div className="col-span-full flex flex-col gap-1.5">
-                    <span id="paid-by-label" className="text-[12.5px] font-semibold text-ink-soft">
+                    <span id="paid-by-label" className="text-caption font-semibold text-ink-soft">
                       Paid by
                     </span>
                     <div role="group" aria-labelledby="paid-by-label" className="flex flex-wrap items-center gap-2">
@@ -415,7 +415,7 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
                         </Select>
                       )}
                     </div>
-                    {errors.friends && payer === "friend" && <p className="text-[12px] text-danger">{errors.friends}</p>}
+                    {errors.friends && payer === "friend" && <p className="text-caption text-danger">{errors.friends}</p>}
                   </div>
                 )}
                 {isEdit && editingType === "fronted" && (
@@ -431,7 +431,7 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
                 )}
 
                 {friendPaid ? (
-                  <div className="col-span-full rounded-[10px] border border-dashed border-line-strong px-3 py-2.5 text-[12.5px] text-ink-soft">
+                  <div className="col-span-full rounded-control border border-dashed border-line-strong px-3 py-2.5 text-caption text-ink-soft">
                     <b className="text-ink">Pay from:</b> not needed. {friendName(payerFriendId)} paid, so none of your accounts change. Enter only your own share.
                   </div>
                 ) : (
@@ -493,7 +493,7 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
               <Textarea rows={2} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder={splitting ? "Split evenly" : undefined} />
             </FormField>
           </div>
-          {errors.form && <p className="mt-3 text-[12.5px] text-danger">{errors.form}</p>}
+          {errors.form && <p className="mt-3 text-caption text-danger">{errors.form}</p>}
         </div>
 
         {preview}
@@ -523,8 +523,8 @@ function PayerChip({ active, children, ...rest }: { active: boolean; children: R
       aria-pressed={active}
       {...rest}
       className={cn(
-        "inline-flex h-9 items-center rounded-full border px-4 text-[13.5px] font-medium disabled:opacity-40",
-        active ? "border-ink bg-ink text-paper dark:border-accent dark:bg-accent dark:text-accent-ink" : "border-line-strong bg-paper-raised text-ink hover:bg-paper-sunken",
+        "inline-flex h-9 items-center rounded-full border px-4 text-body font-medium disabled:opacity-40",
+        active ? "border-btn bg-btn text-btn-ink" : "border-line-strong bg-paper-raised text-ink hover:bg-paper-sunken",
       )}
     >
       {children}
@@ -553,10 +553,10 @@ function SplitCard({
 }) {
   const balanced = Math.abs(shareDiff) < 0.01;
   return (
-    <section aria-label="Split with friends" className="col-span-full rounded-[14px] border border-line-strong bg-paper-raised p-4">
+    <section aria-label="Split with friends" className="col-span-full rounded-card border border-line-strong bg-paper-raised p-4">
       <div className="flex items-center justify-between gap-3">
         <div className="text-[14px] font-semibold">
-          Split with <span className="text-[12.5px] font-normal text-ink-soft">(optional)</span>
+          Split with <span className="text-caption font-normal text-ink-soft">(optional)</span>
         </div>
         {checked.length > 0 && (
           <div role="group" aria-label="Split mode" className="inline-flex overflow-hidden rounded-[9px] border border-line-strong">
@@ -566,7 +566,7 @@ function SplitCard({
                 type="button"
                 aria-pressed={mode === m}
                 onClick={() => onMode(m)}
-                className={cn("px-3 py-1 text-[12.5px] font-medium", mode === m ? "bg-ink text-paper dark:bg-accent dark:text-accent-ink" : "text-ink-soft hover:bg-paper-sunken")}
+                className={cn("px-3 py-1 text-caption font-medium", mode === m ? "bg-btn text-btn-ink" : "text-ink-soft hover:bg-paper-sunken")}
               >
                 {m === "equal" ? "Equally" : "Custom"}
               </button>
@@ -576,7 +576,7 @@ function SplitCard({
       </div>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        {friends.length === 0 && <span className="text-[12.5px] text-ink-soft">Add a friend on the Friends page to split with them.</span>}
+        {friends.length === 0 && <span className="text-caption text-ink-soft">Add a friend on the Friends page to split with them.</span>}
         {friends.map((f) => {
           const on = checked.includes(f.id);
           return (
@@ -587,7 +587,7 @@ function SplitCard({
               disabled={locked}
               onClick={() => onToggle(f.id)}
               className={cn(
-                "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium disabled:cursor-default",
+                "inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-body font-medium disabled:cursor-default",
                 on ? "border-info bg-info-soft text-info" : "border-line-strong bg-paper-raised text-ink hover:bg-paper-sunken",
               )}
             >
@@ -605,14 +605,14 @@ function SplitCard({
             const f = friends.find((x) => x.id === fid);
             return f ? <ShareRow key={fid} label={f.name} avatar={<Avatar name={f.name} color={f.color} size={26} />} value={friendShares[fid] ?? ""} onChange={(v) => onFriendShare(fid, v)} /> : null;
           })}
-          <p className={cn("mt-2 text-[12.5px]", balanced ? "text-accent" : "text-negative")}>
+          <p className={cn("mt-2 text-caption", balanced ? "text-accent" : "text-negative")}>
             {balanced
               ? `✓ Shares add up to ${formatCurrency(amount, true)}`
               : `Shares total ${formatCurrency(shareTotal, true)}, but the bill is ${formatCurrency(amount, true)} (${shareDiff > 0 ? "short by" : "over by"} ${formatCurrency(Math.abs(shareDiff), true)}).`}
           </p>
         </div>
       )}
-      {error && <p className="mt-1 text-[12px] text-danger">{error}</p>}
+      {error && <p className="mt-1 text-caption text-danger">{error}</p>}
     </section>
   );
 }
@@ -621,7 +621,7 @@ function ShareRow({ label, avatar, value, onChange }: { label: string; avatar: R
   return (
     <div className="flex items-center gap-3 border-b border-line py-2 last:border-b-0">
       <span className="flex w-6.5 justify-center">{avatar}</span>
-      <span className="flex-1 text-[13.5px]">{label}</span>
+      <span className="flex-1 text-body">{label}</span>
       <DecimalInput aria-label={`${label} share`} value={value} onChange={(e) => onChange(e.target.value)} className="w-28 text-right" />
     </div>
   );
@@ -699,17 +699,17 @@ function Preview({
     : "This counts toward your budget for the category on the date you pick.";
 
   return (
-    <aside aria-label="What this will do" className="flex min-w-0 flex-[1_1_260px] flex-col gap-3 rounded-[14px] bg-paper-sunken p-4 self-start">
-      <div className="text-[11.5px] font-semibold uppercase tracking-wider text-ink-soft">What this will do</div>
-      <div className="rounded-[12px] bg-paper-raised px-3.5 py-1">
+    <aside aria-label="What this will do" className="flex min-w-0 flex-[1_1_260px] flex-col gap-3 rounded-card bg-paper-sunken p-4 self-start">
+      <div className="text-micro font-semibold uppercase tracking-wider text-ink-soft">What this will do</div>
+      <div className="rounded-card bg-paper-raised px-3.5 py-1">
         {rows.map((r, i) => (
-          <div key={i} className="flex items-baseline justify-between gap-3 border-b border-line py-2 text-[13px] last:border-b-0">
+          <div key={i} className="flex items-baseline justify-between gap-3 border-b border-line py-2 text-body last:border-b-0">
             <span>{r.label}</span>
             {r.value}
           </div>
         ))}
       </div>
-      <p className="text-[12.5px] leading-relaxed text-ink-soft">{note}</p>
+      <p className="text-caption leading-relaxed text-ink-soft">{note}</p>
     </aside>
   );
 }

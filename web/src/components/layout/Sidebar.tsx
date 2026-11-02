@@ -14,7 +14,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
   return (
     <>
       <div
-        className={cn("fixed inset-0 z-50 bg-black/45", mobileOpen ? "hidden max-[980px]:block" : "hidden")}
+        className={cn("overlay-scrim fixed inset-0 z-50", mobileOpen ? "hidden max-[980px]:block" : "hidden")}
         onClick={onCloseMobile}
         aria-hidden="true"
       />
@@ -28,13 +28,13 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
         aria-label="Primary navigation"
       >
         <div className="flex items-center gap-3 px-2 pb-6">
-          <span className="flex h-8.5 w-8.5 flex-none items-center justify-center rounded-[10px] bg-ink font-semibold text-paper" style={{ fontFamily: "var(--font-ledger)", fontSize: 16 }}>
+          <span className="flex h-8.5 w-8.5 flex-none items-center justify-center rounded-control bg-ink font-semibold text-paper" style={{ fontFamily: "var(--font-ledger)", fontSize: 16 }}>
             {appConfig.logoMark}
           </span>
           {!collapsed && (
             <div>
               <div className="text-[15.5px] font-semibold">{name}</div>
-              <div className="text-[11.5px] text-ink-faint">{tagline}</div>
+              <div className="text-micro text-ink-faint">{tagline}</div>
             </div>
           )}
         </div>
@@ -42,7 +42,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
         <nav className="flex-1">
           {NAV_SECTIONS.map((section) => (
             <div key={section.section}>
-              {!collapsed && <div className="px-3 pb-1 pt-4 text-[11px] text-ink-faint">{section.section}</div>}
+              {!collapsed && <div className="px-3 pb-1 pt-4 text-micro text-ink-faint">{section.section}</div>}
               {section.items.map((item) => (
                 <NavLink
                   key={item.path}
@@ -50,9 +50,9 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
                   onClick={onCloseMobile}
                   className={({ isActive }) =>
                     cn(
-                      "mb-0.5 flex items-center gap-3 rounded-[10px] px-3 py-2 text-[13.7px] font-medium text-ink-soft transition-colors",
+                      "mb-0.5 flex items-center gap-3 rounded-control px-3 py-2 text-[13.7px] font-medium text-ink-soft transition-colors",
                       "hover:bg-paper-sunken hover:text-ink",
-                      isActive && "bg-accent-soft font-semibold text-accent hover:bg-accent-soft hover:text-accent",
+                      isActive && "bg-brand-soft font-semibold text-brand hover:bg-brand-soft hover:text-brand",
                     )
                   }
                 >
@@ -67,10 +67,10 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
         <div className="pt-4">
           <button
             onClick={toggleCollapsed}
-            className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-line py-2 text-ink-faint hover:bg-paper-sunken hover:text-ink max-[980px]:hidden"
+            className="flex w-full items-center justify-center gap-2 rounded-control border border-line py-2 text-ink-faint hover:bg-paper-sunken hover:text-ink max-[980px]:hidden"
           >
             <ChevronLeft size={15} className={cn("transition-transform", collapsed && "rotate-180")} />
-            {!collapsed && <span className="text-[13px]">Collapse</span>}
+            {!collapsed && <span className="text-body">Collapse</span>}
           </button>
         </div>
       </aside>
