@@ -10,9 +10,11 @@ Android today, iOS later**, where every platform supports two data modes:
 It is written so that a human or an AI agent can pick **one document**, build **that part**, and
 know exactly what it depends on, what "done" means and what is out of scope.
 
-> **Status of this plan: DRAFT for owner review.** Nothing here is implemented. Items marked
-> *Proposed* in [`adr/`](adr/) or listed in [`02-open-questions.md`](02-open-questions.md) need the
-> owner's confirmation before an agent builds on them. React + Capacitor is **decided**, and so are two owner decisions of 2026-11-02: the web app has **no in-browser database** (it always talks to a server, which can run on the user's own computer), and **any folder may be restructured** where it makes the result cleaner ([`adr/0008`](adr/0008-web-server-backed-and-repo-restructure.md)).
+> **Status of this plan: owner-reviewed draft.** Nothing here is implemented. On 2026-11-02 the owner answered all
+> open questions ([`02-open-questions.md`](02-open-questions.md)): TypeScript core (Python replaced), UUIDv7 ids, both ledger
+> modes ported unchanged, single owner, online-only cloud first, Apache-2.0, name "Monetary", reproducible signed builds.
+> ADRs 0001, 0002, 0004, 0005, 0006 and 0008 are **Accepted**; 0003 and 0007 stay *Proposed* until the spike confirms them.
+> Still open: the Android application id (Q8) and every **(verify)** item. React + Capacitor is **decided**, and so are two owner decisions of 2026-11-02: the web app has **no in-browser database** (it always talks to a server, which can run on the user's own computer), and **any folder may be restructured** where it makes the result cleaner ([`adr/0008`](adr/0008-web-server-backed-and-repo-restructure.md)).
 
 ## The idea in one paragraph
 

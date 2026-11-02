@@ -112,7 +112,7 @@ The client checks `/meta` at connect time (MP-13, MP-17). A database newer than 
 
 We do not build sync, but we keep the door open so it is not a rewrite later:
 
-- Ids are client-generatable (UUIDv7 as text, *Proposed*, ADR-0004), so two devices never collide.
+- Ids are client-generatable (UUIDv7 as text, ADR-0004), so two devices never collide.
 - Every table has `created_at` and `updated_at` in UTC ISO-8601.
 - The ledger is modelled so that edits can be expressed as new entries (STRICT mode already does this).
 - A database carries a random `instance_id` in a `meta` table, so imports and future sync can recognise a dataset.
@@ -124,12 +124,12 @@ If, later, an owner wants sync, the likely route is an append-only change log pe
 
 | ADR | Decision | Status |
 |---|---|---|
-| 0001 | One TypeScript core, API runs in-process (local) or on Node (cloud); Python becomes legacy | Proposed |
+| 0001 | One TypeScript core, API runs in-process (local) or on Node (cloud); Python becomes legacy | **Accepted** |
 | 0002 | Capacitor shell around the one React UI; React Native deferred | **Accepted** |
 | 0003 | SQL driver port, forward-only migrations, two drivers | Proposed |
-| 0004 | Ids, money, time rules for the port | Proposed |
-| 0005 | License | Proposed |
-| 0006 | Distribution and signing | Proposed |
+| 0004 | Ids, money, time rules for the port | **Accepted** |
+| 0005 | License | **Accepted** |
+| 0006 | Distribution and signing | **Accepted** |
 | 0007 | Contract-first with Zod and generated OpenAPI | Proposed |
 | 0008 | Web is server-backed (no browser database); repository restructured to `apps/` + `packages/` | **Accepted** |
 

@@ -1,6 +1,6 @@
 # ADR 0005: License
 
-- Status: **Proposed** (owner decision required, Q7)
+- Status: **Accepted** (owner confirmed Q7, 2026-11-02): Apache-2.0. Applying it is an owner-only legal act (MP-24); get legal advice if any third-party contribution exists
 - Date: 2026-11-02
 - Deciders: repository owner (copyright holder)
 

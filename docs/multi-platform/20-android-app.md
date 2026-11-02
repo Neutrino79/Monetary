@@ -11,7 +11,7 @@ Android-specific code in `apps/mobile/` and the `sqlite-capacitor` package. The 
 - **Shell**: Capacitor (ADR-0002, accepted). Use the current stable Capacitor major at project start and record the version in the ADR **(verify)**.
 - **No proprietary services**: no Google Play Services, Firebase, Crashlytics, AdMob or any closed SDK. This is required for F-Droid and matches the privacy promise.
   One build (no `play` vs `foss` behavioral flavors) is the goal so what F-Droid builds is what Play ships. Flavors, if any, may differ only in signing/metadata.
-- **Application id** is permanent after publishing (Q8). Use a placeholder in code (`org.example.monetary`) until the owner chooses; a single Gradle property sets it.
+- **Application id** is permanent after publishing (Q8: the product name is **Monetary**; the id is **still to be chosen** by the owner before the first Play/F-Droid upload). Use a placeholder in code (`org.example.monetary`) until then; a single Gradle property sets it.
 - **Platform targets move every year.** Do not hard-code today's numbers in docs or code comments: read Google Play's current target-API requirement and
   the 16 KB page-size requirement at release time **(verify both)**. Build with the latest required `targetSdk`; `minSdk` per Q10 (default API 26, final value from the spike).
 - **Edge-to-edge** is enforced on newer targets, so the UI must handle insets (MP-16).

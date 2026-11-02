@@ -1,6 +1,6 @@
 # ADR 0004: Ids, money and time rules for the port
 
-- Status: **Proposed** (ids need owner confirmation, Q2)
+- Status: **Accepted** (owner confirmed Q2, 2026-11-02); the time layer's runtime behavior is still verified by spike S5
 - Date: 2026-11-02
 - Deciders: repository owner
 

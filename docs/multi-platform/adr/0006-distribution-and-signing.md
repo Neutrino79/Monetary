@@ -1,6 +1,6 @@
 # ADR 0006: Distribution channels and signing
 
-- Status: **Proposed** (Q11, Q13)
+- Status: **Accepted** (owner confirmed Q11 and Q13, 2026-11-02); every store-policy detail marked (verify) is still checked at release time
 - Date: 2026-11-02
 - Deciders: repository owner
 

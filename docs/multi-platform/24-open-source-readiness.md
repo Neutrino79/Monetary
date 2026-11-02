@@ -4,7 +4,7 @@
 
 **Agent brief.** Prepare the repository to be public: choose and apply the license, add governance and community files, audit the
 history and dependencies, and remove anything private. Several steps are **owner-only** (relicensing, making the repo public, enabling
-GitHub features); produce the checklist, files and scripts for everything else. Do not change the license until the owner confirms Q7.
+GitHub features); produce the checklist, files and scripts for everything else. The owner confirmed **Apache-2.0** (Q7, 2026-11-02). Replacing the license is still an owner-only legal act: do it in a dedicated PR the owner approves, after the copyright-holder check in requirement 2.
 
 ## Context
 
@@ -15,7 +15,7 @@ GitHub features); produce the checklist, files and scripts for everything else. 
 
 ## Requirements
 
-1. **License**: after the owner answers Q7, replace `LICENSE`, update the README badge/section, add SPDX identifiers (`SPDX-License-Identifier: Apache-2.0`) to source headers only if the owner wants them (a `LICENSE` + `NOTICE` file is sufficient; avoid noisy header churn), set `"license"` in each `package.json` and `pyproject.toml`.
+1. **License** (Apache-2.0, Q7): replace `LICENSE`, update the README badge/section, add SPDX identifiers (`SPDX-License-Identifier: Apache-2.0`) to source headers only if the owner wants them (a `LICENSE` + `NOTICE` file is sufficient; avoid noisy header churn), set `"license"` in each `package.json` and `pyproject.toml`.
 2. **Copyright holder**: confirm that the owner holds copyright for all existing code (including any contributions by others). If any third-party contributions exist, get their consent or remove them. Record the decision.
 3. **Contribution terms**: use the **DCO** (`Signed-off-by`) rather than a CLA unless the owner wants a relicensing right; document it in `CONTRIBUTING.md`; add a check (the DCO GitHub app or a small workflow **(verify)**). Note the existing commit-lint hook and conventions must keep working; sign-off is a footer line.
 4. **Community files**: `CODE_OF_CONDUCT.md` (Contributor Covenant), `SECURITY.md` (MP-18), `GOVERNANCE.md` (benevolent maintainer model, how decisions and releases are made, how to become a maintainer), `SUPPORT.md` (where to ask questions, what is not supported), issue templates (bug, feature, security redirect) and discussion categories, updated `CODEOWNERS`.
@@ -31,7 +31,7 @@ GitHub features); produce the checklist, files and scripts for everything else. 
 
 ## Tasks
 
-- [ ] Get Q7/Q8 answers; apply the license; update badges, package metadata and README.
+- [ ] Choose the Android application id (Q8, owner); apply the Apache-2.0 license; update badges, package metadata and README.
 - [ ] Add CODE_OF_CONDUCT, GOVERNANCE, SUPPORT, SECURITY (with MP-18), issue templates, updated CODEOWNERS.
 - [ ] Update `CONTRIBUTING.md` (DCO, first-time contributor path, how to pick a work package from `docs/multi-platform/`).
 - [ ] Add the DCO check workflow.

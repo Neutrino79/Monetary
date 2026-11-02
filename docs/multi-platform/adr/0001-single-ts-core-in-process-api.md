@@ -1,6 +1,6 @@
 # ADR 0001: One TypeScript core; the API runs in-process (local) or on Node (cloud)
 
-- Status: **Proposed** (owner to confirm, Q1)
+- Status: **Accepted** (owner confirmed Q1, 2026-11-02)
 - Date: 2026-11-02
 - Deciders: repository owner
 
