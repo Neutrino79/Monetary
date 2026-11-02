@@ -19,9 +19,9 @@ workflow for picking up a work package. `AGENTS.md` and `CONTRIBUTING.md` are au
 3. Never change git identity or config. If no identity is configured, stop and ask.
 4. Never bypass hooks or checks: no `--no-verify`, no `SKIP=`, and never disable, skip or weaken a test, lint rule or CI job to get green. Fix the cause.
 5. Never commit secrets or local data (`.env*` except `*.example`, `*.db`, keys, keystores, tokens, `node_modules`, build output). If a secret was ever exposed, say so; do not silently delete it.
-6. Never hand-edit generated files: `web/package-lock.json` / the root lockfile (use `npm`), `CHANGELOG.md` (release-please), `.secrets.baseline` (use `detect-secrets`), `docs/openapi/v1.json` (use `npm run gen:openapi`).
+6. Never hand-edit generated files: `apps/web/package-lock.json` / the root lockfile (use `npm`), `CHANGELOG.md` (release-please), `.secrets.baseline` (use `detect-secrets`), `docs/openapi/v1.json` (use `npm run gen:openapi`).
 7. Never change the API contract, DB schema or `MONETARY_*` configuration silently. If you do: update `docs/API.md` + the client, the schema docs (`docs/LIVE_SCHEMA.sql` / `schema-v1.sql`), `.env.example` + README in the same PR and list it under *Risk and rollout*.
-8. SQL only in `packages/core/src/storage/` (and legacy `backend/monetary/infrastructure/` until removed). No business rules in routes. No ledger math in `web/`.
+8. SQL only in `packages/core/src/storage/` (and legacy `backend/monetary/infrastructure/` until removed). No business rules in routes. No ledger math in `apps/web/`.
 9. No destructive commands (`rm -rf`, `git reset --hard`, dropping a database, deleting branches) against anything you did not create in this session without explicit approval.
 
 ## 3. Slice the work

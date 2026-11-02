@@ -3,7 +3,7 @@
 > **ID** MP-12 · **Status** Draft · **Depends on** MP-10, MP-11 (types) · **Unblocks** MP-14, 19, 20
 
 **Agent brief.** Define the `SqlDriver` port, the version-1 schema with forward-only migrations, the
-repository layer, and implement three drivers (Node, browser WASM, Capacitor/Android) that all pass one
+repository layer, and implement two drivers (Node, Capacitor/Android) that both pass one
 shared conformance test suite. This is the only place SQL may exist in the TypeScript code.
 
 ## Context
@@ -11,7 +11,8 @@ shared conformance test suite. This is the only place SQL may exist in the TypeS
 - Today the schema is created by `backend/monetary/infrastructure/db.py` (recorded in `docs/LIVE_SCHEMA.sql`). There are **no
   migrations**: a schema change means recreating the database. That is acceptable for a pre-release server, **not** for an app
   that lives on people's phones. From this document on, every schema change is a numbered migration.
-- Three runtimes need three drivers, all async because WASM and Capacitor are async.
+- Two runtimes need two drivers: Node (server) and Capacitor (native app). The port is async because the Capacitor bridge is.
+  There is deliberately **no browser driver**: the web app is server-backed (ADR-0008). The port keeps one possible later without changing the core.
 - Local mode data is irreplaceable. Safety (backups before migration, refusing newer databases) is a requirement, not polish.
 
 ## Requirements
@@ -62,12 +63,11 @@ type SqlValue = string | number | null;   // integers as number (safe range), no
    (insert a non-balanced posting -> CHECK fails), transactions (rollback on throw), nested transactions, concurrency (parallel
    calls serialize), migration apply/idempotency/checksum mismatch, downgrade refusal, `foreign_key_check`, large batch insert, unicode, integer round-trip at 2^53-1.
 
-## The three drivers
+## The two drivers
 
 | Package | Runtime | Engine | Notes |
 |---|---|---|---|
 | `sqlite-node` | Node server | `node:sqlite` or `better-sqlite3` (**decide in spike**, ADR-0003) | Sync under the hood; wrap in promises. Prefer no native addon if `node:sqlite` is stable enough at the time **(verify)**. Backup with `VACUUM INTO` or the backup API. |
-| `sqlite-wasm` | Browser | `wa-sqlite` with an OPFS-backed VFS, in a dedicated **Web Worker**; main thread talks via `postMessage`/Comlink-style RPC | Needs persistent-storage request (`navigator.storage.persist()`). Check cross-origin-isolation requirements of the chosen VFS **(verify)**. Fallback to in-memory + prompt to export if OPFS is unavailable. |
 | `sqlite-capacitor` | Android now, iOS later | Native plugin | Either a maintained FOSS Capacitor SQLite plugin **or** a small in-repo plugin over Android's framework SQLite **(decide in spike)**. Constraint: no proprietary code, F-Droid-buildable, 16 KB page-size safe if it ships native libs. The framework's SQLite version varies by Android release; if it is below the required minimum, bundle SQLite via a FOSS AAR or raise minSdk. |
 
 The Capacitor driver must expose **batch** calls (many statements in one bridge round-trip) because each bridge call has overhead.
@@ -80,7 +80,6 @@ The Capacitor driver must expose **batch** calls (many statements in one bridge 
 - [ ] Implement repositories alongside the services they serve (MP-11 rows 9-13).
 - [ ] Implement the conformance suite.
 - [ ] Implement `sqlite-node`; pass conformance.
-- [ ] Implement `sqlite-wasm` + worker; pass conformance in a real browser test (Playwright or Vitest browser mode).
 - [ ] Implement `sqlite-capacitor` (after the spike picks the approach); pass conformance on an emulator (instrumented or via a Capacitor test harness page).
 - [ ] Implement pre-migration backup, `DatabaseTooNew` handling and `integrity_check`.
 - [ ] Write `docs/multi-platform/schema-v1.sql` as the human-readable copy and update `docs/LIVE_SCHEMA.sql` **only when** the TS schema becomes the live one (AGENTS.md rule 7: it is the only copy of the schema SQL).
@@ -88,7 +87,7 @@ The Capacitor driver must expose **batch** calls (many statements in one bridge 
 
 ## Acceptance criteria
 
-- All three drivers pass the identical conformance suite.
+- Both drivers pass the identical conformance suite.
 - Opening a database created by a newer app version fails with `DatabaseTooNew` and leaves the file untouched.
 - Editing a shipped migration file makes the checksum test fail.
 - Interrupting a migration (simulated throw) leaves the previous schema and data intact.
@@ -109,6 +108,5 @@ Encryption at rest (Q12), sync tables, multi-currency tables, ORM adoption (use 
 ```bash
 npm test -w @monetary/core -- storage
 npm test -w @monetary/sqlite-node
-npm run test:browser -w @monetary/sqlite-wasm
-./mobile/scripts/run-driver-conformance.sh   # emulator, added by MP-20
+./apps/mobile/scripts/run-driver-conformance.sh   # emulator, added by MP-20
 ```

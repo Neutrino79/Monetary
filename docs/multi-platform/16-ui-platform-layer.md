@@ -13,14 +13,14 @@ Things in the current web app that matter here (from the repo):
 
 - Fonts are loaded from Google Fonts at runtime. Offline local mode (and F-Droid's no-tracking stance) requires bundling them.
 - The token is in `localStorage` (`emx_token`, `tokenStorage.ts`); UI preferences persist in `emx_ui` (`uiStore.ts`).
-- `web/src/config/app.ts` reads `VITE_API_BASE_URL` at build time; mobile needs a *runtime* choice (profiles, MP-15).
+- `apps/web/src/config/app.ts` reads `VITE_API_BASE_URL` at build time; mobile needs a *runtime* choice (profiles, MP-15).
 - Drawer/Modal already handle phone widths (bottom sheet, safe-area padding, drag-to-close), `pointer-coarse:` tap targets exist,
   keyboard shortcuts are ignored while typing. `vercel.json` rewrites everything to `index.html` (web hosting only).
 - Theme switching uses the View Transitions API with a fallback.
 
 ## Requirements
 
-1. **`Platform` port** in `web/src/platform/types.ts`:
+1. **`Platform` port** in `apps/web/src/platform/types.ts`:
 
 ```ts
 interface Platform {
@@ -37,7 +37,6 @@ interface Platform {
   openExternal(url: string): Promise<void>;
   network: { isOnline(): boolean; onChange(cb: (online: boolean) => void): () => void };
   statusBar: { setStyle(theme: "light" | "dark"): void };
-  storagePersistence?: { request(): Promise<boolean> };  // web local mode: navigator.storage.persist()
 }
 ```
 
@@ -45,7 +44,7 @@ interface Platform {
    (official/FOSS Capacitor plugins; every plugin must pass the FOSS/F-Droid rule in MP-20). Selected once at startup
    (`Capacitor.isNativePlatform()`), provided via React context. Feature code calls `usePlatform()`; it never touches `Capacitor` or `window.localStorage` directly.
 3. **Fonts**: self-host Inter (and any other font used) as WOFF2 in the build (e.g. `@fontsource`-style packages or committed files with the OFL license text);
-   remove Google Fonts `<link>`/`@import`. Use `font-display: swap`. Verify no network request is made at startup (a Playwright test with the network blocked).
+   remove Google Fonts `<link>`/`@import`. Use `font-display: swap`. Verify no network request is made at startup (a Playwright test that fails on any request to a host other than the configured server).
 4. **Persistent storage migration**: move `tokenStorage` and the `uiStore` persistence behind `Platform.secure`/`Platform.kv`. Keep the existing key names so existing web
    users keep their preferences. Because `kv` is async, hydrate stores before first render (a small loading gate).
 5. **Back button (Android)**: opens/close order: top-most Drawer/Modal/Command palette -> in-page overlay -> route history -> exit (with a "press again to exit" hint on
@@ -60,24 +59,24 @@ interface Platform {
 11. **CSP** for the app and the server-served web build: `default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'` (Tailwind/inline styles; tighten if possible); `connect-src` must allow the user's server URL, so
     it is `'self' https: http:` in the app build with the reason documented; web hosted by the server uses `'self'`.
 12. **Print stylesheet and View Transitions** keep working on web; on Android WebView the theme transition falls back gracefully (already implemented fallback; add a test).
-13. **No network assumptions in local mode**: no request to any host is ever made in local mode (test: block all network in Playwright and complete the main flow).
+13. **No network in native local mode**: in the native app's local mode no request to any host is ever made (verified by the Android smoke test with airplane mode on, MP-20). On web there is no local mode; the only host the UI may contact is the configured server.
 
 ## Tasks
 
 - [ ] Add `Platform` types, `webPlatform`, `capacitorPlatform` (stubbed until MP-20 provides plugins), provider + `usePlatform()`.
-- [ ] Self-host fonts; delete Google Fonts usage; add the offline test.
+- [ ] Self-host fonts; delete Google Fonts usage; add the no-third-party-requests test.
 - [ ] Move token + UI persistence behind Platform; add a hydration gate; keep key names; test migration from existing `localStorage` keys.
 - [ ] Back-button stack (`useBackHandler`) wired into Drawer, Modal, CommandPalette, router.
 - [ ] Safe-area/edge-to-edge audit of `AppShell`, `MobileTabbar`, `Drawer` footer, toasts, FABs; fix at 360x640, 390x844, 412x915 viewports.
 - [ ] Hide shortcut hints on coarse pointers; check `ShortcutHelp` access.
 - [ ] CSP meta/headers as above; ensure no inline script requirement.
-- [ ] Replace build-time API URL usage with the profile (done in MP-15); remove `VITE_API_BASE_URL` from required env (keep as optional default for web hosting; update `web/.env.example` and `web/README.md`).
-- [ ] Add Playwright tests: offline start (fonts), phone viewport form usage, back-button stack with a fake platform.
+- [ ] Replace build-time API URL usage with the profile (done in MP-15); remove `VITE_API_BASE_URL` from required env (keep as optional default for web hosting; update `apps/web/.env.example` and `apps/web/README.md`).
+- [ ] Add Playwright tests: no third-party requests at startup, phone viewport form usage, back-button stack with a fake platform.
 
 ## Acceptance criteria
 
-- Web app with the network **fully blocked** after first load (local mode) renders correctly and completes: setup, add expense, view dashboard.
-- No external host is requested at startup (assert via Playwright request log).
+- The Android app in airplane mode (local mode) completes setup, add expense and view dashboard (verified in MP-20); the web build makes no request to any host except its configured server.
+- No external host is requested at startup (assert via Playwright request log; the configured server is the only allowed host).
 - Existing web preferences (theme/accent/density) survive the migration.
 - Back button behavior matches requirement 5 in tests with a fake `onBackButton`.
 - Visual check at three phone viewports with the soft-keyboard simulation shows no covered controls (screenshots attached to the PR).
@@ -85,7 +84,7 @@ interface Platform {
 
 ## Files you may touch
 
-`web/src/platform/**`, `web/src/main.tsx`, `web/src/store/*`, `web/src/components/ui/Dialog.tsx` (back handler only), `web/src/components/layout/**` (safe area, shortcut hints), `web/index.html`, `web/src/styles/index.css` (fonts), `web/README.md`, `web/.env.example`, tests.
+`apps/web/src/platform/**`, `apps/web/src/main.tsx`, `apps/web/src/store/*`, `apps/web/src/components/ui/Dialog.tsx` (back handler only), `apps/web/src/components/layout/**` (safe area, shortcut hints), `apps/web/index.html`, `apps/web/src/styles/index.css` (fonts), `apps/web/README.md`, `apps/web/.env.example`, tests.
 No behavior changes to ledger screens.
 
 ## Out of scope
@@ -95,5 +94,5 @@ New screens (MP-17), native plugin installation (MP-20), redesign, push notifica
 ## Verification
 
 ```bash
-cd web && npm run typecheck && npm run lint && npm test && npm run build && npm run test:e2e   # Playwright suite added here
+cd apps/web && npm run typecheck && npm run lint && npm test && npm run build && npm run test:e2e   # Playwright suite added here
 ```

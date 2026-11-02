@@ -9,7 +9,7 @@ over that contract. It must be runnable both in Node (behind a socket) and in-pr
 
 ## Context
 
-The existing API is documented in `docs/API.md` (`/api/v0.5`). The web app (`web/src/lib/api/`) already
+The existing API is documented in `docs/API.md` (`/api/v0.5`). The web app (`apps/web/src/lib/api/`) already
 consumes it through typed services. The v1 contract is **the same resource map and the same wire conventions**
 with the specific differences listed below, so the UI change is small.
 
@@ -32,7 +32,7 @@ Use `docs/API.md` as the behavioral reference; the fixtures (MP-22) are the proo
 | `POST /import`, `GET /export` | -- | new (MP-19) | local <-> cloud moves, backups |
 | Local mode auth | -- | `auth: "local"` means no token needed from an in-process caller | local mode |
 
-The numeric-to-string id change touches `web/src/types` and the mappers; that work is in MP-15 and must land with the API switch.
+The numeric-to-string id change touches `apps/web/src/types` and the mappers; that work is in MP-15 and must land with the API switch.
 
 ## Requirements
 
@@ -93,7 +93,7 @@ The numeric-to-string id change touches `web/src/types` and the mappers; that wo
 
 - Every recorded parity scenario (MP-22) passes through `createApi.fetch` with the declared id normalization.
 - The same test-suite passes with `authPolicy: "bearer"` over a real Node HTTP server (MP-14) and with `"local-trusted"` in-process.
-- `docs/openapi/v1.json` is up to date; schemas and types match with no hand-written duplicates (lint rule against `interface` clones in `web/src/types` is **not** required, but `web` must import types from `contract`).
+- `docs/openapi/v1.json` is up to date; schemas and types match with no hand-written duplicates (lint rule against `interface` clones in `apps/web/src/types` is **not** required, but `web` must import types from `contract`).
 - A route handler containing business logic (a service-level `if` on domain state) fails code review; boundary check forbids `api` importing `core/storage`.
 - Coverage >= 95% for `packages/api`.
 

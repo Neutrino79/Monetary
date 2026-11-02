@@ -3,7 +3,7 @@
 > **ID** MP-19 · **Status** Draft · **Depends on** MP-11, MP-12 · **Unblocks** safe mode switching (MP-17), trust in local mode
 
 **Agent brief.** Build the portable **Monetary Archive** export/import, a human-readable CSV export, and the backup reminders. This
-is what makes local mode safe (phones get lost, browsers evict storage) and what lets a user move between local and cloud without
+is what makes local mode safe (phones get lost or are reset) and what lets a user move between local and cloud without
 losing history. Import must be all-or-nothing and must refuse to produce an unbalanced ledger.
 
 ## Context
@@ -41,9 +41,9 @@ the canonical JSON of everything except `checksum`. The **password hash, securit
 5. **Version handling**: refuse an archive with `formatVersion` greater than supported (`ArchiveTooNew`); upgrade older ones in code; refuse an archive whose `schemaVersion` is newer than the app's schema (`DatabaseTooNew`-style message).
 6. **Owner credentials after import**: in cloud mode the importer must set a password (the archive has none); in local mode none is needed. Spell this out in the UI.
 7. **CSV export** (transactions only, for spreadsheets): UTF-8 with BOM option, one row per entry (not per posting), columns: date, type, description, memo, category, account, to-account, amount, currency, friend, tags, status, id. Dates ISO; amounts as decimal strings (no scientific notation); guard against CSV injection by prefixing cells that start with `= + - @` with a single quote.
-8. **Raw database backup** (local mode, Android/web): `VACUUM INTO` a temp file then hand it to `Platform.files.save`. On the server: the CLI backup of MP-14. Restoring a raw DB is documented but is a power-user path; the supported route is the archive.
+8. **Raw database backup** (local mode on Android): `VACUUM INTO` a temp file then hand it to `Platform.files.save`. On the server: the CLI backup of MP-14. Restoring a raw DB is documented but is a power-user path; the supported route is the archive.
 9. **Save/share UX**: Android uses the system file picker (Storage Access Framework) so no storage permission is needed; web uses the download API (or the File System Access API where available). Suggested file name `monetary-backup-YYYY-MM-DD.monetary.json`.
-10. **Backup reminders**: in local mode show a gentle reminder when the last export is older than 30 days and there are > N new entries; track `lastExportAt` in `Platform.kv`; web local mode shows it more prominently (storage can be evicted). The reminder is dismissible and never nags more than once a week.
+10. **Backup reminders**: in local mode show a gentle reminder when the last export is older than 30 days and there are > N new entries; track `lastExportAt` in `Platform.kv`. The reminder is dismissible and never nags more than once a week.
 11. **Round-trip guarantee**: export -> import into an empty ledger -> export again yields an archive whose canonical content (ignoring `exportedAt` and `instanceId`) is byte-identical.
 12. **Cross-engine guarantee**: an archive exported by the Node server imports in the Android app, and vice versa.
 
@@ -70,7 +70,7 @@ the canonical JSON of everything except `checksum`. The **password hash, securit
 
 ## Files you may touch
 
-`packages/contract/src/archive*`, `packages/core/src/application/archive*`, `packages/core/src/storage/archive*`, `packages/api/src/routes/archive*`, `web/src/features/data/**`, `web/src/platform/**` (files), `docs/archive-format.md`, tests.
+`packages/contract/src/archive*`, `packages/core/src/application/archive*`, `packages/core/src/storage/archive*`, `packages/api/src/routes/archive*`, `apps/web/src/features/data/**`, `apps/web/src/platform/**` (files), `docs/archive-format.md`, tests.
 
 ## Out of scope
 

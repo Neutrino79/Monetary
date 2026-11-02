@@ -29,7 +29,7 @@ Play re-signs with Play's key, so Play installs will never update from GitHub/F-
    generate SHA-256 sums, SBOM (CycloneDX or SPDX **(verify tool)**), build provenance attestation **(verify)** -> attach to the GitHub Release. The workflow never prints secrets and uses a protected environment with required reviewers.
 3. **Key custody**: the owner generates and backs up the keystore **offline** (two copies); CI receives only a base64 secret in a protected environment. Lost keys cannot be recovered. Record the key's SHA-256 certificate fingerprint in `docs/signing.md` so users can verify APKs.
 4. **F-Droid**
-   - Metadata in-repo under `mobile/fastlane/metadata/android/<locale>/` (title, short/full description, changelogs named by `versionCode`, icon, phone screenshots) **(verify the exact layout)**.
+   - Metadata in-repo under `apps/mobile/fastlane/metadata/android/<locale>/` (title, short/full description, changelogs named by `versionCode`, icon, phone screenshots) **(verify the exact layout)**.
    - Open a merge request to `fdroiddata` with `metadata/<appId>.yml` containing the build recipe (`srclibs`/`prebuild` steps to build the web app, `gradle` target) **(verify format)**. The recipe must build from source: `npm ci`, web build, `cap sync`, `gradle assembleRelease` with no prebuilt binaries.
    - Audit anti-features: none expected (no ads, no tracking, no non-free network services -- cloud mode connects only to the user's own server, but state this plainly in the description) **(verify wording)**.
    - Maintain the recipe when build steps change; add a CI check that runs the same commands the recipe runs.
@@ -47,7 +47,7 @@ Play re-signs with Play's key, so Play installs will never update from GitHub/F-
 - [ ] Write `docs/signing.md` (key generation, storage, CI secret setup, fingerprint verification) -- no secrets in the document.
 - [ ] Release workflow with verification gates, checksums, SBOM, attestation; dry-run on a pre-release tag with a *test* key.
 - [ ] F-Droid metadata folder and a drafted `fdroiddata` recipe + CI check that mimics it; prepare the merge-request text (owner submits).
-- [ ] Play listing assets and text drafts under `mobile/fastlane/metadata/android/`; Data-safety answers drafted in `docs/store-listing.md`; owner submits.
+- [ ] Play listing assets and text drafts under `apps/mobile/fastlane/metadata/android/`; Data-safety answers drafted in `docs/store-listing.md`; owner submits.
 - [ ] `docs/privacy-policy.md`; in-app About + licenses screen.
 - [ ] GHCR image workflow.
 - [ ] Release checklist and update-compatibility CI job.
@@ -64,7 +64,7 @@ Play re-signs with Play's key, so Play installs will never update from GitHub/F-
 
 ## Files you may touch
 
-`.github/workflows/release-*.yml`, `.github/RELEASE_CHECKLIST.md`, `mobile/fastlane/**`, `docs/signing.md`, `docs/privacy-policy.md`, `docs/store-listing.md`, `scripts/versioncode.*`, `server/Dockerfile` publishing bits, README install section.
+`.github/workflows/release-*.yml`, `.github/RELEASE_CHECKLIST.md`, `apps/mobile/fastlane/**`, `docs/signing.md`, `docs/privacy-policy.md`, `docs/store-listing.md`, `scripts/versioncode.*`, `apps/server/Dockerfile` publishing bits, README install section.
 
 ## Out of scope
 

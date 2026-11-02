@@ -64,7 +64,7 @@ Finance data is sensitive: when in doubt, choose the more private option and tel
 
 ## Files you may touch
 
-`SECURITY.md`, `docs/security-model.md`, logging utilities in `server/`, `packages/api`, `web/src/platform/**`, `mobile/android/**` (config only), CI workflow files for audit/license checks.
+`SECURITY.md`, `docs/security-model.md`, logging utilities in `apps/server/`, `packages/api`, `apps/web/src/platform/**`, `apps/mobile/android/**` (config only), CI workflow files for audit/license checks.
 
 ## Out of scope
 

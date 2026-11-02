@@ -11,7 +11,7 @@ We need Android now and iOS later without a second UI codebase.
 
 ## Decision
 
-Wrap the **single** React web app in **Capacitor** for Android (and later iOS). Native code is limited to a thin shell and plugins (SQLite, secure storage, files, biometrics...). The layered package structure (ADR-0001) keeps the core, client and UI logic shell-independent so a **React Native** (or other) mobile UI could be added later if web-view feel proves inadequate.
+Wrap the **single** React web app in **Capacitor** for Android (and later iOS). The web app itself is server-backed only (ADR-0008). Native code is limited to a thin shell and plugins (SQLite, secure storage, files, biometrics...). The layered package structure (ADR-0001) keeps the core, client and UI logic shell-independent so a **React Native** (or other) mobile UI could be added later if web-view feel proves inadequate.
 
 ## Consequences
 

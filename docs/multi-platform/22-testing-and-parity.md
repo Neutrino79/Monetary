@@ -19,13 +19,13 @@ fixtures prove the port matches *the actual old behavior*, including report math
 |---|---|---|
 | Unit (pure domain) | `packages/core/**/domain` | every PR |
 | Service (core + in-memory SQLite) | `packages/core/**/application` | every PR |
-| Driver conformance (same suite, 3 drivers) | `packages/core/src/storage/conformance` | node + wasm: every PR; Android emulator: nightly + PRs touching `mobile/`/`sqlite-capacitor` |
+| Driver conformance (same suite, 2 drivers) | `packages/core/src/storage/conformance` | node: every PR; Android emulator: nightly + PRs touching `apps/mobile/`/`sqlite-capacitor` |
 | API (`app.request`, no sockets) | `packages/api` | every PR |
 | **Parity replay** (recorded v0.5 fixtures) | `tests/parity/` | every PR |
-| Server integration (real HTTP, temp DB) | `server/` | every PR |
-| Web unit/component (existing 207 tests) | `web/` | every PR |
-| Web e2e (Playwright: local mode, cloud mode, offline, a11y, phone viewports) | `web/e2e/` | every PR (small set), nightly (full) |
-| Android smoke (emulator) | `mobile/` | nightly + `mobile/` PRs |
+| Server integration (real HTTP, temp DB) | `apps/server/` | every PR |
+| Web unit/component (existing 207 tests) | `apps/web/` | every PR |
+| Web e2e (Playwright against a real server: sign-in, add/edit flows, reports, a11y, phone viewports, no third-party requests) | `apps/web/e2e/` | every PR (small set), nightly (full) |
+| Android smoke (emulator) | `apps/mobile/` | nightly + `apps/mobile/` PRs |
 | Performance benchmarks | `tests/perf/` | nightly; results as artifacts; regressions flagged |
 
 ## Parity: fixture recorder and replayer
@@ -64,7 +64,7 @@ steps:
 2. **Timezone matrix**: core tests run under at least two non-UTC host `TZ` values in CI.
 3. **Property tests** (fast-check or similar, FOSS): money parse/format round-trip; any generated valid entry balances; paging reassembles to the full list; archive round-trip.
 4. **Coverage**: `packages/core` and `packages/api` >= 95% lines; existing backend rule stays until Python is removed.
-5. **Performance benchmark** `tests/perf/`: generate a deterministic ledger of 50,000 entries and 20 accounts; measure dashboard report, a 500-row filtered list, group totals, export, import; run on Node, in the browser (wasm) and on an Android emulator/device; publish a table. Budgets are set from the spike (MP-26).
+5. **Performance benchmark** `tests/perf/`: generate a deterministic ledger of 50,000 entries and 20 accounts; measure dashboard report, a 500-row filtered list, group totals, export, import; run on Node, and on an Android emulator/device; publish a table. Budgets are set from the spike (MP-26).
 6. **Flake policy**: a flaky test is fixed or quarantined with an issue within a week; never retry-until-green in CI.
 7. **No weakening**: `AGENTS.md` rule 4 applies -- never disable, skip or loosen a test to get green.
 
@@ -75,7 +75,7 @@ steps:
 - [ ] Write the replayer and normalization; initially run it against a stub that fails everything, so the harness itself is trusted.
 - [ ] Add `parity-exceptions.md` (format: id, area, v0.5 behavior, v1 behavior, reason, approved-by).
 - [ ] Create the driver conformance suite scaffold (the cases are listed in MP-12) and the shared Vitest workspace config.
-- [ ] Add Playwright setup in `web/e2e/` with fixtures for local mode and cloud mode; add axe a11y checks.
+- [ ] Add Playwright setup in `apps/web/e2e/` booting the Node server on a temp DB (cloud mode, including the "server on your own computer" path); add axe a11y checks. Native local-mode flows are covered by the Android smoke tests (MP-20).
 - [ ] Add the benchmark generator and runner; store results as CI artifacts.
 - [ ] Add CI jobs (`parity`, `e2e`, nightly `android`/`perf`).
 
@@ -88,7 +88,7 @@ steps:
 
 ## Files you may touch
 
-`tests/parity/**`, `tests/perf/**`, `web/e2e/**`, shared test config, `docs/multi-platform/parity-exceptions.md`, CI workflow files for these jobs. Read-only access to `backend/`.
+`tests/parity/**`, `tests/perf/**`, `apps/web/e2e/**`, shared test config, `docs/multi-platform/parity-exceptions.md`, CI workflow files for these jobs. Read-only access to `backend/`.
 
 ## Out of scope
 

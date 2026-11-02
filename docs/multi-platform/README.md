@@ -12,7 +12,7 @@ know exactly what it depends on, what "done" means and what is out of scope.
 
 > **Status of this plan: DRAFT for owner review.** Nothing here is implemented. Items marked
 > *Proposed* in [`adr/`](adr/) or listed in [`02-open-questions.md`](02-open-questions.md) need the
-> owner's confirmation before an agent builds on them. React + Capacitor is **decided**.
+> owner's confirmation before an agent builds on them. React + Capacitor is **decided**, and so are two owner decisions of 2026-11-02: the web app has **no in-browser database** (it always talks to a server, which can run on the user's own computer), and **any folder may be restructured** where it makes the result cleaner ([`adr/0008`](adr/0008-web-server-backed-and-repo-restructure.md)).
 
 ## The idea in one paragraph
 
@@ -24,20 +24,25 @@ runs the very same API in-process on the device, over an on-device SQLite databa
 cannot tell the difference: it just sends requests through a `Transport` that is either HTTP or an
 in-process call. Capacitor wraps the one React UI as the Android (and later iOS) app.
 
+**The web app is server-backed only.** There is no browser database. A web user who wants "local" use runs the
+Monetary server on their own computer (Docker or Node) and opens the UI at `http://localhost:8000`; that is simply
+cloud mode pointed at a local server. True on-device storage is a native-app feature (Android now, iOS later).
+
 ```text
-                       one React UI  (web/)
+                       one React UI  (apps/web/)
                               |
                   packages/client  (Transport)
                  /                            \
         HttpTransport                    InProcessTransport
+    (web, Android, iOS)                (Android / iOS only)
               |                                   |
      user-hosted Node server              runs inside the app
-     (server/ + packages/api)             (packages/api, same code)
+     (apps/server/ + packages/api)             (packages/api, same code)
               \                                   /
                        packages/core  (ledger rules, services)
                               |
                       SQL driver port
-            node:sqlite / better-sqlite3 | wa-sqlite (OPFS) | Android SQLite plugin
+        node:sqlite / better-sqlite3 (server)   |   native SQLite plugin (mobile app)
 ```
 
 ## How to use this folder (agents: read this)
@@ -63,7 +68,7 @@ in-process call. Capacitor wraps the one React UI as the Android (and later iOS)
 | 02 | [Open questions](02-open-questions.md) | decisions the owner must confirm, with defaults | -- |
 | 10 | [Monorepo and tooling](10-monorepo-and-tooling.md) | workspaces, TS config, boundaries, CI, scripts | 01 |
 | 11 | [Core: domain and services](11-core.md) | port Python ledger logic to TypeScript | 10, 22 |
-| 12 | [Storage and migrations](12-storage-and-migrations.md) | SQL driver port, schema v1, migrations, 3 drivers | 10, 11 |
+| 12 | [Storage and migrations](12-storage-and-migrations.md) | SQL driver port, schema v1, migrations, 2 drivers (Node, Capacitor) | 10, 11 |
 | 13 | [API contract](13-api-contract.md) | `/api/v1`, schemas, OpenAPI, handshake, errors | 11 |
 | 14 | [Server and cloud mode](14-server-cloud-mode.md) | self-hosted Node server, Docker, config, ops | 12, 13 |
 | 15 | [Client and transports](15-client-and-transports.md) | `Transport`, profiles, query-cache rules | 13 |
@@ -93,6 +98,16 @@ in-process call. Capacitor wraps the one React UI as the Android (and later iOS)
 
 Parallel lanes an owner can hand to different agents once the spike passes are in
 [`25-roadmap.md`](25-roadmap.md#parallel-lanes).
+
+## Paths: target layout
+
+Documents use the **target** repository layout. The restructure is the first step of [`10-monorepo-and-tooling.md`](10-monorepo-and-tooling.md); until that PR merges, read the paths like this:
+
+| In these docs | Today |
+|---|---|
+| `apps/web/` | `web/` |
+| `apps/server/`, `apps/mobile/`, `packages/*` | do not exist yet |
+| `backend/` | `backend/` (unchanged; frozen legacy, deleted at milestone M9) |
 
 ## Conventions used in every document
 

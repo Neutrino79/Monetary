@@ -16,7 +16,8 @@ Monetary-run cloud, no account with us, no telemetry.
 ## Goals (v1)
 
 1. **Web and Android apps from one React UI**, with the web app unchanged in look and behavior.
-2. **Local mode**: on-device storage, offline, no server required, on both web and Android.
+2. **Local mode on mobile**: on-device storage, offline, no server required (Android now, iOS later).
+   The **web app is server-backed only**; web users who want local use run the server on their own computer.
 3. **Cloud mode**: connect to a user-hosted server by entering and validating its URL; sign in.
 4. **One implementation of the ledger rules** that runs identically in local and cloud mode, so a
    report never differs between the phone and the server.
@@ -37,19 +38,20 @@ Monetary-run cloud, no account with us, no telemetry.
 - A hosted/managed Monetary cloud, accounts with us, telemetry, ads, analytics.
 - Bank-feed imports, receipt scanning, push notifications.
 - A native (Kotlin/Swift) or React Native UI. See [`adr/0002-capacitor-ui-shell.md`](adr/0002-capacitor-ui-shell.md).
+- An in-browser database for the web app (OPFS/WASM). Web is server-backed ([`adr/0008`](adr/0008-web-server-backed-and-repo-restructure.md)).
 - Redesigning the UI. UI work in this plan is only what multi-platform support requires.
 
 ## Support matrix
 
 | | Web | Android | iOS (later) |
 |---|---|---|---|
-| **Local mode** | Yes. SQLite in the browser's private file system (OPFS). Caveat: browsers can evict site data, so export reminders are mandatory. | Yes. SQLite on the device. | Yes, same design as Android. |
-| **Cloud mode** | Yes. Web app served by (or pointed at) the user's server. | Yes. | Yes. |
-| Install | Static site / served by the self-hosted server | F-Droid, GitHub APK, Google Play | App Store (needs a permissive license, see MP-24) |
+| **Local mode** (data on the device, no server) | **No.** The web app has no in-browser database. For personal use, run the server on your own computer and open the UI at `http://localhost:8000` (cloud mode pointed at a local server). | Yes. SQLite on the device. | Yes, same design as Android. |
+| **Cloud mode** (user-hosted server) | Yes. The UI is served by the server (same origin) or a standalone web build is pointed at it. | Yes. | Yes. |
+| Install | Served by the self-hosted server | F-Droid, GitHub APK, Google Play | App Store (needs a permissive license, see MP-24) |
 
-Local mode on the web is a deliberate decision to *ship* it, because it is the same code as Android
-local mode and doubles as a try-before-you-host demo. If the owner prefers web = cloud only, disable it
-with one flag; see [`02-open-questions.md`](02-open-questions.md).
+**Why the web has no local mode.** A browser database (OPFS/WASM) would need its own driver, a Web Worker, storage-eviction
+handling and a separate test matrix, and browsers can still delete the data. A server on the user's own machine gives the same
+privacy with ordinary files, real backups and one runtime fewer. Decided by the owner on 2026-11-02 ([`adr/0008`](adr/0008-web-server-backed-and-repo-restructure.md)).
 
 ## Principles
 
@@ -86,10 +88,11 @@ with one flag; see [`02-open-questions.md`](02-open-questions.md).
 | **Core** | `packages/core`: domain rules, application services, SQL store. Pure TypeScript, no DOM, no Node-only APIs. |
 | **API app** | `packages/api`: a [Hono](https://hono.dev)-style `fetch(Request) -> Response` handler that exposes core over the `/api/v1` HTTP contract. Needs no socket. |
 | **Transport** | Client-side interface that sends an API request and returns a response. Two implementations: HTTP and in-process. |
-| **Local mode** | Client uses `InProcessTransport`; the API app runs inside the app over an on-device SQLite file. |
+| **Local mode** | Native apps only (Android, later iOS). Client uses `InProcessTransport`; the API app runs inside the app over an on-device SQLite file. |
+| **Local server** | A Monetary server running on the user's own computer. With the web UI it is how web users get personal, private use. It is cloud mode pointed at `localhost`. |
 | **Cloud mode** | Client uses `HttpTransport` to a user-hosted server running the API app on Node. |
 | **Profile** | A saved connection: either `local`, or `cloud` with a base URL. Holds the session token for cloud. |
-| **Driver** | An implementation of the SQL driver port for one runtime (Node, browser WASM, Android). |
+| **Driver** | An implementation of the SQL driver port for one runtime (Node server, native mobile). |
 | **Parity** | The TypeScript core returns the same results as the legacy Python backend for the recorded scenarios. |
 | **Shell** | The native wrapper (Capacitor) that hosts the web UI on a mobile OS. |
 | **Points** | Money stored as integer minor units (2 decimals today), as in the current backend. |

@@ -11,11 +11,11 @@ Estimates are rough effort for one focused engineer or agent and exist only to c
 |---|---|---|---|---|
 | **M0** | Decisions and safety net | 02, ADRs, 22 (recorder + scenarios), 24 (license choice, community files) | Owner answered Q1-Q8; fixtures recorded and deterministic; plan merged | 1-2 weeks |
 | **M1** | De-risking spike | 26 | All spike pass/fail bars recorded in ADR-0003/0004 and a report; go/no-go | 1-2 weeks |
-| **M2** | Foundations | 10, 22 (replayer, conformance scaffold) | Workspaces build, boundaries enforced, CI green, replayer proven against Python | 1 week |
+| **M2** | Foundations | 10 (including the repo restructure to `apps/` + `packages/`), 22 (replayer, conformance scaffold) | Workspaces build, boundaries enforced, CI green, replayer proven against Python | 1 week |
 | **M3** | Core parity | 11, 12 (node driver) | All domain + service modules ported; parity scenarios (non-report) pass | 4-6 weeks |
 | **M4** | Reports parity + API | 11 (reports), 13 | All parity scenarios pass; OpenAPI committed; API tests >= 95% | 3-4 weeks |
-| **M5** | Server | 14 | Docker image works; web integration tests pass on the Node server; self-hosting doc | 1-2 weeks |
-| **M6** | Web on the new stack | 15, 16 (fonts, Platform, back button), 12 (wasm driver), 19 (export/import) | Web UI runs in cloud mode and in **local mode in the browser**; offline test passes; ids are strings | 3-4 weeks |
+| **M5** | Server | 14 | Docker image works; web integration tests pass on the Node server; self-hosting doc including the "run it on your own computer" path | 1-2 weeks |
+| **M6** | Web on the new stack | 15, 16 (fonts, Platform, back button), 19 (export/import) | Web UI runs against the Node server (served by it and standalone); ids are strings; Platform layer in place; no third-party requests | 3-4 weeks |
 | **M7** | Onboarding and modes | 17, 18 (app lock, logging, audits) | Mode picker, URL validation, switching, backups; a11y checks pass | 2 weeks |
 | **M8** | Android | 20, 12 (capacitor driver) | Debug/release APKs; emulator smoke green; budgets measured | 3-4 weeks |
 | **M9** | Cut-over and cleanup | -- | Python backend deleted; `AGENTS.md`/docs reflect the TS stack; `docs/API.md` is v1 | 1 week |
@@ -31,9 +31,9 @@ After M2, independent lanes can run at once with little merge conflict because t
 | Lane | Packages | Owns paths | Needs from others |
 |---|---|---|---|
 | **A: Core** | 11, 12 (storage, node driver) | `packages/core`, `packages/sqlite-node` | fixtures (22) |
-| **B: Contract and API** | 13, 14 | `packages/contract`, `packages/api`, `server/` | core services as they land (stubs until then) |
-| **C: Client and UI** | 15, 16, 17, 19 (UI) | `packages/client`, `web/src/platform`, `web/src/features` | the contract schemas (B), local runtime (A+B) |
-| **D: Mobile** | 12 (capacitor driver), 20 | `packages/sqlite-capacitor`, `mobile/` | Platform port (C), conformance suite (A) |
+| **B: Contract and API** | 13, 14 | `packages/contract`, `packages/api`, `apps/server/` | core services as they land (stubs until then) |
+| **C: Client and UI** | 15, 16, 17, 19 (UI) | `packages/client`, `apps/web/src/platform`, `apps/web/src/features` | the contract schemas (B), local runtime (A+B) |
+| **D: Mobile** | 12 (capacitor driver), 20 | `packages/sqlite-capacitor`, `apps/mobile/` | Platform port (C), conformance suite (A) |
 | **E: Open source and release** | 24, 23, 18 (docs/CI parts) | repo root files, `.github`, `docs/` | owner decisions (02) |
 
 Rules for parallel work: a lane touches only its paths; cross-lane contracts (the `contract` package, `SqlDriver`, `Platform`, `Transport`) change only through a PR that updates the owning document and
@@ -46,7 +46,7 @@ notifies the other lanes (PR description, label `contract-change`).
 | Report math differs between Python and TS (floats, rounding, DST) | wrong numbers shown to users | fixtures with tolerances, property tests, per-module PRs | MP-22, MP-11 |
 | Android SQLite plugin speed/maintenance | slow or unmaintained persistence | spike picks; fallback is an in-repo plugin | MP-26, MP-12 |
 | Old Android SQLite version lacks required features | `RETURNING`/window functions fail | feature check at open; raise minSdk or bundle SQLite | MP-12, Q10 |
-| Browser OPFS/WASM quirks (eviction, Safari) | local web data loss | persistent-storage request, export reminders, clear UX, tested browsers list | MP-12, MP-19 |
+| Web users without a server | web needs a server; casual users may not want to run one | one-command local server (Docker/Node), clear guide, Android app offers true on-device local mode | MP-14, MP-17 |
 | F-Droid rejects the build (non-free dependency or non-reproducible step) | blocks one channel | FOSS-only plugin policy, recipe CI mimic | MP-20, MP-23 |
 | Play policy changes (target API, 16 KB, data safety) | blocks Play updates | check requirements each release; keep dependencies current | MP-23 |
 | ID change (numbers -> strings) ripples through the UI | regressions | land with the API v1 switch, typed `Id` alias, full web test run | MP-15 |

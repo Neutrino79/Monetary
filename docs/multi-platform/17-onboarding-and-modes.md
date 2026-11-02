@@ -8,6 +8,8 @@ Follow the validation algorithm and the error table exactly; the error messages 
 
 ## User flow
 
+**Native app (Android, later iOS)**
+
 ```text
 First launch (no profile)
   |
@@ -20,8 +22,12 @@ Later: Settings > Data & connection
         [Switch to server...] [Use on this device] [Export data] [Import data]
 ```
 
-Web served by the user's own server skips the picker: the page is already same-origin cloud mode (profile `cloud` with `baseUrl = origin`).
-The picker appears on the standalone web build and on mobile.
+**Web** has no mode picker and no local mode (ADR-0008).
+
+- Served by the user's own server (including one on their own computer at `http://localhost:8000`): the page is already same-origin cloud mode
+  (profile `cloud` with `baseUrl = origin`); the user goes straight to *Sign in* or *Create owner*.
+- Standalone web build (hosted elsewhere): the first screen is `ConnectServer`. It shows a short hint: "No server yet? Run one on this computer"
+  linking to the "Run it on your own computer" section of `docs/self-hosting.md`.
 
 ## Server validation algorithm
 
@@ -63,8 +69,8 @@ There is deliberately **no "ignore certificate errors" option** in v1 (it defeat
 
 ## Requirements
 
-1. Screens: `Welcome`, `LocalSetup`, `ConnectServer` (with live validation states: idle, checking, ok, failed + message), `ServerLogin`/`CreateOwner` (reuse existing auth screens), `DataSettings` (Settings card).
-2. Local first run creates the schema via migrations, creates the owner with `setup/init` through the in-process API, seeds default categories, and (web only) calls `storagePersistence.request()` and explains why.
+1. Screens (`Welcome` and `LocalSetup` exist only in the native build; web starts at `ConnectServer`): `Welcome`, `LocalSetup`, `ConnectServer` (with live validation states: idle, checking, ok, failed + message), `ServerLogin`/`CreateOwner` (reuse existing auth screens), `DataSettings` (Settings card).
+2. Local first run creates the schema via migrations, creates the owner with `setup/init` through the in-process API, and seeds default categories.
 3. **Optional app lock** offered in LocalSetup and Settings (MP-18): requires `Platform.appLock.available() != "none"`; locks on app background after a configurable delay.
 4. **Switching**:
    - local -> cloud: explain that data is **not** moved automatically; offer *Export my data first* and, after connecting to an **empty** server, *Import my data* (MP-19).
@@ -72,7 +78,7 @@ There is deliberately **no "ignore certificate errors" option** in v1 (it defeat
    - Removing a profile asks for explicit confirmation; for a local profile it states that on-device data will be deleted and offers export first.
 5. **Never silently lose data**: switching/removing keeps the other profile's data on disk until the user confirms deletion.
 6. **Accessibility**: all new screens are keyboard- and screen-reader-usable (labels, `role="alert"` on errors, focus the first error, which the shared `FormField` already does); error text is never colour-only.
-7. **Copy and i18n**: put every string in one module (`web/src/features/onboarding/copy.ts`) so later localization is mechanical.
+7. **Copy and i18n**: put every string in one module (`apps/web/src/features/onboarding/copy.ts`) so later localization is mechanical.
 8. **Telemetry**: none. Do not send the entered URL anywhere except to that server.
 
 ## Tasks
@@ -82,20 +88,20 @@ There is deliberately **no "ignore certificate errors" option** in v1 (it defeat
 - [ ] Wire profile creation/persistence/removal and the post-login "persist" rule.
 - [ ] Settings > Data & connection card with active profile info, switch/export/import actions (export/import call MP-19 once available; hide until then).
 - [ ] Handle `DatabaseTooNew` and migration failure screens (clear message, no destructive action offered).
-- [ ] Playwright flows: local setup; cloud connect success; each failure from the table using a mock server; switch with export prompt.
+- [ ] Playwright flows (web): cloud connect success including `http://localhost`; each failure from the table using a mock server. Native local setup and mode switching with the export prompt are covered by the Android smoke tests (MP-20).
 - [ ] Document the flow in `docs/self-hosting.md` troubleshooting (link from error messages).
 
 ## Acceptance criteria
 
 - Every error-table row is reproducible in a test and shows the specified message.
 - A typo'd URL never creates a profile; a failed login never leaves a token stored.
-- Local first run works with the network blocked.
+- Local first run on Android works in airplane mode.
 - Switching profiles never shows stale data (MP-15 cache rule) and never deletes data without confirmation.
 - Screens pass an automated a11y check (axe in Playwright) with no serious violations.
 
 ## Files you may touch
 
-`web/src/features/onboarding/**`, `web/src/pages/SettingsPage.tsx` (new card only), `web/src/routes/**`, `packages/client/src/profile/**`, tests, `docs/self-hosting.md`.
+`apps/web/src/features/onboarding/**`, `apps/web/src/pages/SettingsPage.tsx` (new card only), `apps/web/src/routes/**`, `packages/client/src/profile/**`, tests, `docs/self-hosting.md`.
 
 ## Out of scope
 
@@ -104,5 +110,5 @@ Multiple simultaneous profiles, QR-code server setup, auto-discovery (mDNS), sel
 ## Verification
 
 ```bash
-npm test -w @monetary/client && cd web && npm test && npm run test:e2e
+npm test -w @monetary/client && cd apps/web && npm test && npm run test:e2e
 ```

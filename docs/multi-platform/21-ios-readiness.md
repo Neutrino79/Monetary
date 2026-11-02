@@ -13,7 +13,7 @@ platform-specific: the SQLite driver's native part, a handful of Capacitor plugi
 
 ## Keep-ready rules (apply in every PR)
 
-1. **No Android assumptions in shared code**: no checks like `userAgent.includes("Android")`; use `Platform.kind` only inside `web/src/platform/`.
+1. **No Android assumptions in shared code**: no checks like `userAgent.includes("Android")`; use `Platform.kind` only inside `apps/web/src/platform/`.
 2. **Everything native goes through the `Platform` port** (MP-16). A new native capability = add it to the port with web + Android implementations and a documented iOS plan.
 3. **The SQLite plugin API is platform-neutral** (batch, transactions, integers); the Android implementation must not leak Android-only semantics.
 4. **No Google services anywhere** (also required for F-Droid), so nothing has to be replaced on iOS.
@@ -24,7 +24,7 @@ platform-specific: the SQLite driver's native part, a handful of Capacitor plugi
 9. **Fonts, icons, strings are bundled** (no runtime network), same as offline local mode.
 10. **CI can grow a macOS job**: keep build scripts shell-based and free of Linux-only assumptions where easy.
 
-Reviewers should tick these in the PR checklist for any change under `web/src/platform/`, `packages/sqlite-capacitor/`, `mobile/`.
+Reviewers should tick these in the PR checklist for any change under `apps/web/src/platform/`, `packages/sqlite-capacitor/`, `apps/mobile/`.
 
 ## When iOS is approved: task list
 
@@ -40,13 +40,13 @@ Reviewers should tick these in the PR checklist for any change under `web/src/pl
 
 ## Acceptance criteria (for the readiness work now)
 
-- A grep/lint rule fails the build if shared code outside `web/src/platform/` reads `Capacitor.getPlatform()` or user-agent strings for Android.
+- A grep/lint rule fails the build if shared code outside `apps/web/src/platform/` reads `Capacitor.getPlatform()` or user-agent strings for Android.
 - The PR template contains the keep-ready checklist for the paths above.
 - The Platform port documentation (MP-16) has an "iOS plan" note for every capability.
 
 ## Files you may touch
 
-PR template, lint config, `web/src/platform/types.ts` comments, this document.
+PR template, lint config, `apps/web/src/platform/types.ts` comments, this document.
 
 ## Out of scope
 

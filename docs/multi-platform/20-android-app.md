@@ -2,9 +2,9 @@
 
 > **ID** MP-20 · **Status** Draft · **Depends on** MP-12 (capacitor driver), MP-16, MP-17 · **Unblocks** MP-23
 
-**Agent brief.** Create the `mobile/` Capacitor project that wraps the built `web/` app as an Android app with local mode
+**Agent brief.** Create the `apps/mobile/` Capacitor project that wraps the built `apps/web/` app as an Android app with local mode
 (on-device SQLite) and cloud mode. Keep it FOSS-only and F-Droid-buildable from source, request the minimum permissions, and keep all
-Android-specific code in `mobile/` and the `sqlite-capacitor` package. The same code must later build for iOS.
+Android-specific code in `apps/mobile/` and the `sqlite-capacitor` package. The same code must later build for iOS.
 
 ## Context and decisions
 
@@ -21,7 +21,7 @@ Android-specific code in `mobile/` and the `sqlite-capacitor` package. The same 
 1. **Project layout**
 
 ```text
-mobile/
+apps/mobile/
   capacitor.config.ts         appId (from Gradle/ env), appName "Monetary", webDir ../web/dist, androidScheme
   package.json                scripts: sync, build:android, run:android
   android/                    generated Capacitor Android project (committed; native config reviewed)
@@ -29,7 +29,7 @@ mobile/
   scripts/                    build-web-for-mobile.sh, run-driver-conformance.sh, check-permissions.sh
 ```
 
-2. **Web build for mobile**: `npm run build:mobile -w web` produces a build with `base: "./"`, the fonts bundled, no analytics, `VITE_TARGET=mobile`; `capacitor sync` copies it into `android/`.
+2. **Web build for mobile**: `npm run build:mobile -w /web` produces a build with `base: "./"`, the fonts bundled, no analytics, `VITE_TARGET=mobile` (the only build that includes `@monetary/local-runtime`, i.e. the ledger core, via a dynamic import in `apps/web/src/platform/localRuntime.ts`); `capacitor sync` copies it into `android/`.
 3. **SQLite plugin** (`sqlite-capacitor`): selected by the spike (MP-26) from (a) a maintained FOSS community plugin or (b) a small in-repo plugin over `android.database.sqlite`.
    Requirements either way: batch execute, transactions, WAL, returns integers without precision loss, runs off the UI thread, passes the conformance suite (MP-12),
    no network code. If it ships a native `.so`, it must be built from source and be **16 KB-aligned** **(verify with the current NDK/AGP and the `zipalign -c -P 16` check)**.
@@ -48,14 +48,14 @@ mobile/
 
 ## Tasks
 
-- [ ] Scaffold `mobile/` with Capacitor; add the Android platform; commit generated native project after review.
+- [ ] Scaffold `apps/mobile/` with Capacitor; add the Android platform; commit generated native project after review.
 - [ ] Add `web` mobile build mode + `build:mobile`; confirm offline start inside the WebView.
 - [ ] Implement `sqlite-capacitor` per the spike outcome and make it pass the conformance suite on an emulator (`run-driver-conformance.sh`).
 - [ ] Implement `capacitorPlatform` (MP-16) using the vetted plugins.
 - [ ] Configure manifest, backup rules, network security config, themes, adaptive icon, splash.
 - [ ] `check-permissions.sh`: parse the merged manifest and fail if permissions differ from the allow-list; run in CI.
 - [ ] Gradle hardening: wrapper pin, dependency verification, no dynamic versions; document how to update.
-- [ ] CI job `android`: build debug + release (unsigned) APK on every PR touching `mobile/`, `web/`, `packages/*`; nightly emulator smoke test (launch, local setup, add expense, restart, data persists, airplane-mode check).
+- [ ] CI job `android`: build debug + release (unsigned) APK on every PR touching `apps/mobile/`, `apps/web/`, `packages/*`; nightly emulator smoke test (launch, local setup, add expense, restart, data persists, airplane-mode check).
 - [ ] Emulator/instrumented smoke tests (Maestro/Espresso **(decide, must be FOSS)**) for: local setup, add/edit/delete transaction, dashboard renders, export a backup via SAF, import it, cloud connect to the Docker server over `http://10.0.2.2:8000`.
 - [ ] Verify 16 KB alignment, `minSdk` behavior (API 26 emulator + a recent API), small-screen and tablet layouts.
 - [ ] Write `docs/android-development.md` (setup, emulator, build, debug, update plugins, release checklist).
@@ -72,7 +72,7 @@ mobile/
 
 ## Files you may touch
 
-`mobile/**`, `packages/sqlite-capacitor/**`, `web/src/platform/capacitorPlatform.ts`, `web/package.json` (mobile build script), `.github/workflows/android.yml`, `docs/android-development.md`.
+`apps/mobile/**`, `packages/sqlite-capacitor/**`, `apps/web/src/platform/capacitorPlatform.ts`, `apps/web/package.json` (mobile build script), `.github/workflows/android.yml`, `docs/android-development.md`.
 
 ## Out of scope
 
@@ -81,7 +81,7 @@ iOS project (MP-21), Play/F-Droid listing work (MP-23), widgets, notifications, 
 ## Verification
 
 ```bash
-npm run build:mobile -w web && cd mobile && npx cap sync android
+npm run build:mobile -w /web && cd mobile && npx cap sync android
 cd android && ./gradlew assembleDebug assembleRelease
 ../scripts/check-permissions.sh && ../scripts/run-driver-conformance.sh
 ```

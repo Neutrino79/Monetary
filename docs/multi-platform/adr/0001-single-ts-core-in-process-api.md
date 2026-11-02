@@ -13,13 +13,13 @@ Cloud mode needs a server the user can host. The goals are web + Android now, iO
 
 1. Rewrite the ledger rules once in **TypeScript** (`packages/core`), preserving behavior (parity first, verified with recorded fixtures).
 2. Expose them through a framework-light `fetch(Request) -> Response` application (`packages/api`, Hono-style, contract from ADR-0007).
-3. **Cloud mode** runs that API in a Node server (`server/`). **Local mode** calls the same API in-process through `InProcessTransport` over an on-device SQLite database.
+3. **Cloud mode** runs that API in a Node server (`apps/server/`). **Local mode** (native apps only; the web app always uses a server, ADR-0008) calls the same API in-process through `InProcessTransport` over an on-device SQLite database.
 4. The Python backend becomes frozen `legacy`, used only as the source of parity fixtures, and is deleted once parity is reached (milestone M9).
 
 ## Consequences
 
 - (+) Exactly one implementation of every rule and report; no drift between local and cloud.
-- (+) The same code runs on web, Android and iOS (all are JavaScript runtimes), with the same UI.
+- (+) The same UI runs on web, Android and iOS, and the same core runs on the server and in the native apps.
 - (+) Self-hosting is one Node process or one Docker image with no Python toolchain.
 - (-) A full rewrite of about 6.6k lines of Python plus its tests; risk of subtle behavior differences (mitigated by fixtures, property tests, per-module PRs).
 - (-) Floating-point and timezone behavior must be verified on several JS runtimes (spike S4, S5).
