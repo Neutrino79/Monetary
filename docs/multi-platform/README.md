@@ -86,6 +86,7 @@ cloud mode pointed at a local server. True on-device storage is a native-app fea
 | 25 | [Roadmap](25-roadmap.md) | milestones, exit criteria, parallel lanes | all |
 | 26 | [Spike plan](26-spike-plan.md) | the 1-2 week de-risking experiments and pass/fail bars | 00-01 |
 | 27 | [Agent playbook](27-agent-playbook.md) | working agreement for agents and contributors | -- |
+| 28 | [Parallel delivery](28-parallel-delivery.md) | integration branch, agent lanes, waves, merge rules, test gates | 25, 27 |
 | ADR | [Decision records](adr/README.md) | why each big choice was made | -- |
 
 ## Dependency picture

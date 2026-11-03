@@ -10,7 +10,8 @@ workflow for picking up a work package. `AGENTS.md` and `CONTRIBUTING.md` are au
 1. Read `README.md` in this folder, then [`00`](00-vision-and-scope.md) and [`01`](01-architecture.md).
 2. Choose a work-package document whose **Depends on** are *Done* (check each document's status line and `25-roadmap.md`). Prefer the lowest-numbered unblocked item in your lane.
 3. Check [`02-open-questions.md`](02-open-questions.md): if your task touches an unanswered question that is hard to undo (schema, API contract, license, application id, signing), **stop and ask the owner**.
-4. Open or claim an issue named `MP-<id>: <title>` (labels `multi-platform`, lane letter) so two agents do not build the same thing. If you cannot create issues, state the claim in the PR description.
+4. **Branch from and open your PR against the integration branch `feat/multi-platform`, not `main`** (see [`28-parallel-delivery.md`](28-parallel-delivery.md): lanes, waves, path ownership, merge order).
+5. Open or claim an issue named `MP-<id>: <title>` (labels `multi-platform`, lane letter) so two agents do not build the same thing. If you cannot create issues, state the claim in the PR description.
 
 ## 2. Hard rules (from `AGENTS.md`; violations are caught by hooks and CI)
 

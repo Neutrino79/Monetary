@@ -36,7 +36,7 @@ After M2, independent lanes can run at once with little merge conflict because t
 | **D: Mobile** | 12 (capacitor driver), 20 | `packages/sqlite-capacitor`, `apps/mobile/` | Platform port (C), conformance suite (A) |
 | **E: Open source and release** | 24, 23, 18 (docs/CI parts) | repo root files, `.github`, `docs/` | owner decisions (02) |
 
-Rules for parallel work: a lane touches only its paths; cross-lane contracts (the `contract` package, `SqlDriver`, `Platform`, `Transport`) change only through a PR that updates the owning document and
+Branch model, waves, merge order and test gates for running many agents at once are in [`28-parallel-delivery.md`](28-parallel-delivery.md). Rules for parallel work: a lane touches only its paths; cross-lane contracts (the `contract` package, `SqlDriver`, `Platform`, `Transport`) change only through a PR that updates the owning document and
 notifies the other lanes (PR description, label `contract-change`).
 
 ## Critical path and risks

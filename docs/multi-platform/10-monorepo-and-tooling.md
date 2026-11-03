@@ -78,7 +78,8 @@ uvicorn (once MP-14 is done); until then it keeps working unchanged.
 - [ ] Create empty packages with `package.json`, `tsconfig.json`, `src/index.ts`, one smoke test each: `contract`, `core`, `api`, `client`, `local-runtime`, `ui-logic`, `sqlite-node`, `sqlite-capacitor`; plus `apps/server/` and `apps/mobile/` (empty shells).
 - [ ] Add `.dependency-cruiser.cjs` encoding rules 1-9 of MP-01; add a deliberately-bad fixture test proving each rule fails.
 - [ ] Add Vitest workspace config and coverage thresholds for `core` and `api`.
-- [ ] Extend `ci.yml` with the `ts` job; extend `scripts/check.sh`.
+- [ ] Add CI as **one workflow file per concern** (`ts.yml`, later `parity.yml`, `e2e.yml`, `android.yml`) so lanes never edit the same YAML; keep `ci.yml` for hygiene/backend. Trigger them on pushes to `main` **and** `feat/multi-platform`, and make scheduled/nightly jobs check out `feat/multi-platform` explicitly (cron runs only on the default branch). Extend `scripts/check.sh`.
+- [ ] Pre-register every package in the root `tsconfig.json` references and workspaces so later slices never edit root config (MP-28 section 5).
 - [ ] Update `AGENTS.md` (project layout, commands, rule 8 for TS SQL location) and `CONTRIBUTING.md`; update `README.md` layout section.
 - [ ] Add release-please config entries for the new packages (manifest mode) without altering the existing apps/web/backend versioning behavior; confirm with a dry run. **(verify)** how the current `release-please-config.json` is structured before editing.
 - [ ] Update `.gitignore` for `packages/*/dist`, `apps/mobile/android/**/build`, `*.keystore`, `*.jks`.
