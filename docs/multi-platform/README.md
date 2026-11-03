@@ -87,6 +87,7 @@ cloud mode pointed at a local server. True on-device storage is a native-app fea
 | 26 | [Spike plan](26-spike-plan.md) | the 1-2 week de-risking experiments and pass/fail bars | 00-01 |
 | 27 | [Agent playbook](27-agent-playbook.md) | working agreement for agents and contributors | -- |
 | 28 | [Parallel delivery](28-parallel-delivery.md) | integration branch, agent lanes, waves, merge rules, test gates | 25, 27 |
+| 29 | [Agent briefs](29-agent-briefs.md) | what to tell each Claude account: setup, prompts, slice cards, queues | 27, 28 |
 | ADR | [Decision records](adr/README.md) | why each big choice was made | -- |
 
 ## Dependency picture

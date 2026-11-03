@@ -184,6 +184,8 @@ and the owner's explicit approval. Only then open the single PR into `main` (D1 
 > Deliver one small PR **against `feat/multi-platform`** (not `main`) with tests, updated docs for your package, and the exact verification commands with their real results in the description. No attribution lines,
 > no git config changes, no hook bypass. If a prerequisite is missing or a rule seems to conflict with the task, stop and tell me.
 
+Ready-to-paste prompts, per-slice cards and account queues are in [`29-agent-briefs.md`](29-agent-briefs.md).
+
 ## 9. Owner actions
 
 - [ ] Merge (or approve) the plan PR into `feat/multi-platform` as its first change.
