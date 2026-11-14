@@ -12,6 +12,7 @@ misconfigured MONETARY_DB_PATH can never be filled with sample data or opened wi
 from __future__ import annotations
 
 import secrets
+from pathlib import Path
 from datetime import date, timedelta
 
 from monetary.application import account_service, seed_service, split_service, transaction_service
@@ -75,6 +76,32 @@ def ensure_demo_ledger(conn) -> dict:
                 "Unset MONETARY_DEMO_MODE or point MONETARY_DB_PATH at an empty demo database.")
         return owner
     return _build(conn)
+
+
+def reset_demo_database(db_path: str | Path) -> None:
+    """Delete the demo database files so the next `ensure_demo_ledger` rebuilds fresh sample data.
+
+    Only ever removes a database that is empty or owned by the demo owner; a real database raises
+    ConflictError and is left untouched."""
+    from monetary.infrastructure import db
+
+    path = Path(db_path)
+    if not path.exists():
+        return
+    conn = db.connect(path)
+    try:
+        owner = repo.get_superuser(conn) if _has_user_table(conn) else None
+        if owner is not None and owner["email"] != DEMO_OWNER_EMAIL:
+            raise ConflictError(
+                "Refusing to reset: this database belongs to a real owner, not the demo owner.")
+    finally:
+        conn.close()
+    for suffix in ("", "-wal", "-shm"):
+        Path(str(path) + suffix).unlink(missing_ok=True)
+
+
+def _has_user_table(conn) -> bool:
+    return conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='user'").fetchone() is not None
 
 
 def start_demo_session(conn) -> tuple[dict, str]:

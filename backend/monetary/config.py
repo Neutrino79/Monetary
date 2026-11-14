@@ -32,6 +32,7 @@ CORS_ENV_VAR = "MONETARY_CORS_ORIGINS"
 ENV_ENV_VAR = "MONETARY_ENV"
 DOCS_ENV_VAR = "MONETARY_ENABLE_DOCS"
 DEMO_ENV_VAR = "MONETARY_DEMO_MODE"
+DEMO_RESET_ENV_VAR = "MONETARY_DEMO_RESET"
 
 # The directory name carries the schema generation: the schema has no migrations,
 # so a release with an incompatible schema starts a fresh directory instead of
@@ -65,6 +66,11 @@ def seed_defaults_path_from_environment() -> str | None:
 def demo_mode_enabled() -> bool:
     """Whether demo mode is on (MONETARY_DEMO_MODE=true). Off by default."""
     return (read_env(DEMO_ENV_VAR) or "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def demo_reset_on_start() -> bool:
+    """Whether demo mode rebuilds the sample ledger from scratch at every start (MONETARY_DEMO_RESET=true)."""
+    return (read_env(DEMO_RESET_ENV_VAR) or "").strip().lower() in ("1", "true", "yes", "on")
 
 
 def database_path_from_environment() -> str | None:

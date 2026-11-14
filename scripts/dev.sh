@@ -5,8 +5,9 @@
 #                                 (macOS Terminal/iTerm, or a Linux terminal emulator); if none can be
 #                                 opened (SSH, no display) it falls back to `inline`
 #   ./scripts/dev.sh inline     # both in THIS terminal, output prefixed [api]/[web]; Ctrl+C stops both
-#   ./scripts/dev.sh demo       # like inline, but in demo mode: a sample ledger, no setup, no account
+#   ./scripts/dev.sh demo       # like inline, but in demo mode: fresh sample data, no setup, no account
 #                                 (uses a separate demo database, never your real one)
+#   ./scripts/dev.sh demo --keep  # same, but keep the demo database (and your edits) from the last run
 #   ./scripts/dev.sh backend    # API only  -> http://localhost:8000
 #   ./scripts/dev.sh web        # web app only -> http://localhost:5173
 #
@@ -113,7 +114,12 @@ case "$MODE" in
     ;;
   demo)
     export MONETARY_DEMO_MODE=true
-    echo "==> Demo mode: sample data in a separate demo database; click 'Try the demo' on the sign-in page."
+    if [ "${2:-}" = "--keep" ]; then
+      echo "==> Demo mode (keeping the existing demo database); click 'Try the demo' on the sign-in page."
+    else
+      export MONETARY_DEMO_RESET=true   # rebuild the sample data on every start (demo database only)
+      echo "==> Demo mode (fresh sample data each run; use '--keep' to keep edits); click 'Try the demo'."
+    fi
     exec bash "$0" inline
     ;;
   *) echo "usage: $0 [inline|demo|backend|web]" >&2; exit 2 ;;

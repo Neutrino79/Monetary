@@ -18,6 +18,7 @@ from monetary.config import (
     cors_origins_from_environment,
     database_path_from_environment,
     demo_mode_enabled,
+    demo_reset_on_start,
     docs_enabled_from_environment,
     environment_name,
 )
@@ -53,6 +54,8 @@ async def lifespan(_app: FastAPI):
         from monetary.application import demo_service
         from monetary.infrastructure import db
 
+        if demo_reset_on_start():
+            demo_service.reset_demo_database(database_path_from_environment())
         conn = db.connect(database_path_from_environment())
         try:
             demo_service.ensure_demo_ledger(conn)

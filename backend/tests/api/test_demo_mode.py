@@ -91,3 +91,30 @@ def test_startup_builds_ledger_and_fails_fast_on_real_db(client, demo, conn, db_
     conn.commit()
     with pytest.raises(Exception, match="real owner"):
         asyncio.run(run())
+
+
+def test_reset_rebuilds_the_demo_database(client, demo, conn, db_path):
+    _enter(client)
+    conn.execute("UPDATE user SET name='Edited by a visitor' WHERE is_superuser=1")
+    conn.commit()
+    conn.close()
+    demo_service.reset_demo_database(db_path)
+    import os
+    assert not os.path.exists(db_path)
+    headers = _enter(client)  # rebuilt on demand, edits gone
+    assert client.get(f"{API}/owner", headers=headers).json()["name"] == demo_service.DEMO_OWNER_NAME
+
+
+def test_reset_refuses_a_real_database(client, db_path):
+    assert client.post(f"{API}/setup/init", json=OWNER).status_code == 201
+    with pytest.raises(Exception, match="real owner"):
+        demo_service.reset_demo_database(db_path)
+    import os
+    assert os.path.exists(db_path)
+
+
+def test_reset_on_start_flag(monkeypatch):
+    from monetary.config import demo_reset_on_start
+    assert demo_reset_on_start() is False
+    monkeypatch.setenv("MONETARY_DEMO_RESET", "true")
+    assert demo_reset_on_start() is True

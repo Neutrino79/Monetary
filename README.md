@@ -29,7 +29,7 @@ Requirements: Python 3.11+ with `pip`, and Node.js 22 with npm (web app only).
 ```bash
 ./scripts/dev.sh            # opens the API (:8000) and the web app (:5173) in two separate terminal windows
 ./scripts/dev.sh inline     # same, but both in the current terminal with [api]/[web] prefixes; Ctrl+C stops both
-./scripts/dev.sh demo       # inline, in DEMO MODE: sample data, no setup or account (see below)
+./scripts/dev.sh demo       # inline, in DEMO MODE: fresh sample data, no setup or account (--keep keeps edits)
 ./scripts/dev.sh backend    # only the API
 ./scripts/dev.sh web        # only the web app
 ```
@@ -75,19 +75,34 @@ flow and error contract: [`docs/API.md`](docs/API.md).
 
 ## Demo mode
 
-Try the app without setting anything up or creating an account:
+Try the app with sample data, with no setup and no account.
 
-```bash
-./scripts/dev.sh demo       # then open http://localhost:5173 and click "Try the demo"
-```
+**Start it** (any of these):
 
-`MONETARY_DEMO_MODE=true` makes the server build a sample ledger (accounts, three months of
-transactions, friends, splits and a settlement, with dates relative to today) in a **separate**
-database, `~/.monetary_0.5/demo.db`, and exposes `POST /auth/demo`, which signs you in without a
-password. The sample data is generated through the normal services, so no database file is committed. Delete
-`demo.db` to reset it. Password changes are disabled in demo mode, and the server refuses to start in
-demo mode against a database that holds a real owner. Never use demo mode for real data or on a public
-server you care about: anyone who can reach it can open the sample ledger.
+- Terminal: `./scripts/dev.sh demo`
+- VS Code: `Ctrl/Cmd+Shift+P` → **Tasks: Run Task** → **Dev: demo (fresh sample data)**
+
+Then open <http://localhost:5173> and click **Try the demo** under the sign-in form. You land on a dashboard
+with four accounts, about three months of transactions, two friends, splits and a settlement; a banner at
+the top reminds you it is demo data.
+
+**Fresh or kept?** The sample data lives in its own file, `~/.monetary_0.5/demo.db`, never in your real
+`monetary.db`.
+
+| You run | What happens to `demo.db` |
+|---|---|
+| `./scripts/dev.sh demo` (task **Dev: demo (fresh sample data)**) | Rebuilt from scratch on every start, so the data is clean and the dates are relative to *today* |
+| `./scripts/dev.sh demo --keep` (task **Dev: demo (keep my changes)**) | Reused if it exists (created on the first run), so your edits survive restarts |
+
+Without `dev.sh` (for example `uvicorn` or Docker), set `MONETARY_DEMO_MODE=true` yourself. The sample
+ledger is created the first time the server starts and **reused afterwards**; add `MONETARY_DEMO_RESET=true`
+to rebuild it at every start, or delete `demo.db` to reset it by hand.
+
+**How it works and what it protects.** The server generates the sample ledger through its normal services
+(no database file is committed). `POST /auth/demo` signs you in without a password and exists only in demo
+mode. Password changes are disabled. A reset only ever deletes a demo database: if the file belongs to a real
+owner, the server refuses to start instead. Never use demo mode with real data, or on a public server you
+care about, because anyone who can reach it can open the sample ledger.
 
 ## Repository layout
 
@@ -137,6 +152,7 @@ template in [`backend/.env.example`](backend/.env.example) -- the app does not l
 | `MONETARY_CORS_ORIGINS` | *(empty -- no origins)* | Comma-separated browser origins allowed to call the API; `*` allows all but disables credentials |
 | `MONETARY_DB_PATH` | `~/.monetary_0.5/monetary.db` | SQLite file path |
 | `MONETARY_DEMO_MODE` | `false` | `true` serves a generated sample ledger from a separate `demo.db` and adds a no-credentials `POST /auth/demo`; see [Demo mode](#demo-mode) |
+| `MONETARY_DEMO_RESET` | `false` | With demo mode on, `true` rebuilds the sample ledger at every start (only ever deletes a demo database) |
 | `MONETARY_ENABLE_DOCS` | *(follows `MONETARY_ENV`)* | `true`/`false` forces `/docs`, `/redoc`, `/openapi.json` on or off |
 | `MONETARY_APP_NAME` | `Monetary` | Product name served by `GET /meta` and shown by the web app |
 | `MONETARY_APP_TAGLINE` | `Personal expense ledger` | Tagline served by `GET /meta` |

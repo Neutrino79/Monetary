@@ -1,6 +1,7 @@
 {
   // Run Task (Cmd/Ctrl+Shift+P -> "Tasks: Run Task") -> "Dev: start API + web".
   // Opens two terminals side by side, one per server. Both just call scripts/dev.sh.
+  // Want to look around with sample data and no setup? Run "Dev: demo (fresh sample data)".
   "version": "2.0.0",
   "tasks": [
     {
@@ -18,6 +19,22 @@
       "isBackground": true,
       "problemMatcher": [],
       "presentation": { "group": "dev", "panel": "dedicated", "reveal": "always", "clear": true }
+    },
+    {
+      "label": "Dev: demo (fresh sample data)",
+      "type": "shell",
+      "command": "./scripts/dev.sh demo",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "group": "demo", "panel": "dedicated", "reveal": "always", "clear": true }
+    },
+    {
+      "label": "Dev: demo (keep my changes)",
+      "type": "shell",
+      "command": "./scripts/dev.sh demo --keep",
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "group": "demo", "panel": "dedicated", "reveal": "always", "clear": true }
     },
     {
       "label": "Dev: start API + web",

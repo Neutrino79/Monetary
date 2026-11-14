@@ -30,6 +30,9 @@ Config via environment variables (see `backend/monetary/config.py`):
   `demo.db`, a sample ledger is generated on first start, `GET /meta` reports `demo: true`, and
   `POST /auth/demo` (404 otherwise) returns a session without credentials. Password change/reset are
   answered 403. The server refuses a database whose owner is not the demo owner.
+- `MONETARY_DEMO_RESET` -- with demo mode on, `true` deletes and rebuilds the demo database at every
+  start (refused, and the server stops, when the database belongs to a real owner). Default off: the
+  sample ledger is created once and reused.
 - `MONETARY_ENABLE_DOCS` -- force `/docs`, `/redoc`, `/openapi.json` on/off.
 - `MONETARY_APP_NAME` / `MONETARY_APP_TAGLINE` -- the user-facing product name and tagline (default
   `Monetary` / `Personal expense ledger`), served publicly by `GET /meta`.
