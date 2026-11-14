@@ -157,3 +157,19 @@ must contain a `BREAKING CHANGE:` line.
 
 Repository settings are not in git; they are expected to be: squash-merge only, delete branch on merge,
 `main` protected (PR required, **CI passed** and **Branch, title, description, commits** required, no force-push).
+
+## 8. License and sign-off
+
+Monetary is licensed under the [Apache License 2.0](LICENSE). By contributing you agree that your
+contribution is licensed under the same terms (Apache-2.0, section 5), and you confirm the
+[Developer Certificate of Origin](https://developercertificate.org/): you wrote the change or have the right
+to submit it under this license. Certify this by signing off every commit:
+
+```bash
+git commit -s          # adds: Signed-off-by: Your Name <you@example.com>
+```
+
+There is no CLA. The sign-off is expected on outside contributions; it is not yet enforced by a hook.
+Do not copy code from projects with an incompatible license (GPL/AGPL, "non-commercial" or unlicensed code).
+New runtime dependencies need an OSI-approved permissive license and a one-line justification in the PR.
+
