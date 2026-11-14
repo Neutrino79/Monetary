@@ -80,7 +80,7 @@ Try the app with sample data, with no setup and no account.
 **Start it** (any of these):
 
 - Terminal: `./scripts/dev.sh demo`
-- VS Code: `Ctrl/Cmd+Shift+P` → **Tasks: Run Task** → **Dev: demo (fresh sample data)**. Like
+- VS Code: `Ctrl/Cmd+Shift+P` → **Tasks: Run Task** → **Dev: demo (reset demo DB)**. Like
   **Dev: start API + web**, it opens the API and the web app in two split terminals.
 
 Then open <http://localhost:5173>. In demo mode the sign-in page is just a welcome message and a **Start the
@@ -92,8 +92,8 @@ transactions, two friends, splits and settlements; a banner at the top reminds y
 
 | You run | What happens to `demo.db` |
 |---|---|
-| `./scripts/dev.sh demo` (task **Dev: demo (fresh sample data)**) | Rebuilt from scratch on every start, so the data is clean and the dates are relative to *today* |
-| `./scripts/dev.sh demo --keep` (task **Dev: demo (keep my changes)**) | Reused if it exists (created on the first run), so your edits survive restarts |
+| `./scripts/dev.sh demo` (task **Dev: demo (reset demo DB)**) | Rebuilt from scratch on every start, so the data is clean and the dates are relative to *today* |
+| `./scripts/dev.sh demo --keep` (task **Dev: demo (keep demo DB)**) | Reused if it exists (created on the first run), so your edits survive restarts |
 
 Without `dev.sh` (for example `uvicorn` or Docker), set `MONETARY_DEMO_MODE=true` yourself. The sample
 ledger is created the first time the server starts and **reused afterwards**; add `MONETARY_DEMO_RESET=true`
