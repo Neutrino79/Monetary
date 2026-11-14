@@ -52,6 +52,14 @@ export function useBranding(): Branding {
   return data ?? { name: appConfig.name, tagline: appConfig.tagline };
 }
 
+/** Whether the server runs in demo mode; `isLoading` lets a page wait instead of flashing the normal UI. */
+export function useDemoMode(): { isDemo: boolean; isLoading: boolean } {
+  const { data, isPending } = useQuery({
+    queryKey: qk.branding, queryFn: metaService.getBranding, staleTime: Infinity, retry: 1,
+  });
+  return { isDemo: data?.demo === true, isLoading: isPending };
+}
+
 export function useSetupStatus() {
   return useQuery({ queryKey: qk.setup, queryFn: metaService.isSetupComplete, staleTime: 0, retry: 1 });
 }

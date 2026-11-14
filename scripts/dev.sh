@@ -115,10 +115,10 @@ case "$MODE" in
   demo)
     export MONETARY_DEMO_MODE=true
     if [ "${2:-}" = "--keep" ]; then
-      echo "==> Demo mode (keeping the existing demo database); click 'Try the demo' on the sign-in page."
+      echo "==> Demo mode (keeping the existing demo database); click 'Start the demo' on the welcome page."
     else
       export MONETARY_DEMO_RESET=true   # rebuild the sample data on every start (demo database only)
-      echo "==> Demo mode (fresh sample data each run; use '--keep' to keep edits); click 'Try the demo'."
+      echo "==> Demo mode (fresh sample data each run; use '--keep' to keep edits); click 'Start the demo'."
     fi
     exec bash "$0" inline
     ;;

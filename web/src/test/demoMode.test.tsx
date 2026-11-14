@@ -1,4 +1,4 @@
-/** Demo mode: the sign-in page offers "Try the demo" only when `GET /meta` says demo, and the banner shows in the app. */
+/** Demo mode: when `GET /meta` says demo, the sign-in page is a welcome with one button (no credentials form) and the app shows a banner. */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
@@ -47,17 +47,26 @@ beforeEach(() => {
 afterEach(() => vi.unstubAllGlobals())
 
 describe('demo mode', () => {
-  it('hides the demo button on a normal server', async () => {
+  it('shows the normal sign-in form (no demo) on a normal server', async () => {
     stubBackend(false)
     mount()
     await screen.findByRole('button', { name: 'Sign in' })
-    expect(screen.queryByRole('button', { name: 'Try the demo' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Start the demo' })).toBeNull()
+  })
+
+  it('replaces the sign-in form with a welcome and one button', async () => {
+    stubBackend(true)
+    mount()
+    await screen.findByRole('button', { name: 'Start the demo' })
+    expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull()
+    expect(screen.queryByLabelText('Email')).toBeNull()
+    expect(screen.queryByText('Forgot password?')).toBeNull()
   })
 
   it('signs in with one click and shows the demo banner', async () => {
     stubBackend(true)
     mount()
-    await userEvent.click(await screen.findByRole('button', { name: 'Try the demo' }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Start the demo' }))
     await waitFor(() => expect(useAuthStore.getState().isAuthenticated).toBe(true))
     expect(calls).toContain('POST /auth/demo')
     expect(await screen.findByRole('status')).toHaveTextContent(/Demo mode/)

@@ -80,11 +80,12 @@ Try the app with sample data, with no setup and no account.
 **Start it** (any of these):
 
 - Terminal: `./scripts/dev.sh demo`
-- VS Code: `Ctrl/Cmd+Shift+P` → **Tasks: Run Task** → **Dev: demo (fresh sample data)**
+- VS Code: `Ctrl/Cmd+Shift+P` → **Tasks: Run Task** → **Dev: demo (fresh sample data)**. Like
+  **Dev: start API + web**, it opens the API and the web app in two split terminals.
 
-Then open <http://localhost:5173> and click **Try the demo** under the sign-in form. You land on a dashboard
-with four accounts, about three months of transactions, two friends, splits and a settlement; a banner at
-the top reminds you it is demo data.
+Then open <http://localhost:5173>. In demo mode the sign-in page is just a welcome message and a **Start the
+demo** button (there is no email/password form). You land on a dashboard with four accounts, a full year of
+transactions, two friends, splits and settlements; a banner at the top reminds you it is demo data.
 
 **Fresh or kept?** The sample data lives in its own file, `~/.monetary_0.5/demo.db`, never in your real
 `monetary.db`.
