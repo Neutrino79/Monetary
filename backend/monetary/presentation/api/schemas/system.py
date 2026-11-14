@@ -10,3 +10,4 @@ class MetaOut(ApiModel):
     tagline: str
     version: str
     api_version: str
+    demo: bool = False  # True when the server runs in demo mode (sample data, no sign-in)

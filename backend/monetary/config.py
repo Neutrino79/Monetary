@@ -31,11 +31,14 @@ DB_ENV_VAR = "MONETARY_DB_PATH"
 CORS_ENV_VAR = "MONETARY_CORS_ORIGINS"
 ENV_ENV_VAR = "MONETARY_ENV"
 DOCS_ENV_VAR = "MONETARY_ENABLE_DOCS"
+DEMO_ENV_VAR = "MONETARY_DEMO_MODE"
 
 # The directory name carries the schema generation: the schema has no migrations,
 # so a release with an incompatible schema starts a fresh directory instead of
 # opening an old database.
 DEFAULT_DB_PATH = Path.home() / ".monetary_0.5" / "monetary.db"
+# Demo mode keeps its sample ledger in a separate file next to the real one.
+DEFAULT_DEMO_DB_PATH = DEFAULT_DB_PATH.with_name("demo.db")
 
 
 def read_env(name: str) -> str | None:
@@ -59,9 +62,21 @@ def seed_defaults_path_from_environment() -> str | None:
     return read_env(SEED_DEFAULTS_ENV_VAR) or None
 
 
+def demo_mode_enabled() -> bool:
+    """Whether demo mode is on (MONETARY_DEMO_MODE=true). Off by default."""
+    return (read_env(DEMO_ENV_VAR) or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 def database_path_from_environment() -> str | None:
-    """Return the configured database path, or None for the default path."""
-    return read_env(DB_ENV_VAR)
+    """Return the configured database path, or None for the default path.
+
+    In demo mode the default is the separate demo database, never the real one;
+    an explicit MONETARY_DB_PATH still wins (the demo service refuses to run
+    against a database that holds a real owner)."""
+    explicit = read_env(DB_ENV_VAR)
+    if explicit:
+        return explicit
+    return str(DEFAULT_DEMO_DB_PATH) if demo_mode_enabled() else None
 
 
 def cors_origins_from_environment() -> str:

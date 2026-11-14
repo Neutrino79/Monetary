@@ -5,15 +5,17 @@ import sqlite3
 from fastapi import APIRouter, Depends
 from fastapi.security import OAuth2PasswordRequestForm
 
-from monetary.application import user_service
+from monetary.application import demo_service, user_service
 from monetary.config import API_PREFIX
 from monetary.domain.security import SECURITY_QUESTIONS
 from monetary.presentation.api.deps import (
     enforce_login_rate_limit,
     enforce_password_reset_rate_limit,
+    forbid_in_demo_mode,
     get_current_owner,
     DB,
     oauth2_scheme,
+    require_demo_mode,
 )
 from monetary.presentation.api.schemas.auth import (
     ChangePasswordRequest,
@@ -46,6 +48,18 @@ def login(
     return TokenOut(access_token=token)
 
 
+@router.post(
+    "/demo",
+    response_model=TokenOut,
+    dependencies=[Depends(require_demo_mode), Depends(enforce_login_rate_limit)],
+)
+def demo_login(conn: sqlite3.Connection = DB):
+    """Demo mode only (404 otherwise): open a session on the sample ledger without credentials.
+    The sample ledger is generated on first use; see `application/demo_service.py`."""
+    _owner, token = demo_service.start_demo_session(conn)
+    return TokenOut(access_token=token)
+
+
 @router.post("/logout", response_model=MessageOut)
 def logout(
     token: str = Depends(oauth2_scheme),
@@ -56,7 +70,7 @@ def logout(
     return MessageOut(detail="Logged out.")
 
 
-@router.post("/change-password", response_model=MessageOut)
+@router.post("/change-password", response_model=MessageOut, dependencies=[Depends(forbid_in_demo_mode)])
 def change_password(
     payload: ChangePasswordRequest,
     conn: sqlite3.Connection = DB,
@@ -85,7 +99,7 @@ def get_security_question(email: str, conn: sqlite3.Connection = DB):
 @router.post(
     "/reset-password",
     response_model=MessageOut,
-    dependencies=[Depends(enforce_password_reset_rate_limit)],
+    dependencies=[Depends(forbid_in_demo_mode), Depends(enforce_password_reset_rate_limit)],
 )
 def reset_password(payload: ResetPasswordRequest, conn: sqlite3.Connection = DB):
     """Public, part of the forgot-password flow -- step 2: answer the question

@@ -17,7 +17,7 @@ Single-owner authentication uses bcrypt password hashing, with rate-limited logi
 
 **Contents:** [Quick start](#quick-start) · [Repository layout](#repository-layout) ·
 [Configuration](#configuration) · [Database](#database) · [Testing and checks](#testing-and-checks) ·
-[Developer tooling](#developer-tooling) · [Production notes](#production-notes) ·
+[Developer tooling](#developer-tooling) · [Demo mode](#demo-mode) · [Production notes](#production-notes) ·
 [Contributing](#contributing) · [License](#license)
 
 ## Quick start
@@ -29,6 +29,7 @@ Requirements: Python 3.11+ with `pip`, and Node.js 22 with npm (web app only).
 ```bash
 ./scripts/dev.sh            # opens the API (:8000) and the web app (:5173) in two separate terminal windows
 ./scripts/dev.sh inline     # same, but both in the current terminal with [api]/[web] prefixes; Ctrl+C stops both
+./scripts/dev.sh demo       # inline, in DEMO MODE: sample data, no setup or account (see below)
 ./scripts/dev.sh backend    # only the API
 ./scripts/dev.sh web        # only the web app
 ```
@@ -71,6 +72,22 @@ curl -X POST http://localhost:8000/api/v0.5/setup/init -H "Content-Type: applica
 Useful URLs: health check `http://localhost:8000/health` (also verifies DB connectivity); Swagger UI
 `http://localhost:8000/docs` and `/openapi.json` (development only by default). Full endpoint map, auth
 flow and error contract: [`docs/API.md`](docs/API.md).
+
+## Demo mode
+
+Try the app without setting anything up or creating an account:
+
+```bash
+./scripts/dev.sh demo       # then open http://localhost:5173 and click "Try the demo"
+```
+
+`MONETARY_DEMO_MODE=true` makes the server build a sample ledger (accounts, three months of
+transactions, friends, splits and a settlement, with dates relative to today) in a **separate**
+database, `~/.monetary_0.5/demo.db`, and exposes `POST /auth/demo`, which signs you in without a
+password. The sample data is generated through the normal services, so no database file is committed. Delete
+`demo.db` to reset it. Password changes are disabled in demo mode, and the server refuses to start in
+demo mode against a database that holds a real owner. Never use demo mode for real data or on a public
+server you care about: anyone who can reach it can open the sample ledger.
 
 ## Repository layout
 
@@ -119,6 +136,7 @@ template in [`backend/.env.example`](backend/.env.example) -- the app does not l
 | `MONETARY_ENV` | `production` | `production` or `development`. Production hides API docs and sends HSTS + security headers |
 | `MONETARY_CORS_ORIGINS` | *(empty -- no origins)* | Comma-separated browser origins allowed to call the API; `*` allows all but disables credentials |
 | `MONETARY_DB_PATH` | `~/.monetary_0.5/monetary.db` | SQLite file path |
+| `MONETARY_DEMO_MODE` | `false` | `true` serves a generated sample ledger from a separate `demo.db` and adds a no-credentials `POST /auth/demo`; see [Demo mode](#demo-mode) |
 | `MONETARY_ENABLE_DOCS` | *(follows `MONETARY_ENV`)* | `true`/`false` forces `/docs`, `/redoc`, `/openapi.json` on or off |
 | `MONETARY_APP_NAME` | `Monetary` | Product name served by `GET /meta` and shown by the web app |
 | `MONETARY_APP_TAGLINE` | `Personal expense ledger` | Tagline served by `GET /meta` |

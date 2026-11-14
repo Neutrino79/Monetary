@@ -7,18 +7,25 @@ import { MobileTabbar } from "./MobileTabbar";
 import { CommandPalette } from "./CommandPalette";
 import { TransactionForm } from "@/components/domain/TransactionForm";
 import { useUiStore } from "@/store/uiStore";
+import { useBranding } from "@/hooks/queries";
 
 export function AppShell() {
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
   const theme = useUiStore((s) => s.theme);
+  const demo = useBranding().demo;
 
   return (
     <div data-theme={theme} className="min-h-screen bg-paper text-ink">
       <div className="flex">
         <Sidebar mobileOpen={mobileNavOpen} onCloseMobile={() => setMobileNavOpen(false)} />
         <div className="flex min-w-0 flex-1 flex-col">
+          {demo && (
+            <div role="status" className="bg-info-soft px-4 py-1.5 text-center text-[12px] font-medium text-info">
+              Demo mode: sample data for trying things out. Don&apos;t enter anything real.
+            </div>
+          )}
           <Topbar
             onOpenMobileNav={() => setMobileNavOpen(true)}
             onOpenCommandPalette={() => setPaletteOpen(true)}

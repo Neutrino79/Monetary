@@ -18,6 +18,7 @@ interface AuthState {
   sessionExpired: boolean;
   hydrate: () => Promise<void>;
   login: (email: string, password: string) => Promise<User>;
+  demoLogin: () => Promise<User>;
   setup: (payload: SetupInput) => Promise<User>;
   logout: () => Promise<void>;
   updateProfile: (patch: ProfilePatch) => Promise<void>;
@@ -60,6 +61,14 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   login: async (email, password) => {
     const { user, token } = await authService.login(email, password);
+    tokenStorage.set(token);
+    queryClient.clear();
+    set(applyUser(user));
+    return user;
+  },
+
+  demoLogin: async () => {
+    const { user, token } = await authService.demoLogin();
     tokenStorage.set(token);
     queryClient.clear();
     set(applyUser(user));

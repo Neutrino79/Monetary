@@ -5,6 +5,8 @@
 #                                 (macOS Terminal/iTerm, or a Linux terminal emulator); if none can be
 #                                 opened (SSH, no display) it falls back to `inline`
 #   ./scripts/dev.sh inline     # both in THIS terminal, output prefixed [api]/[web]; Ctrl+C stops both
+#   ./scripts/dev.sh demo       # like inline, but in demo mode: a sample ledger, no setup, no account
+#                                 (uses a separate demo database, never your real one)
 #   ./scripts/dev.sh backend    # API only  -> http://localhost:8000
 #   ./scripts/dev.sh web        # web app only -> http://localhost:5173
 #
@@ -109,5 +111,10 @@ case "$MODE" in
     (run_web 2>&1 | tag web) &
     wait -n 2>/dev/null || wait   # bash >= 4.3 returns when one exits; older bash waits for both
     ;;
-  *) echo "usage: $0 [inline|backend|web]" >&2; exit 2 ;;
+  demo)
+    export MONETARY_DEMO_MODE=true
+    echo "==> Demo mode: sample data in a separate demo database; click 'Try the demo' on the sign-in page."
+    exec bash "$0" inline
+    ;;
+  *) echo "usage: $0 [inline|demo|backend|web]" >&2; exit 2 ;;
 esac

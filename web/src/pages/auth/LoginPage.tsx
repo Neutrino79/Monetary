@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { TriangleAlert } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
-import { useSetupStatus } from "@/hooks/queries";
+import { useBranding, useSetupStatus } from "@/hooks/queries";
 import { Button } from "@/components/ui/Button";
 import { Input, FormField } from "@/components/ui/form";
 import { useToast } from "@/components/ui/Toast";
@@ -11,6 +11,8 @@ import { useFormError } from "@/lib/hooks/useFormErrors";
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login);
+  const demoLogin = useAuthStore((s) => s.demoLogin);
+  const branding = useBranding();
   const sessionExpired = useAuthStore((s) => s.sessionExpired);
   const setup = useSetupStatus();
   const navigate = useNavigate();
@@ -29,6 +31,19 @@ export function LoginPage() {
       navigate("/dashboard");
     } catch (e) {
       setError(e instanceof Error ? e.message : "Something went wrong.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function enterDemo() {
+    setError("");
+    setLoading(true);
+    try {
+      await demoLogin();
+      navigate("/dashboard");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't open the demo.");
     } finally {
       setLoading(false);
     }
@@ -68,6 +83,14 @@ export function LoginPage() {
       <Button block onClick={submit} disabled={loading}>
         {loading ? "Signing in…" : "Sign in"}
       </Button>
+      {branding.demo && (
+        <div className="mt-4 border-t border-line pt-4">
+          <p className="mb-2 text-center text-[12.8px] text-ink-faint">Just looking around? No account or setup needed.</p>
+          <Button block variant="secondary" onClick={enterDemo} disabled={loading}>
+            Try the demo
+          </Button>
+        </div>
+      )}
     </AuthShell>
   );
 }
