@@ -6,6 +6,7 @@ Run with: uvicorn monetary.presentation.api.app:app --reload
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -15,6 +16,9 @@ from monetary.config import (
     VERSION,
     app_name,
     cors_origins_from_environment,
+    database_path_from_environment,
+    demo_mode_enabled,
+    demo_reset_on_start,
     docs_enabled_from_environment,
     environment_name,
 )
@@ -41,7 +45,29 @@ logging.basicConfig(
 
 _docs_enabled = docs_enabled_from_environment()
 
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    """In demo mode, build the sample ledger at startup so a misconfiguration (a real database
+    behind MONETARY_DEMO_MODE) fails fast instead of on the first visitor's request."""
+    if demo_mode_enabled():
+        from monetary.application import demo_service
+        from monetary.infrastructure import db
+
+        if demo_reset_on_start():
+            demo_service.reset_demo_database(database_path_from_environment())
+        conn = db.connect(database_path_from_environment())
+        try:
+            demo_service.ensure_demo_ledger(conn)
+            conn.commit()
+        finally:
+            conn.close()
+        logging.getLogger(__name__).warning(
+            "DEMO MODE is on: anyone can open the sample ledger without a password. Never use it with real data.")
+    yield
+
 app = FastAPI(
+    lifespan=lifespan,
     title=f"{app_name()} API",
     version=VERSION,
     description="Double-entry ledger API for personal expense tracking and friend splitting. "

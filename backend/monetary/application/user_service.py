@@ -215,6 +215,11 @@ def _new_session(conn, owner_id: int) -> str:
     return plaintext_token
 
 
+def start_session(conn, owner: dict) -> str:
+    """Open a session for an already-authenticated owner (used by demo mode) and return its token."""
+    return _new_session(conn, owner["id"])
+
+
 def login(conn, *, email: str, password: str) -> tuple[dict, str]:
     """Returns (owner_row, plaintext_session_token). Deliberately raises the
     same error for 'no such email' and 'wrong password' -- distinguishing them

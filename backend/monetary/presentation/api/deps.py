@@ -17,7 +17,7 @@ from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 
 from monetary.application import user_service
-from monetary.config import API_PREFIX, database_path_from_environment
+from monetary.config import API_PREFIX, database_path_from_environment, demo_mode_enabled
 from monetary.infrastructure import db
 from monetary.infrastructure.rate_limiter import (
     login_rate_limiter,
@@ -93,3 +93,18 @@ def enforce_login_rate_limit(request: Request) -> None:
 
 def enforce_password_reset_rate_limit(request: Request) -> None:
     password_reset_rate_limiter.check(_client_key(request))
+
+
+def require_demo_mode() -> None:
+    """Gate for demo-only endpoints: they do not exist (404) unless MONETARY_DEMO_MODE is on."""
+    if not demo_mode_enabled():
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not Found")
+
+
+def forbid_in_demo_mode() -> None:
+    """Gate for actions that could lock other visitors out of a shared demo (password changes)."""
+    if demo_mode_enabled():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This action is disabled in demo mode.",
+        )

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { TriangleAlert } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
-import { useSetupStatus } from "@/hooks/queries";
+import { useDemoMode, useSetupStatus } from "@/hooks/queries";
 import { Button } from "@/components/ui/Button";
 import { Input, FormField } from "@/components/ui/form";
 import { useToast } from "@/components/ui/Toast";
@@ -11,6 +11,8 @@ import { useFormError } from "@/lib/hooks/useFormErrors";
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login);
+  const demoLogin = useAuthStore((s) => s.demoLogin);
+  const { isDemo, isLoading: demoLoading } = useDemoMode();
   const sessionExpired = useAuthStore((s) => s.sessionExpired);
   const setup = useSetupStatus();
   const navigate = useNavigate();
@@ -34,8 +36,44 @@ export function LoginPage() {
     }
   }
 
+  async function enterDemo() {
+    setError("");
+    setLoading(true);
+    try {
+      await demoLogin();
+      navigate("/dashboard");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Couldn't open the demo.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   // Single-owner app: until the owner exists, the only thing to do is first-run setup.
   if (setup.data === false) return <Navigate to="/signup" replace />;
+
+  // Demo mode: no sign-in form at all, just a welcome and one button.
+  if (demoLoading) return <AuthShell><div className="py-8 text-center text-[12.8px] text-ink-faint">Loading…</div></AuthShell>;
+  if (isDemo) {
+    return (
+      <AuthShell>
+        <h1 className="mb-1 text-[19px] font-semibold">Welcome to the demo</h1>
+        <p className="mb-5 text-[12.8px] text-ink-faint">
+          Explore a year of sample accounts, transactions, splits and reports. There is nothing to set up and no
+          account to create, and nothing you do here is real.
+        </p>
+        {error && (
+          <div className="mb-4 flex items-center gap-2 rounded-[10px] bg-danger-soft px-3 py-3 text-[12.8px] text-danger">
+            <TriangleAlert size={15} className="flex-none" />
+            {error}
+          </div>
+        )}
+        <Button block onClick={enterDemo} disabled={loading}>
+          {loading ? "Opening the demo…" : "Start the demo"}
+        </Button>
+      </AuthShell>
+    );
+  }
 
   return (
     <AuthShell>

@@ -132,6 +132,8 @@ export interface SecurityQuestion {
 export interface Branding {
   name: string;
   tagline: string;
+  /** True when the server runs in demo mode (sample data, one-click sign-in). */
+  demo?: boolean;
 }
 
 export interface Page<T> {

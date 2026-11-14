@@ -26,6 +26,13 @@ Config via environment variables (see `backend/monetary/config.py`):
   are then disabled automatically (wildcard origin + credentials is invalid
   per the CORS spec and rejected by browsers anyway).
 - `MONETARY_ENV` -- `production` (default) or `development`.
+- `MONETARY_DEMO_MODE` -- `true` turns on demo mode (default off): the DB defaults to a separate
+  `demo.db`, a sample ledger is generated on first start, `GET /meta` reports `demo: true`, and
+  `POST /auth/demo` (404 otherwise) returns a session without credentials. Password change/reset are
+  answered 403. The server refuses a database whose owner is not the demo owner.
+- `MONETARY_DEMO_RESET` -- with demo mode on, `true` deletes and rebuilds the demo database at every
+  start (refused, and the server stops, when the database belongs to a real owner). Default off: the
+  sample ledger is created once and reused.
 - `MONETARY_ENABLE_DOCS` -- force `/docs`, `/redoc`, `/openapi.json` on/off.
 - `MONETARY_APP_NAME` / `MONETARY_APP_TAGLINE` -- the user-facing product name and tagline (default
   `Monetary` / `Personal expense ledger`), served publicly by `GET /meta`.
@@ -138,9 +145,9 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
 
 | Resource | Routes |
 |---|---|
-| `system` | `GET /meta` (public: app name, tagline, version), `GET /health` (liveness + DB connectivity), `GET /` (service info) |
+| `system` | `GET /meta` (public: app name, tagline, version, `demo` flag), `GET /health` (liveness + DB connectivity), `GET /` (service info) |
 | `setup` | `GET /setup/status` (public), `POST /setup/init` -- the one-time owner creation that logs them in |
-| `auth` | `GET /auth/security-questions`, `POST /auth/login`, `POST /auth/logout`, `POST /auth/change-password`, `GET /auth/security-question`, `POST /auth/reset-password` |
+| `auth` | `GET /auth/security-questions`, `POST /auth/login`, `POST /auth/demo` (demo mode only), `POST /auth/logout`, `POST /auth/change-password`, `GET /auth/security-question`, `POST /auth/reset-password` |
 | `owner` | `GET /owner`, `PATCH /owner` |
 | `accounts` | `POST /accounts` (optional `openingBalance`, LIABILITY-only `creditLimit` / `statementDay`), `GET /accounts` (includes `balance` and `lastActivity`, the local date of the newest live entry), `PATCH /accounts/{id}`, `GET /accounts/{id}/balance`, `GET /accounts/{id}/statement` (every posting in date order with the balance after it -- for a liability, the amount owed; same row shape as the friend statement; reversed entries are left out), `POST /accounts/{id}/reconcile` (body `{balance, date?}`: what the bank shows; any difference is posted as one adjustment and returned as `{difference, entryId}`, `entryId: null` when already matched), `POST /accounts/{id}/{deactivate,reactivate}` |
 | `categories` | `POST /categories`, `GET /categories` (`?type=EXPENSE\|INCOME` -- income sources are INCOME categories), `PATCH /categories/{id}` (name, colour, budget, parent), `POST /categories/{id}/{deactivate,reactivate}` |

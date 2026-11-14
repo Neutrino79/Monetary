@@ -1,6 +1,7 @@
 {
   // Run Task (Cmd/Ctrl+Shift+P -> "Tasks: Run Task") -> "Dev: start API + web".
   // Opens two terminals side by side, one per server. Both just call scripts/dev.sh.
+  // Want to look around with sample data and no setup? Run "Dev: demo (reset demo DB)" (also split API + web).
   "version": "2.0.0",
   "tasks": [
     {
@@ -18,6 +19,38 @@
       "isBackground": true,
       "problemMatcher": [],
       "presentation": { "group": "dev", "panel": "dedicated", "reveal": "always", "clear": true }
+    },
+    {
+      "label": "Dev: API (demo, fresh data)",
+      "hide": true,
+      "type": "shell",
+      "command": "./scripts/dev.sh backend",
+      "options": { "env": { "MONETARY_DEMO_MODE": "true", "MONETARY_DEMO_RESET": "true" } },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "group": "dev", "panel": "dedicated", "reveal": "always", "clear": true }
+    },
+    {
+      "label": "Dev: API (demo, keep my changes)",
+      "hide": true,
+      "type": "shell",
+      "command": "./scripts/dev.sh backend",
+      "options": { "env": { "MONETARY_DEMO_MODE": "true" } },
+      "isBackground": true,
+      "problemMatcher": [],
+      "presentation": { "group": "dev", "panel": "dedicated", "reveal": "always", "clear": true }
+    },
+    {
+      "label": "Dev: demo (reset demo DB)",
+      "dependsOn": ["Dev: API (demo, fresh data)", "Dev: web"],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
+    },
+    {
+      "label": "Dev: demo (keep demo DB)",
+      "dependsOn": ["Dev: API (demo, keep my changes)", "Dev: web"],
+      "dependsOrder": "parallel",
+      "problemMatcher": []
     },
     {
       "label": "Dev: start API + web",

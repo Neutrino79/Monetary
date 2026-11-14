@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-from monetary.config import API_PREFIX, API_VERSION, VERSION, app_name, app_tagline
+from monetary.config import API_PREFIX, API_VERSION, VERSION, app_name, app_tagline, demo_mode_enabled
 from monetary.presentation.api.schemas.system import MetaOut
 
 router = APIRouter(prefix=API_PREFIX, tags=["system"])
@@ -11,4 +11,5 @@ router = APIRouter(prefix=API_PREFIX, tags=["system"])
 @router.get("/meta", response_model=MetaOut)
 def meta():
     """Public application identity (name, tagline, version)."""
-    return MetaOut(app_name=app_name(), tagline=app_tagline(), version=VERSION, api_version=API_VERSION)
+    return MetaOut(app_name=app_name(), tagline=app_tagline(), version=VERSION, api_version=API_VERSION,
+                   demo=demo_mode_enabled())

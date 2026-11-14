@@ -29,6 +29,18 @@ export const authService = {
     }
   },
 
+  /** Demo mode only: open the sample ledger without credentials (`POST /auth/demo`; 404 otherwise). */
+  async demoLogin(): Promise<AuthResult> {
+    const t = await http.post<TokenDto>("/auth/demo");
+    tokenStorage.set(t.access_token);
+    try {
+      return { token: t.access_token, user: await authService.fetchOwner() };
+    } catch (err) {
+      tokenStorage.clear();
+      throw err;
+    }
+  },
+
   /**
    * First-run setup. Checks `GET /setup/status` first so an already-initialised
    * instance is rejected with a clear message *before* any data is submitted
