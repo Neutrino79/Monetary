@@ -36,7 +36,7 @@ function useDocumentBranding() {
   useEffect(() => {
     document.title = `${name} — ${tagline}`;
     const icon = document.querySelector<HTMLLinkElement>("link[rel='icon']");
-    if (icon) {
+    if (icon && appConfig.logoMark) {
       const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${appConfig.logoMark}</text></svg>`;
       icon.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
     }

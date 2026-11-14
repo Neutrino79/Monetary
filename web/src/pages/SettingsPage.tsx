@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input, Select, FormField } from "@/components/ui/form";
 import { timezoneOptions } from "@/config/timezones";
 import { appConfig } from "@/config/app";
+import { LogoMark } from "@/components/ui/LogoMark";
 import { useBranding } from "@/hooks/queries";
 import { authService } from "@/lib/api/services/authService";
 import { currencySymbol } from "@/lib/utils/format";
@@ -134,7 +135,7 @@ export function SettingsPage() {
         <Card className="self-start">
           <div className="mb-4 text-[14.5px] font-semibold">About this instance</div>
           <div className="flex items-center gap-3 border-b border-dashed border-line py-3">
-            <span className="flex h-8 w-8 flex-none items-center justify-center rounded-[10px] bg-paper-sunken text-ink-soft">{appConfig.logoMark}</span>
+            <LogoMark size={32} />
             <div>
               <div className="text-[13.3px] font-semibold">{appName}</div>
               <div className="text-[11.5px] text-ink-faint">{tagline}</div>

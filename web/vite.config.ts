@@ -11,10 +11,12 @@ import path from 'node:path'
 function htmlBranding(env: Record<string, string>): Plugin {
   const name = env.VITE_APP_NAME || 'Monetary'
   const tagline = env.VITE_APP_TAGLINE || 'Personal expense ledger'
-  const mark = env.VITE_APP_LOGO_MARK || '₹'
-  const favicon = `data:image/svg+xml,${encodeURIComponent(
-    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${mark}</text></svg>`,
-  )}`
+  const mark = env.VITE_APP_LOGO_MARK
+  const favicon = mark
+    ? `data:image/svg+xml,${encodeURIComponent(
+        `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><text y=".9em" font-size="90">${mark}</text></svg>`,
+      )}`
+    : '/favicon.svg'
   return {
     name: 'html-branding',
     transformIndexHtml: (html) =>

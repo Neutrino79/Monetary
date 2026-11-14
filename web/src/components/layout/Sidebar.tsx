@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { ChevronLeft } from "lucide-react";
-import { appConfig } from "@/config/app";
+import { LogoMark } from "@/components/ui/LogoMark";
 import { useBranding } from "@/hooks/queries";
 import { NAV_SECTIONS } from "@/config/nav";
 import { useUiStore } from "@/store/uiStore";
@@ -28,9 +28,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
         aria-label="Primary navigation"
       >
         <div className="flex items-center gap-3 px-2 pb-6">
-          <span className="flex h-8.5 w-8.5 flex-none items-center justify-center rounded-[10px] bg-ink font-semibold text-paper" style={{ fontFamily: "var(--font-ledger)", fontSize: 16 }}>
-            {appConfig.logoMark}
-          </span>
+          <LogoMark size={34} />
           {!collapsed && (
             <div>
               <div className="text-[15.5px] font-semibold">{name}</div>
