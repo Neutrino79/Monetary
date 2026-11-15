@@ -40,10 +40,10 @@ Open <http://localhost:5173> and press **Start the demo**. In VS Code, run the t
 **Dev: demo (reset demo DB)**. Details: [Demo mode](#demo-mode).
 
 <p align="center">
-  <img alt="Dashboard" src="docs/images/screenshots/dashboard.png" width="49%">
-  <img alt="Transactions" src="docs/images/screenshots/transactions.png" width="49%">
-  <img alt="Splits and settlements" src="docs/images/screenshots/splits.png" width="49%">
-  <img alt="Reports" src="docs/images/screenshots/reports.png" width="49%">
+  <img alt="Dashboard" src="docs/images/screenshots/dashboard-o.png" width="49%">
+  <img alt="Transactions" src="docs/images/screenshots/transactions-o.png" width="49%">
+  <img alt="Splits and settlements" src="docs/images/screenshots/splits-o.png" width="49%">
+  <img alt="Reports" src="docs/images/screenshots/reports-o.png" width="49%">
 </p>
 
 ## Features
