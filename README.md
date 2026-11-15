@@ -1,24 +1,95 @@
-# Monetary
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/branding/banner-dark.svg">
+    <img alt="Monetary: a personal expense tracker on a double-entry ledger" src="docs/images/branding/banner-light.svg" width="100%">
+  </picture>
+</p>
 
-[![CI](https://github.com/Neutrino79/duevia-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/Neutrino79/duevia-ledger/actions/workflows/ci.yml)
-[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
-![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
-![Node 22](https://img.shields.io/badge/node-22-green)
+<p align="center">
+  <a href="https://github.com/Neutrino79/duevia-ledger/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/Neutrino79/duevia-ledger/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"></a>
+  <img alt="Python 3.11+" src="https://img.shields.io/badge/python-3.11%2B-blue">
+  <img alt="Node 22" src="https://img.shields.io/badge/node-22-green">
+  <a href="CONTRIBUTING.md"><img alt="PRs welcome" src="https://img.shields.io/badge/PRs-welcome-brightgreen.svg"></a>
+</p>
 
-A personal expense tracker built on a double-entry ledger. Track expenses, income, refunds and transfers,
-split bills with friends and settle up, set budgets, and see where your money goes.
+<p align="center">
+  <b>Track expenses, split bills, set budgets, and know where your money went.</b><br>
+  Every transaction is a balanced double-entry journal, so the numbers always add up.
+</p>
 
-- **Backend** (`backend/`) -- a FastAPI REST API over SQLite. It owns *all* ledger logic: balances,
-  net worth, budgets, friend balances, reports, filtering and paging.
-- **Web app** (`web/`) -- a React + TypeScript single-page app that displays what the API computes and
-  sends the user's intent. See [`web/README.md`](web/README.md).
+<p align="center">
+  <a href="#try-the-demo-in-60-seconds">Demo</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#screenshots">Screenshots</a> ·
+  <a href="#quick-start">Quick start</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#configuration">Configuration</a> ·
+  <a href="#contributing">Contributing</a> ·
+  <a href="#license">License</a>
+</p>
 
-Single-owner authentication uses bcrypt password hashing, with rate-limited login and password reset.
+## Try the demo in 60 seconds
 
-**Contents:** [Quick start](#quick-start) · [Repository layout](#repository-layout) ·
-[Configuration](#configuration) · [Database](#database) · [Testing and checks](#testing-and-checks) ·
-[Developer tooling](#developer-tooling) · [Demo mode](#demo-mode) · [Production notes](#production-notes) ·
-[Contributing](#contributing) · [License](#license)
+No account, no setup, no data of yours:
+
+```bash
+./scripts/dev.sh demo        # API on :8000, web app on :5173, with a year of sample data
+```
+
+Open <http://localhost:5173> and press **Start the demo**. In VS Code, run the task
+**Dev: demo (reset demo DB)**. Details: [Demo mode](#demo-mode).
+
+## Features
+
+- **Real double-entry ledger.** Expenses, income, refunds and transfers post balanced journal entries
+  (`DIRECT` or `STRICT` posting). Balances, net worth and reports can never disagree.
+- **Accounts and credit cards** with opening balances and live balances.
+- **Categories, tags and income sources**, with sensible defaults seeded at first run.
+- **Budgets** that track spending against what you planned.
+- **Split bills with friends** and settle up; friend balances come straight from the ledger.
+- **Reports** on where your money goes, with filtering and paging done by the API.
+- **Self-hosted and private.** Single owner, bcrypt password hashing, rate-limited login and reset, SQLite file.
+- **Thin web app.** `web/` shows what the API computes; there is no ledger math in the browser.
+
+## Screenshots
+
+Captured in [demo mode](#demo-mode) (sample data, dark theme). Click an image for the full size.
+
+<table>
+  <tr>
+    <td width="50%"><a href="docs/images/screenshots/dashboard.png"><img alt="Dashboard: income, spending pace and where the money went" src="docs/images/screenshots/dashboard.png"></a><br><sub><b>Dashboard.</b> Income, spending pace and where the money went.</sub></td>
+    <td width="50%"><a href="docs/images/screenshots/transactions.png"><img alt="Transactions: search, filter and page the ledger" src="docs/images/screenshots/transactions.png"></a><br><sub><b>Transactions.</b> Search, filter and page the whole ledger.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><a href="docs/images/screenshots/add-transaction.png"><img alt="Add transaction form" src="docs/images/screenshots/add-transaction.png"></a><br><sub><b>Add a transaction.</b> Expenses, income, transfers and splits.</sub></td>
+    <td width="50%"><a href="docs/images/screenshots/splits.png"><img alt="Shared expenses: who owes what, with settle up" src="docs/images/screenshots/splits.png"></a><br><sub><b>Shared.</b> Who owes what, with one-click settle up.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><a href="docs/images/screenshots/budgets.png"><img alt="Budgets by category" src="docs/images/screenshots/budgets.png"></a><br><sub><b>Budgets.</b> Spending against what you planned.</sub></td>
+    <td width="50%"><a href="docs/images/screenshots/reports.png"><img alt="Reports and trends" src="docs/images/screenshots/reports.png"></a><br><sub><b>Reports and trends.</b> Where your money goes over time.</sub></td>
+  </tr>
+</table>
+
+## How it works
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/architecture-dark.svg">
+    <img alt="Architecture: web app and API clients call a four-layer FastAPI backend over SQLite" src="docs/images/architecture-light.svg" width="100%">
+  </picture>
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/double-entry-dark.svg">
+    <img alt="A split dinner posted as debits and credits that sum to the same total" src="docs/images/double-entry-light.svg" width="100%">
+  </picture>
+</p>
+
+More in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) and the endpoint reference [`docs/API.md`](docs/API.md).
+
+**Stack:** Python 3.11+, FastAPI, SQLite (WAL) · React 19, TypeScript, Vite, Tailwind CSS v4.
 
 ## Quick start
 
@@ -226,22 +297,31 @@ CI runs the same commands on every push to `main` and every pull request (see De
 
 ## Contributing
 
-The full rules are in **[CONTRIBUTING.md](CONTRIBUTING.md)**; in short:
+Contributions are welcome: bug reports, fixes, docs, tests and features. Start with
+**[CONTRIBUTING.md](CONTRIBUTING.md)**; the short version:
 
-- Branch `<type>/<kebab-case>` (`feat/add-budget-alerts`), then small commits in
-  [Conventional Commits](https://www.conventionalcommits.org/) form (`fix(api): handle empty budgets`), with a
-  body explaining *why* for `feat`/`fix`/`perf`/`refactor`.
-- The PR title uses the same format (PRs are squash-merged) and the description follows the
-  [PR template](.github/pull_request_template.md): Summary, Changes, Testing, Risk and rollout.
-- Run `./scripts/check.sh` and, for web changes, `npm run typecheck && npm run lint && npm test && npm run build`
-  in `web/`. Keep backend coverage at 95% or above.
-- Changing the API contract means updating `web/src/lib/api/` and [`docs/API.md`](docs/API.md) in the same PR.
+1. **Find or open an issue** to discuss anything bigger than a small fix.
+2. **Branch** as `<type>/<kebab-case>` (`feat/add-budget-alerts`) and make small commits in
+   [Conventional Commits](https://www.conventionalcommits.org/) form (`fix(api): handle empty budgets`), with a
+   body explaining *why* for `feat`/`fix`/`perf`/`refactor`.
+3. **Check your work**: `./scripts/check.sh` (keep backend coverage at 95% or above), and for web changes
+   `npm run typecheck && npm run lint && npm test && npm run build` in `web/`. Run `pre-commit run --all-files`.
+4. **Open a PR** whose title uses the same commit format (PRs are squash-merged) and whose description follows the
+   [PR template](.github/pull_request_template.md): Summary, Changes, Testing, Risk and rollout.
+
+Layering rules: routers only translate HTTP, business rules live in `application/` and `domain/`, all SQL lives in
+`infrastructure/`, and the web app holds no ledger logic. Changing the API contract means updating
+`web/src/lib/api/` and [`docs/API.md`](docs/API.md) in the same PR.
+
+Contributions are accepted under the project's Apache-2.0 license; sign your commits off with
+`git commit -s` (see [CONTRIBUTING.md](CONTRIBUTING.md#8-license-and-sign-off)). Please follow the
+[Code of Conduct](CODE_OF_CONDUCT.md) and report
+vulnerabilities privately as described in [SECURITY.md](SECURITY.md).
 
 **AI coding agents** must also follow [AGENTS.md](AGENTS.md): no AI attribution in commits or PRs, no commits to
 `main`, no bypassing hooks.
 
-See also: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (system design) and
-[`docs/archive/INTEGRATION_CHECKLIST.md`](docs/archive/INTEGRATION_CHECKLIST.md) (record of the web-app ⇄ backend integration).
+Brand assets (logo, banners, colors) live in [`docs/images/branding/`](docs/images/branding/README.md).
 
 ## License
 

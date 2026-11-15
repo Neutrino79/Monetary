@@ -15,6 +15,7 @@ repos:
       - id: detect-private-key
       - id: check-added-large-files
         args: [--maxkb=500]
+        exclude: ^docs/images/screenshots/
       - id: no-commit-to-branch    # work on a branch, never commit straight to main
         args: [--branch, main]
 

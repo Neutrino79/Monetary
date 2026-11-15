@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ProtectedRoute, GuestOnlyRoute } from "@/routes/guards";
 import { AppShell } from "@/components/layout/AppShell";
-import { appConfig } from "@/config/app";
 import { useBranding } from "@/hooks/queries";
 
 const LoginPage = lazy(() => import("@/pages/auth/LoginPage").then((m) => ({ default: m.LoginPage })));
@@ -35,11 +34,6 @@ function useDocumentBranding() {
   const { name, tagline } = useBranding();
   useEffect(() => {
     document.title = `${name} — ${tagline}`;
-    const icon = document.querySelector<HTMLLinkElement>("link[rel='icon']");
-    if (icon) {
-      const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>${appConfig.logoMark}</text></svg>`;
-      icon.href = `data:image/svg+xml,${encodeURIComponent(svg)}`;
-    }
   }, [name, tagline]);
 }
 
