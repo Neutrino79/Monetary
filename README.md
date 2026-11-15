@@ -44,6 +44,8 @@ Open <http://localhost:5173> and press **Start the demo**. In VS Code, run the t
   <img alt="Transactions" src="docs/images/screenshots/transactions-o.png" width="49%">
   <img alt="Splits and settlements" src="docs/images/screenshots/splits-o.png" width="49%">
   <img alt="Reports" src="docs/images/screenshots/reports-o.png" width="49%">
+  <img alt="Add Transaction" src="docs/images/screenshots/Add-Transaction-o.png" width="49%">
+  <img alt="Budgets" src="docs/images/screenshots/budget.png" width="49%">
 </p>
 
 ## Features
