@@ -1,7 +1,7 @@
 # Monetary
 
 [![CI](https://github.com/Neutrino79/duevia-ledger/actions/workflows/ci.yml/badge.svg)](https://github.com/Neutrino79/duevia-ledger/actions/workflows/ci.yml)
-[![License: Proprietary](https://img.shields.io/badge/license-proprietary-red.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 ![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)
 ![Node 22](https://img.shields.io/badge/node-22-green)
 
@@ -245,5 +245,5 @@ See also: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) (system design) and
 
 ## License
 
-Proprietary and confidential. © 2026 Atharv Hiremath, all rights reserved -- see [LICENSE](LICENSE).
-This is a private repository; no permission to use, copy or distribute the code is granted.
+Licensed under the [Apache License, Version 2.0](LICENSE). Copyright 2026 Atharv Hiremath. See
+[NOTICE](NOTICE) for attribution. The name "Monetary" is not licensed for use as a trademark.
