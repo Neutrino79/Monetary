@@ -21,6 +21,7 @@
 <p align="center">
   <a href="#try-the-demo-in-60-seconds">Demo</a> ·
   <a href="#features">Features</a> ·
+  <a href="#screenshots">Screenshots</a> ·
   <a href="#quick-start">Quick start</a> ·
   <a href="#how-it-works">How it works</a> ·
   <a href="#configuration">Configuration</a> ·
@@ -39,15 +40,6 @@ No account, no setup, no data of yours:
 Open <http://localhost:5173> and press **Start the demo**. In VS Code, run the task
 **Dev: demo (reset demo DB)**. Details: [Demo mode](#demo-mode).
 
-<p align="center">
-  <img alt="Dashboard" src="docs/images/screenshots/dashboard-o.png" width="49%">
-  <img alt="Transactions" src="docs/images/screenshots/transactions-o.png" width="49%">
-  <img alt="Splits and settlements" src="docs/images/screenshots/splits-o.png" width="49%">
-  <img alt="Reports" src="docs/images/screenshots/reports-o.png" width="49%">
-  <img alt="Add Transaction" src="docs/images/screenshots/Add-Transaction-o.png" width="49%">
-  <img alt="Budgets" src="docs/images/screenshots/budget.png" width="49%">
-</p>
-
 ## Features
 
 - **Real double-entry ledger.** Expenses, income, refunds and transfers post balanced journal entries
@@ -59,6 +51,25 @@ Open <http://localhost:5173> and press **Start the demo**. In VS Code, run the t
 - **Reports** on where your money goes, with filtering and paging done by the API.
 - **Self-hosted and private.** Single owner, bcrypt password hashing, rate-limited login and reset, SQLite file.
 - **Thin web app.** `web/` shows what the API computes; there is no ledger math in the browser.
+
+## Screenshots
+
+Captured in [demo mode](#demo-mode) (sample data, dark theme). Click an image for the full size.
+
+<table>
+  <tr>
+    <td width="50%"><a href="docs/images/screenshots/dashboard.png"><img alt="Dashboard: income, spending pace and where the money went" src="docs/images/screenshots/dashboard.png"></a><br><sub><b>Dashboard.</b> Income, spending pace and where the money went.</sub></td>
+    <td width="50%"><a href="docs/images/screenshots/transactions.png"><img alt="Transactions: search, filter and page the ledger" src="docs/images/screenshots/transactions.png"></a><br><sub><b>Transactions.</b> Search, filter and page the whole ledger.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><a href="docs/images/screenshots/add-transaction.png"><img alt="Add transaction form" src="docs/images/screenshots/add-transaction.png"></a><br><sub><b>Add a transaction.</b> Expenses, income, transfers and splits.</sub></td>
+    <td width="50%"><a href="docs/images/screenshots/splits.png"><img alt="Shared expenses: who owes what, with settle up" src="docs/images/screenshots/splits.png"></a><br><sub><b>Shared.</b> Who owes what, with one-click settle up.</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><a href="docs/images/screenshots/budgets.png"><img alt="Budgets by category" src="docs/images/screenshots/budgets.png"></a><br><sub><b>Budgets.</b> Spending against what you planned.</sub></td>
+    <td width="50%"><a href="docs/images/screenshots/reports.png"><img alt="Reports and trends" src="docs/images/screenshots/reports.png"></a><br><sub><b>Reports and trends.</b> Where your money goes over time.</sub></td>
+  </tr>
+</table>
 
 ## How it works
 
