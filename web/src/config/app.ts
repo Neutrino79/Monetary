@@ -18,8 +18,6 @@ export const appConfig = {
   name: env("VITE_APP_NAME", "Monetary"),
   /** Fallback tagline, same rule as `name`. */
   tagline: env("VITE_APP_TAGLINE", "Personal expense ledger"),
-  /** Optional single character/emoji that replaces the wallet logo and favicon (white-label). Empty = wallet. */
-  logoMark: env("VITE_APP_LOGO_MARK", ""),
   /** Default home currency offered at first-run setup. */
   currencyCode: env("VITE_CURRENCY_CODE", "INR"),
   /** BCP 47 locale used for number/date formatting via Intl. */

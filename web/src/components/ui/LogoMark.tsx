@@ -1,20 +1,5 @@
-import { appConfig } from "@/config/app";
-
-/**
- * The product mark: the Monetary wallet on a dark tile. If `VITE_APP_LOGO_MARK` is set, that
- * character is shown instead (a white-label override); by default it is empty and the wallet is used.
- */
+/** The product mark: the Monetary wallet on a dark tile. */
 export function LogoMark({ size = 34 }: { size?: number }) {
-  if (appConfig.logoMark) {
-    return (
-      <span
-        className="flex flex-none items-center justify-center rounded-[10px] bg-ink font-semibold text-paper"
-        style={{ width: size, height: size, fontFamily: "var(--font-ledger)", fontSize: Math.round(size * 0.47) }}
-      >
-        {appConfig.logoMark}
-      </span>
-    );
-  }
   return (
     <svg width={size} height={size} viewBox="0 0 108 108" role="img" aria-label="Monetary" className="flex-none">
       <rect x=".75" y=".75" width="106.5" height="106.5" rx="24" fill="#171b22" stroke="#333a47" strokeWidth="1.5" />
