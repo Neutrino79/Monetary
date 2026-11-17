@@ -50,7 +50,7 @@ say "not run" or "blocked" instead.
    `.secrets.baseline` (use `detect-secrets`).
 7. **Never change the API contract, DB schema or `MONETARY_*` configuration silently.** If you do change them,
    update `docs/API.md` + `web/src/lib/api/`, `docs/LIVE_SCHEMA.sql` (the only copy of the schema SQL), `backend/.env.example` + README in the same PR and say
-   so under *Risk and rollout*. There are no DB migrations: a schema change means existing databases are recreated.
+   so under *Risk and rollout*. A schema change adds a numbered migration (`backend/monetary/infrastructure/migrations.py`); existing databases are upgraded, never recreated.
 8. **Never put SQL outside `backend/monetary/infrastructure/`**, business rules in routers, or ledger math in `web/`.
 9. **Never run destructive commands** (`rm -rf`, `git reset --hard`, dropping a database, deleting branches)
    against anything you did not create in this session without explicit approval.
