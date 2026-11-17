@@ -134,7 +134,7 @@ must contain a `BREAKING CHANGE:` line.
 - **Tests**: new behaviour comes with tests in the matching layer (`backend/tests/unit`, `service`, `infrastructure`, `api`,
   `web/src/test`). Backend coverage must stay at or above 95% (CI gate).
 - **API changes**: update `docs/API.md` and `web/src/lib/api/` (services, mappers, `types/api.ts`) in the same PR.
-- **Schema changes**: there are no migrations yet. Say so in the PR (`Risk and rollout`) and in `docs/LIVE_SCHEMA.sql`.
+- **Schema changes**: add a numbered migration in `backend/monetary/infrastructure/migrations.py` (never edit a released one, and keep it compatible with the previous release for one release), update `docs/LIVE_SCHEMA.sql`, and say so in the PR (`Risk and rollout`).
 - **Config**: every setting is a `MONETARY_*` variable defined in `backend/monetary/config.py`, and documented in
   `backend/.env.example` and the README.
 - **Dependencies**: change `backend/requirements*.txt` / `web/package.json` deliberately; let `npm` regenerate
