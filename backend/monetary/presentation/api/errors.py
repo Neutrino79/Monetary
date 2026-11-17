@@ -18,11 +18,18 @@ from fastapi import FastAPI, Request, status
 from fastapi.responses import JSONResponse
 
 from monetary.domain.exceptions import (
+    AccountPendingApproval,
+    AccountPendingDelete,
+    AccountRejected,
+    AccountSuspended,
     AuthenticationError,
     ConflictError,
     DomainError,
+    NoLedgerError,
     NotFoundError,
     OwnershipError,
+    PasswordChangeRequired,
+    PermissionDeniedError,
     RateLimitError,
     ValidationError,
 )
@@ -35,6 +42,13 @@ _STATUS_MAP = {
     ValidationError: 422,
     AuthenticationError: status.HTTP_401_UNAUTHORIZED,
     OwnershipError: status.HTTP_403_FORBIDDEN,
+    PermissionDeniedError: status.HTTP_403_FORBIDDEN,
+    AccountPendingApproval: status.HTTP_403_FORBIDDEN,
+    AccountRejected: status.HTTP_403_FORBIDDEN,
+    AccountSuspended: status.HTTP_403_FORBIDDEN,
+    AccountPendingDelete: status.HTTP_403_FORBIDDEN,
+    PasswordChangeRequired: status.HTTP_403_FORBIDDEN,
+    NoLedgerError: status.HTTP_403_FORBIDDEN,
     ConflictError: status.HTTP_409_CONFLICT,
     RateLimitError: status.HTTP_429_TOO_MANY_REQUESTS,
     MoneyError: 422,

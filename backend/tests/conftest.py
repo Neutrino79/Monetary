@@ -54,6 +54,23 @@ def db_path(tmp_path, monkeypatch):
 
 
 @pytest.fixture()
+def data_dir(tmp_path):
+    """A fresh data directory (control database + tenant ledgers) for multi-tenant tests."""
+    path = tmp_path / "data"
+    path.mkdir()
+    return path
+
+
+@pytest.fixture()
+def control(data_dir):
+    """A connection to a fresh control database."""
+    from monetary.infrastructure import control_db
+    c = control_db.connect_control(data_dir)
+    yield c
+    c.close()
+
+
+@pytest.fixture()
 def conn(db_path):
     """A raw connection to a fresh DB, for service/repository-level tests."""
     c = db_module.connect(db_path)
