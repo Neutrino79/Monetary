@@ -88,16 +88,16 @@ def test_logout_invalidates_only_that_session(api, anon):
     assert api.get("/owner", headers={"Authorization": f"Bearer {other}"}).status_code == 200
 
 
-def test_expired_session_is_rejected_and_purged(api, db_path):
-    c = sqlite3.connect(db_path)
+def test_expired_session_is_rejected_and_purged(api, api_data_dir):
+    c = sqlite3.connect(api_data_dir / "control.db")
     c.execute("UPDATE session SET expires_at = '2000-01-01T00:00:00+00:00'"); c.commit()
     assert api.get("/owner").status_code == 401
     assert c.execute("SELECT COUNT(*) FROM session").fetchone()[0] == 0
     c.close()
 
 
-def test_secrets_are_not_stored_in_plaintext(api, db_path):
-    c = sqlite3.connect(db_path)
+def test_secrets_are_not_stored_in_plaintext(api, api_data_dir):
+    c = sqlite3.connect(api_data_dir / "control.db")
     pw, ans = c.execute("SELECT password_hash, security_answer_hash FROM user").fetchone()
     tok = c.execute("SELECT token_hash FROM session").fetchone()[0]
     assert pw.startswith("$2") and ans.startswith("$2")

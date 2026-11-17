@@ -20,18 +20,22 @@ generate a typed client for whatever UI framework you use. **Docs are
 disabled by default outside development** -- see Configuration below.
 
 Config via environment variables (see `backend/monetary/config.py`):
-- `MONETARY_DB_PATH` -- SQLite file path (default `~/.monetary_0.5/monetary.db`)
+- `MONETARY_DATA_DIR` -- directory holding everything the service stores: `control.db` (accounts, sessions,
+  audit log) and `tenants/` (one SQLite ledger per user). Default `~/.monetary_0.5`.
+- `MONETARY_DB_PATH` -- the single ledger file of earlier releases. Still honoured: when no accounts exist
+  yet, that file is adopted in place as the first superuser's ledger, and (if `MONETARY_DATA_DIR` is unset)
+  its folder becomes the data directory. See `docs/MULTI_TENANT.md`.
 - `MONETARY_CORS_ORIGINS` -- comma-separated allowed browser origins (default:
   none allowed). `*` is accepted for a public API, but credentialed requests
   are then disabled automatically (wildcard origin + credentials is invalid
   per the CORS spec and rejected by browsers anyway).
 - `MONETARY_ENV` -- `production` (default) or `development`.
-- `MONETARY_DEMO_MODE` -- `true` turns on demo mode (default off): the DB defaults to a separate
-  `demo.db`, a sample ledger is generated on first start, `GET /meta` reports `demo: true`, and
+- `MONETARY_DEMO_MODE` -- `true` turns on demo mode (default off): the data directory defaults to a
+  separate `demo/` folder, a demo account with a sample ledger is generated on first start, `GET /meta` reports `demo: true`, and
   `POST /auth/demo` (404 otherwise) returns a session without credentials. Password change/reset are
-  answered 403. The server refuses a database whose owner is not the demo owner.
+  answered 403. Registration is answered 403. The server refuses a data directory that holds real accounts.
 - `MONETARY_DEMO_RESET` -- with demo mode on, `true` deletes and rebuilds the demo database at every
-  start (refused, and the server stops, when the database belongs to a real owner). Default off: the
+  start (refused, and the server stops, when the data directory holds real accounts). Default off: the
   sample ledger is created once and reused.
 - `MONETARY_ENABLE_DOCS` -- force `/docs`, `/redoc`, `/openapi.json` on/off.
 - `MONETARY_APP_NAME` / `MONETARY_APP_TAGLINE` -- the user-facing product name and tagline (default
@@ -57,11 +61,19 @@ Config via environment variables (see `backend/monetary/config.py`):
 
 ## Authentication
 
-Single-owner email + password login, with security-question-based password recovery.
+Email + password login, with security-question-based password recovery. Every account has its own
+ledger database; the first account is a superuser, and others either sign up (`POST /auth/register`,
+202 with the same generic answer whether or not the email is known, rate-limited, waits for approval) or
+are created by a superuser. `POST /auth/login` answers 403 with `AccountPendingApproval`,
+`AccountRejected`, `AccountSuspended` or `AccountPendingDelete` only after a correct password (a wrong
+email and a wrong password both give the same 401). While a temporary password is pending, everything
+except `GET /me`, `POST /auth/change-password` and `POST /auth/logout` answers 403
+`PasswordChangeRequired`; an account without a ledger gets 403 `NoLedgerError`.
+`GET /me` returns `{id, email, name, role, status, mustChangePassword, hasLedger}`.
 
 **Is the instance set up?** `GET /api/v0.5/setup/status` (public) returns `{"initialized": true|false}`.
 A client can use it to choose between a first-run screen and a sign-in screen; `POST /setup/init` still
-re-checks atomically and answers `409` if an owner already exists.
+re-checks atomically and answers `409` once any account exists. It creates the first superuser and their ledger.
 
 **Bootstrap once** (also logs you in immediately -- the response includes a token):
 
@@ -145,9 +157,9 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
 
 | Resource | Routes |
 |---|---|
-| `system` | `GET /meta` (public: app name, tagline, version, `demo` flag), `GET /health` (liveness + DB connectivity), `GET /` (service info) |
+| `system` | `GET /meta` (public: app name, tagline, version, `demo` flag), `GET /me` (the signed-in account), `GET /health` (liveness + DB connectivity), `GET /` (service info) |
 | `setup` | `GET /setup/status` (public), `POST /setup/init` -- the one-time owner creation that logs them in |
-| `auth` | `GET /auth/security-questions`, `POST /auth/login`, `POST /auth/demo` (demo mode only), `POST /auth/logout`, `POST /auth/change-password`, `GET /auth/security-question`, `POST /auth/reset-password` |
+| `auth` | `GET /auth/security-questions`, `POST /auth/register` (public sign-up request), `POST /auth/login`, `POST /auth/demo` (demo mode only), `POST /auth/logout`, `POST /auth/change-password`, `GET /auth/security-question`, `POST /auth/reset-password` |
 | `owner` | `GET /owner`, `PATCH /owner` |
 | `accounts` | `POST /accounts` (optional `openingBalance`, LIABILITY-only `creditLimit` / `statementDay`), `GET /accounts` (includes `balance` and `lastActivity`, the local date of the newest live entry), `PATCH /accounts/{id}`, `GET /accounts/{id}/balance`, `GET /accounts/{id}/statement` (every posting in date order with the balance after it -- for a liability, the amount owed; same row shape as the friend statement; reversed entries are left out), `POST /accounts/{id}/reconcile` (body `{balance, date?}`: what the bank shows; any difference is posted as one adjustment and returned as `{difference, entryId}`, `entryId: null` when already matched), `POST /accounts/{id}/{deactivate,reactivate}` |
 | `categories` | `POST /categories`, `GET /categories` (`?type=EXPENSE\|INCOME` -- income sources are INCOME categories), `PATCH /categories/{id}` (name, colour, budget, parent), `POST /categories/{id}/{deactivate,reactivate}` |

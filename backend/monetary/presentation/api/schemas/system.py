@@ -11,3 +11,14 @@ class MetaOut(ApiModel):
     version: str
     api_version: str
     demo: bool = False  # True when the server runs in demo mode (sample data, no sign-in)
+
+
+class MeOut(ApiModel):
+    """The signed-in platform account (not the ledger owner row; see GET /owner for that)."""
+    id: int
+    email: str
+    name: str
+    role: str  # "user" | "superuser"
+    status: str
+    must_change_password: bool
+    has_ledger: bool

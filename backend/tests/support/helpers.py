@@ -102,9 +102,20 @@ class World:
         return r.json()
 
 
-def assert_ledger_invariants(db_path) -> None:
-    """The properties that must hold for the database after ANY sequence of
-    operations. Run automatically at the end of every API test."""
+def assert_ledger_invariants(path) -> None:
+    """The properties that must hold for every ledger database after ANY sequence of operations.
+    Run automatically at the end of every API test. `path` is one ledger file or a data directory
+    (then every file under its `tenants/` folder is checked)."""
+    if os.path.isdir(path):
+        for ledger in sorted(os.scandir(os.path.join(path, "tenants")), key=lambda e: e.name) \
+                if os.path.isdir(os.path.join(path, "tenants")) else []:
+            if ledger.name.endswith(".db"):
+                _assert_one_ledger(ledger.path)
+        return
+    _assert_one_ledger(path)
+
+
+def _assert_one_ledger(db_path) -> None:
     if not os.path.exists(db_path):
         return
     conn = sqlite3.connect(str(db_path))
