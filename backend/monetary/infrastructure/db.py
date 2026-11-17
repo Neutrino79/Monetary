@@ -123,8 +123,8 @@ TENANT_MIGRATIONS: list[migrations.Migration] = [
 ]
 
 
-def connect(db_path: str | Path | None = None) -> sqlite3.Connection:
-    path = Path(db_path) if db_path else DEFAULT_DB_PATH
+def open_connection(path: Path) -> sqlite3.Connection:
+    """Open a SQLite file with this project's connection settings (no schema work)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     # FastAPI resolves the per-request connection dependency and runs a sync
     # endpoint in *different* worker threads. sqlite3 refuses cross-thread use by
@@ -139,5 +139,10 @@ def connect(db_path: str | Path | None = None) -> sqlite3.Connection:
     # is concurrent by nature, unlike the old single-shot CLI process).
     conn.execute("PRAGMA journal_mode = WAL;")
     conn.execute("PRAGMA busy_timeout = 5000;")
+    return conn
+
+
+def connect(db_path: str | Path | None = None) -> sqlite3.Connection:
+    conn = open_connection(Path(db_path) if db_path else DEFAULT_DB_PATH)
     migrations.migrate(conn, TENANT_MIGRATIONS)
     return conn

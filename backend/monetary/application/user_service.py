@@ -8,6 +8,12 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone as dt_timezone
 
+from monetary.domain.credentials import (
+    validate_currency,
+    validate_email,
+    validate_password,
+    validate_security_question,
+)
 from monetary.domain.enums import AccountType, LedgerMode, as_enum
 from monetary.domain.exceptions import (
     AuthenticationError,
@@ -16,8 +22,6 @@ from monetary.domain.exceptions import (
     ValidationError,
 )
 from monetary.domain.security import (
-    MAX_PASSWORD_LENGTH,
-    MIN_PASSWORD_LENGTH,
     SECURITY_QUESTIONS,
     SESSION_TTL_HOURS,
     generate_session_token,
@@ -31,28 +35,9 @@ from monetary.domain.time_utils import utc_now_iso, validate_timezone
 from monetary.infrastructure import repositories as repo
 
 
-def _validate_email(email: str) -> str:
-    email = (email or "").strip()
-    if not email or "@" not in email or email.startswith("@") or email.endswith("@"):
-        raise ValidationError(f"Invalid email: {email!r}")
-    return email.lower()
-
-
-def _validate_password(password: str) -> str:
-    if not password or len(password) < MIN_PASSWORD_LENGTH:
-        raise ValidationError(f"Password must be at least {MIN_PASSWORD_LENGTH} characters.")
-    if len(password) > MAX_PASSWORD_LENGTH:
-        raise ValidationError(f"Password must be at most {MAX_PASSWORD_LENGTH} characters.")
-    return password
-
-
-def _validate_security_question(question_id: int, answer: str) -> str:
-    if question_id not in SECURITY_QUESTIONS:
-        valid = ", ".join(str(k) for k in SECURITY_QUESTIONS)
-        raise ValidationError(f"Invalid security_question_id {question_id!r}; must be one of: {valid}.")
-    if not answer or not answer.strip():
-        raise ValidationError("A security answer is required.")
-    return answer
+_validate_email = validate_email
+_validate_password = validate_password
+_validate_security_question = validate_security_question
 
 
 def bootstrap_owner(conn, *, name: str, email: str, timezone: str | None, home_currency_code: str,
@@ -65,18 +50,30 @@ def bootstrap_owner(conn, *, name: str, email: str, timezone: str | None, home_c
     if repo.get_user_by_email(conn, email) is not None:
         raise ConflictError(f"Email already in use: {email}")
     validate_timezone(timezone)
-    currency = (home_currency_code or "").strip().upper()
-    if len(currency) != 3 or not currency.isalpha():
-        raise ValidationError(f"Invalid currency code {home_currency_code!r}; expected e.g. 'INR'.")
+    currency = validate_currency(home_currency_code)
     _validate_password(password)
     _validate_security_question(security_question_id, security_answer)
 
+    return create_ledger_owner(
+        conn, name=name.strip(), email=email, timezone=timezone, home_currency_code=currency,
+        password_hash=hash_password(password), security_question_id=security_question_id,
+        security_answer_hash=hash_security_answer(security_answer),
+    )
+
+
+def create_ledger_owner(conn, *, name: str, email: str, timezone: str | None, home_currency_code: str,
+                        password_hash: str | None = None, security_question_id: int | None = None,
+                        security_answer_hash: str | None = None) -> dict:
+    """Insert the ledger's owner row and the system Equity account into a fresh ledger database.
+
+    In a multi-tenant deployment the credentials live in the control database, so the three
+    credential arguments stay empty there; the single-owner flow still passes them."""
     now = utc_now_iso()
     owner = repo.create_user(
-        conn, name=name.strip(), email=email, is_superuser=True, timezone=timezone,
-        home_currency_code=currency, ledger_mode=LedgerMode.DIRECT.value,
-        password_hash=hash_password(password), security_question_id=security_question_id,
-        security_answer_hash=hash_security_answer(security_answer), now=now,
+        conn, name=name, email=email, is_superuser=True, timezone=timezone,
+        home_currency_code=home_currency_code, ledger_mode=LedgerMode.DIRECT.value,
+        password_hash=password_hash, security_question_id=security_question_id,
+        security_answer_hash=security_answer_hash, now=now,
     )
     # system Equity:Adjustments account, one-time, used automatically by the
     # "adjustment" transaction type
@@ -85,7 +82,6 @@ def bootstrap_owner(conn, *, name: str, email: str, timezone: str | None, home_c
         is_system=True, now=now,
     )
     return owner
-
 
 
 def owner_exists(conn) -> bool:

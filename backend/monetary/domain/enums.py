@@ -55,6 +55,20 @@ class LedgerMode(str, Enum):
     DIRECT = "DIRECT"   # mutable — corrections via in-place UPDATE/INSERT/DELETE
 
 
+class UserStatus(str, Enum):
+    """Lifecycle of a platform account (control database)."""
+    PENDING_APPROVAL = "pending_approval"  # self-registered, waiting for a superuser
+    ACTIVE = "active"
+    REJECTED = "rejected"
+    SUSPENDED = "suspended"
+    PENDING_DELETE = "pending_delete"      # grace period before the ledger file is removed
+
+
+class PlatformRole(str, Enum):
+    USER = "user"
+    SUPERUSER = "superuser"
+
+
 def as_enum(enum_cls, value):
     """Coerce a raw string into the given Enum, raising a domain ValidationError on mismatch."""
     try:
