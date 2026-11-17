@@ -23,7 +23,7 @@ The application uses:
 - SQLite
 - Integer money values, stored as the smallest currency unit
 - FastAPI, Uvicorn, Pydantic, bcrypt, and `python-multipart`
-- A single owner account
+- One account per user, each with its own ledger database (see [MULTI_TENANT.md](MULTI_TENANT.md))
 - Bearer-token authentication for protected API endpoints
 
 The SQLite database is created automatically at:
@@ -32,7 +32,8 @@ The SQLite database is created automatically at:
 ~/.monetary_0.5/monetary.db
 ```
 
-The path can be overridden with `MONETARY_DB_PATH`.
+The folder can be overridden with `MONETARY_DATA_DIR`; `MONETARY_DB_PATH` (the single-file setting of
+earlier releases) is still read, see [MULTI_TENANT.md](MULTI_TENANT.md).
 
 Project-facing metadata and runtime names are centralized in
 `backend/monetary/config.py`. This module defines the display name, Python package name,
@@ -486,7 +487,7 @@ Passwords and security answers are stored as bcrypt hashes.
 ### Database
 
 ```bash
-export MONETARY_DB_PATH="$PWD/data/expense.db"
+export MONETARY_DATA_DIR="$PWD/data"
 ```
 
 ### API CORS

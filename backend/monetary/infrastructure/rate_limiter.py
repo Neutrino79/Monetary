@@ -49,3 +49,5 @@ class FixedWindowRateLimiter:
 # by the caller (see presentation/api/deps.py::enforce_auth_rate_limit).
 login_rate_limiter = FixedWindowRateLimiter(max_attempts=10, window_seconds=5 * 60)
 password_reset_rate_limiter = FixedWindowRateLimiter(max_attempts=10, window_seconds=15 * 60)
+# Self-registration is open to anyone, so it is limited per client address: 5 sign-ups per hour.
+register_rate_limiter = FixedWindowRateLimiter(max_attempts=5, window_seconds=60 * 60)

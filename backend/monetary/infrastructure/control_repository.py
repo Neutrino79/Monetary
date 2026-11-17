@@ -174,3 +174,10 @@ def list_audit(conn, *, limit=50, offset=0, target_user_id=None) -> list[dict]:
 
 def count_audit(conn) -> int:
     return conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
+
+
+def begin_immediate(conn) -> None:
+    """Take the write lock now (unless a transaction is already open), so a check followed by an
+    insert cannot interleave with another process doing the same."""
+    if not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")

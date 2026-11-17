@@ -87,6 +87,7 @@ def bootstrap_first_superuser(conn, *, name: str, email: str, password: str, tim
                                home_currency_code: str, security_question_id: int | None = None,
                                security_answer: str | None = None) -> dict:
     """Create the very first account: an active superuser. Refused once any account exists."""
+    crepo.begin_immediate(conn)  # the check and the insert must not race a second setup request
     if users_exist(conn):
         raise ConflictError("Setup has already been completed.")
     return _create_active_superuser(
@@ -281,3 +282,14 @@ def reset_password(conn, *, email: str, security_answer: str, new_password: str)
     crepo.update_user(conn, user["id"], now=utc_now_iso(), password_hash=hash_password(new_password),
                       must_change_password=False)
     crepo.delete_sessions_for_user(conn, user["id"])
+
+
+def update_profile(conn, user_id: int, *, name: str | None = None, timezone: str | None = None) -> dict:
+    """Keep the platform account's display name and timezone in step with the ledger owner row."""
+    changes: dict = {}
+    if name is not None:
+        changes["name"] = _clean_name(name)
+    if timezone is not None:
+        validate_timezone(timezone)
+        changes["timezone"] = timezone
+    return crepo.update_user(conn, user_id, now=utc_now_iso(), **changes)

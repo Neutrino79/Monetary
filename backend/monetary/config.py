@@ -28,18 +28,21 @@ APP_NAME_ENV_VAR = "MONETARY_APP_NAME"
 APP_TAGLINE_ENV_VAR = "MONETARY_APP_TAGLINE"
 SEED_DEFAULTS_ENV_VAR = "MONETARY_SEED_DEFAULTS_PATH"
 DB_ENV_VAR = "MONETARY_DB_PATH"
+DATA_DIR_ENV_VAR = "MONETARY_DATA_DIR"
 CORS_ENV_VAR = "MONETARY_CORS_ORIGINS"
 ENV_ENV_VAR = "MONETARY_ENV"
 DOCS_ENV_VAR = "MONETARY_ENABLE_DOCS"
 DEMO_ENV_VAR = "MONETARY_DEMO_MODE"
 DEMO_RESET_ENV_VAR = "MONETARY_DEMO_RESET"
 
-# The directory name carries the schema generation: the schema has no migrations,
-# so a release with an incompatible schema starts a fresh directory instead of
-# opening an old database.
-DEFAULT_DB_PATH = Path.home() / ".monetary_0.5" / "monetary.db"
-# Demo mode keeps its sample ledger in a separate file next to the real one.
-DEFAULT_DEMO_DB_PATH = DEFAULT_DB_PATH.with_name("demo.db")
+# Everything the service stores lives under one data directory: `control.db` (accounts and logins) and
+# `tenants/` (one ledger database per user). The directory name carries the data generation.
+DEFAULT_DATA_DIR = Path.home() / ".monetary_0.5"
+# Before multi-tenant hosting the whole service was a single ledger file here; it is adopted in place
+# as the first superuser's ledger on first start (see docs/MULTI_TENANT.md).
+DEFAULT_DB_PATH = DEFAULT_DATA_DIR / "monetary.db"
+# Demo mode keeps its control database and sample ledger in a separate directory next to the real one.
+DEFAULT_DEMO_DATA_DIR = DEFAULT_DATA_DIR / "demo"
 
 
 def read_env(name: str) -> str | None:
@@ -73,16 +76,31 @@ def demo_reset_on_start() -> bool:
     return (read_env(DEMO_RESET_ENV_VAR) or "").strip().lower() in ("1", "true", "yes", "on")
 
 
-def database_path_from_environment() -> str | None:
-    """Return the configured database path, or None for the default path.
+def data_dir_from_environment() -> Path:
+    """The directory holding `control.db` and `tenants/`.
 
-    In demo mode the default is the separate demo database, never the real one;
-    an explicit MONETARY_DB_PATH still wins (the demo service refuses to run
-    against a database that holds a real owner)."""
+    MONETARY_DATA_DIR wins. Otherwise, when MONETARY_DB_PATH is set (the single-file setting of earlier
+    releases) its folder is used, so old configurations keep working. Otherwise the default directory;
+    in demo mode a separate `demo/` subdirectory, never the real one."""
+    explicit = read_env(DATA_DIR_ENV_VAR)
+    if explicit and explicit.strip():
+        return Path(explicit.strip()).expanduser()
+    legacy = read_env(DB_ENV_VAR)
+    if legacy and legacy.strip():
+        return Path(legacy.strip()).expanduser().parent
+    return DEFAULT_DEMO_DATA_DIR if demo_mode_enabled() else DEFAULT_DATA_DIR
+
+
+def legacy_db_path_from_environment() -> Path | None:
+    """The single-owner ledger file of an earlier release, to be adopted on first start, or None.
+
+    MONETARY_DB_PATH if set, else `monetary.db` inside the data directory. Never used in demo mode."""
+    if demo_mode_enabled():
+        return None
     explicit = read_env(DB_ENV_VAR)
-    if explicit:
-        return explicit
-    return str(DEFAULT_DEMO_DB_PATH) if demo_mode_enabled() else None
+    if explicit and explicit.strip():
+        return Path(explicit.strip()).expanduser()
+    return data_dir_from_environment() / "monetary.db"
 
 
 def cors_origins_from_environment() -> str:
