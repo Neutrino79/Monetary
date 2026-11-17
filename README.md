@@ -238,9 +238,10 @@ SQLite in WAL mode. The schema is created automatically on first connection by
 `backend/monetary/infrastructure/db.py` (reference copy: [`docs/LIVE_SCHEMA.sql`](docs/LIVE_SCHEMA.sql)), and the
 first `POST /setup/init` seeds the defaults.
 
-> **There is no migration framework.** The schema is edited in place, so a database created by an older
-> release must be deleted and re-created. The default location is `~/.monetary_0.5/monetary.db`; the
-> directory name carries the schema generation. Back up the file before upgrading anything you care about.
+> **Schema versions.** Each database stores its schema version and is upgraded by numbered migrations
+> (`backend/monetary/infrastructure/migrations.py`) when it is opened; a database from an earlier release is
+> adopted as-is. The default location is `~/.monetary_0.5/monetary.db`. Back up the file before upgrading anything
+> you care about.
 
 ## Testing and checks
 

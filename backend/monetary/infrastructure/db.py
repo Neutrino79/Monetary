@@ -6,6 +6,7 @@ import sqlite3
 from pathlib import Path
 
 from monetary.config import DEFAULT_DB_PATH
+from monetary.infrastructure import migrations
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS user (
@@ -114,6 +115,14 @@ CREATE INDEX IF NOT EXISTS idx_session_token_hash     ON session(token_hash);
 """
 
 
+# Schema history of a ledger (tenant) database. Version 1 is the schema as it was before migrations
+# existed; every statement is IF NOT EXISTS, so a database created by an older release (stored version
+# 0) is adopted as-is. Add later changes as new numbered entries; never edit an existing one.
+TENANT_MIGRATIONS: list[migrations.Migration] = [
+    migrations.Migration(1, "baseline ledger schema", sql=SCHEMA),
+]
+
+
 def connect(db_path: str | Path | None = None) -> sqlite3.Connection:
     path = Path(db_path) if db_path else DEFAULT_DB_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -130,6 +139,5 @@ def connect(db_path: str | Path | None = None) -> sqlite3.Connection:
     # is concurrent by nature, unlike the old single-shot CLI process).
     conn.execute("PRAGMA journal_mode = WAL;")
     conn.execute("PRAGMA busy_timeout = 5000;")
-    conn.executescript(SCHEMA)
-    conn.commit()
+    migrations.migrate(conn, TENANT_MIGRATIONS)
     return conn

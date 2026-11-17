@@ -177,7 +177,9 @@ Responsibilities:
 2. Creates the parent directory.
 3. Opens SQLite with row-based results.
 4. Enables foreign keys.
-5. Executes the schema bootstrap.
+5. Applies any pending schema migrations (`infrastructure/migrations.py`). The schema version is stored
+   in `PRAGMA user_version`; a database created before versioning existed is adopted as version 1 without
+   changing its data, and a database newer than the release is refused.
 
 The schema is defined in `backend/monetary/infrastructure/db.py`; `LIVE_SCHEMA.sql` is the
 schema snapshot generated from SQLite's `sqlite_master`.
