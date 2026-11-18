@@ -123,6 +123,8 @@ python -m pip install -r backend/requirements.txt
 export MONETARY_ENV=development MONETARY_CORS_ORIGINS=http://localhost:5173
 cd backend
 python -m uvicorn monetary.presentation.api.app:app --reload --port 8000
+# first account (or skip this and use the setup page in the web app):
+# python -m monetary.cli create-superuser --email you@example.com --name "Your Name"
 
 # 2. Web app -> http://localhost:5173   (second terminal, from the repo root)
 cd web

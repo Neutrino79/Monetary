@@ -172,8 +172,10 @@ def list_audit(conn, *, limit=50, offset=0, target_user_id=None) -> list[dict]:
     return [dict(r) for r in rows.fetchall()]
 
 
-def count_audit(conn) -> int:
-    return conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
+def count_audit(conn, *, target_user_id=None) -> int:
+    if target_user_id is None:
+        return conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]
+    return conn.execute("SELECT COUNT(*) FROM audit_log WHERE target_user_id = ?", (target_user_id,)).fetchone()[0]
 
 
 def begin_immediate(conn) -> None:

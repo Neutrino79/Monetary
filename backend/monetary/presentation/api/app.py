@@ -25,6 +25,7 @@ from monetary.config import (
 from monetary.presentation.api.errors import register_exception_handlers
 from monetary.presentation.api.routers import (
     accounts,
+    admin,
     auth,
     friends,
     meta,
@@ -131,6 +132,7 @@ app.include_router(meta.router)
 app.include_router(setup.router)
 app.include_router(auth.router)
 app.include_router(owner.router)
+app.include_router(admin.router)
 app.include_router(accounts.router)
 app.include_router(friends.router)
 app.include_router(transactions.router)
