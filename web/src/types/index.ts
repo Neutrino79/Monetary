@@ -124,6 +124,20 @@ export interface User {
   updatedAt: string;
 }
 
+/** The signed-in platform account (GET /me): who they are on the service, as opposed to `User`, the owner row of their own ledger. */
+export type AccountRole = "user" | "superuser";
+export type AccountStatus = "pending_approval" | "active" | "rejected" | "suspended" | "pending_delete";
+
+export interface PlatformAccount {
+  id: Id;
+  email: string;
+  name: string;
+  role: AccountRole;
+  status: AccountStatus;
+  mustChangePassword: boolean;
+  hasLedger: boolean;
+}
+
 export interface SecurityQuestion {
   id: number;
   text: string;

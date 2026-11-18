@@ -8,6 +8,8 @@ import { Input, FormField } from "@/components/ui/form";
 import { useToast } from "@/components/ui/Toast";
 import { AuthShell } from "./AuthShell";
 import { useFormError } from "@/lib/hooks/useFormErrors";
+import { accountStateCode, type AccountStateCode } from "@/lib/api/services/authService";
+import { AccountStatusNotice } from "./AccountStatusNotice";
 
 export function LoginPage() {
   const login = useAuthStore((s) => s.login);
@@ -21,16 +23,20 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useFormError([email, password]);
   const [loading, setLoading] = useState(false);
+  const [accountState, setAccountState] = useState<AccountStateCode | null>(null);
 
   async function submit() {
     setError("");
+    setAccountState(null);
     setLoading(true);
     try {
       await login(email, password);
       toast.show("Welcome back!", { variant: "success" });
       navigate("/dashboard");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      const state = accountStateCode(e);
+      if (state) setAccountState(state);
+      else setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setLoading(false);
     }
@@ -49,7 +55,7 @@ export function LoginPage() {
     }
   }
 
-  // Single-owner app: until the owner exists, the only thing to do is first-run setup.
+  // Until the first account exists, the only thing to do is first-run setup.
   if (setup.data === false) return <Navigate to="/signup" replace />;
 
   // Demo mode: no sign-in form at all, just a welcome and one button.
@@ -71,6 +77,14 @@ export function LoginPage() {
         <Button block onClick={enterDemo} disabled={loading}>
           {loading ? "Opening the demo…" : "Start the demo"}
         </Button>
+      </AuthShell>
+    );
+  }
+
+  if (accountState) {
+    return (
+      <AuthShell>
+        <AccountStatusNotice code={accountState} onBack={() => { setAccountState(null); setPassword(""); }} />
       </AuthShell>
     );
   }
@@ -106,6 +120,12 @@ export function LoginPage() {
       <Button block onClick={submit} disabled={loading}>
         {loading ? "Signing in…" : "Sign in"}
       </Button>
+      <p className="mt-5 text-center text-[12.8px] text-ink-faint">
+        New here?{" "}
+        <Link to="/signup" className="font-medium text-ink hover:underline">
+          Request an account
+        </Link>
+      </p>
     </AuthShell>
   );
 }

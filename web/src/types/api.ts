@@ -8,6 +8,17 @@ export interface MoneyDto {
   currency: string;
 }
 
+/** Sign-up request (POST /auth/register): an administrator approves it before the account can sign in. */
+export interface RegisterInput {
+  name: string;
+  email: string;
+  password: string;
+  timezone: string;
+  homeCurrencyCode: string;
+  securityQuestionId: number;
+  securityAnswer: string;
+}
+
 export interface PageDto<T> {
   items: T[];
   total: number;

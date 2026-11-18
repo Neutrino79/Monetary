@@ -2,6 +2,7 @@ import { Navigate, Outlet } from "react-router-dom";
 import { useAuthStore } from "@/store/authStore";
 import { useBranding } from "@/hooks/queries";
 import { Button } from "@/components/ui/Button";
+import { PasswordChangeRequiredPage } from "@/pages/auth/PasswordChangeRequiredPage";
 
 function HydratingScreen() {
   const { name } = useBranding();
@@ -29,10 +30,12 @@ function UnreachableScreen({ message, onRetry }: { message: string; onRetry: () 
 }
 
 export function ProtectedRoute() {
-  const { isHydrating, isAuthenticated, hydrateError, hydrate } = useAuthStore();
+  const { isHydrating, isAuthenticated, hydrateError, hydrate, account } = useAuthStore();
   if (isHydrating) return <HydratingScreen />;
   if (hydrateError) return <UnreachableScreen message={hydrateError} onRetry={hydrate} />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
+  // A temporary password (set by an administrator) must be replaced before anything else is reachable.
+  if (account?.mustChangePassword) return <PasswordChangeRequiredPage />;
   return <Outlet />;
 }
 
