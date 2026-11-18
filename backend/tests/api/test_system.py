@@ -10,6 +10,7 @@ PUBLIC = {
     ("GET", f"{API}/auth/security-questions"), ("GET", f"{API}/auth/security-question"),
     ("POST", f"{API}/auth/reset-password"), ("GET", "/health"), ("GET", "/"),
     ("GET", f"{API}/meta"), ("GET", f"{API}/setup/status"),
+    ("POST", f"{API}/auth/register"),  # public sign-up request
     ("POST", f"{API}/auth/demo"),  # 404 unless MONETARY_DEMO_MODE is on
 }
 

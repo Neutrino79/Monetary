@@ -46,11 +46,11 @@ fi
 
 if [ "$MODE" = "live" ]; then
   echo "==> Booting a real server and exercising it over HTTP"
-  DB="$(mktemp -u).db"
-  MONETARY_DB_PATH="$DB" MONETARY_ENV=production \
+  DATA="$(mktemp -d)"
+  MONETARY_DATA_DIR="$DATA" MONETARY_ENV=production \
     uvicorn monetary.presentation.api.app:app --port 8931 --log-level warning &
   SERVER_PID=$!
-  trap 'kill $SERVER_PID 2>/dev/null || true; rm -f "$DB" "$DB-wal" "$DB-shm"' EXIT
+  trap 'kill $SERVER_PID 2>/dev/null || true; rm -rf "$DATA"' EXIT
   for _ in $(seq 1 20); do
     curl -s -o /dev/null http://127.0.0.1:8931/health && break
     sleep 0.25

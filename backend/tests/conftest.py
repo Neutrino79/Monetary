@@ -16,6 +16,7 @@ from monetary.infrastructure import db as db_module  # noqa: E402
 from monetary.infrastructure.rate_limiter import (  # noqa: E402
     login_rate_limiter,
     password_reset_rate_limiter,
+    register_rate_limiter,
 )
 from tests.support import sample_data  # noqa: E402
 from tests.support.helpers import Api, World, assert_ledger_invariants  # noqa: E402
@@ -39,10 +40,10 @@ def _fast_bcrypt(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limiters():
-    for lim in (login_rate_limiter, password_reset_rate_limiter):
+    for lim in (login_rate_limiter, password_reset_rate_limiter, register_rate_limiter):
         lim._hits.clear()
     yield
-    for lim in (login_rate_limiter, password_reset_rate_limiter):
+    for lim in (login_rate_limiter, password_reset_rate_limiter, register_rate_limiter):
         lim._hits.clear()
 
 
@@ -54,6 +55,23 @@ def db_path(tmp_path, monkeypatch):
 
 
 @pytest.fixture()
+def data_dir(tmp_path):
+    """A fresh data directory (control database + tenant ledgers) for multi-tenant tests."""
+    path = tmp_path / "data"
+    path.mkdir()
+    return path
+
+
+@pytest.fixture()
+def control(data_dir):
+    """A connection to a fresh control database."""
+    from monetary.infrastructure import control_db
+    c = control_db.connect_control(data_dir)
+    yield c
+    c.close()
+
+
+@pytest.fixture()
 def conn(db_path):
     """A raw connection to a fresh DB, for service/repository-level tests."""
     c = db_module.connect(db_path)
@@ -62,10 +80,19 @@ def conn(db_path):
 
 
 @pytest.fixture()
-def client(db_path):
+def api_data_dir(data_dir, monkeypatch):
+    """The data directory the API under test reads (MONETARY_DATA_DIR), fresh for every test."""
+    from monetary.presentation.api import deps
+    monkeypatch.setenv("MONETARY_DATA_DIR", str(data_dir))
+    deps._prepared_data_dirs.discard(str(data_dir))
+    return data_dir
+
+
+@pytest.fixture()
+def client(api_data_dir):
     from monetary.presentation.api.app import app
     yield TestClient(app)
-    assert_ledger_invariants(db_path)  # every API test also validates the ledger
+    assert_ledger_invariants(api_data_dir)  # every API test also validates every ledger
 
 
 @pytest.fixture()

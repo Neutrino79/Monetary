@@ -38,7 +38,7 @@ export default async function setup() {
     cwd: resolve(__dirname, '../../../../backend'), // the backend package root
     env: {
       ...process.env,
-      MONETARY_DB_PATH: join(dir, 'integration.db'),
+      MONETARY_DATA_DIR: dir,
       MONETARY_ENV: 'development',
       MONETARY_CORS_ORIGINS: '*',
       MONETARY_APP_NAME: 'Monetary',

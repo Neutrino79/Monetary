@@ -12,15 +12,17 @@ misconfigured MONETARY_DB_PATH can never be filled with sample data or opened wi
 from __future__ import annotations
 
 import random
-import secrets
 from decimal import Decimal
 from pathlib import Path
 from datetime import date, timedelta
 
-from monetary.application import account_service, seed_service, split_service, transaction_service
+from monetary.application import account_service, identity_service, provisioning, split_service
+from monetary.application import transaction_service
 from monetary.application import settlement_service, transfer_service, user_service
+from monetary.domain.enums import PlatformRole, UserStatus
 from monetary.domain.exceptions import ConflictError
-from monetary.infrastructure import repositories as repo
+from monetary.domain.time_utils import utc_now_iso
+from monetary.infrastructure import control_repository as crepo
 
 DEMO_OWNER_EMAIL = "demo@example.com"
 DEMO_OWNER_NAME = "Demo User"
@@ -89,65 +91,67 @@ def _find(items: list[dict], name: str) -> dict:
     return next(i for i in items if i["name"] == name)
 
 
-def is_demo_database(conn) -> bool:
-    owner = repo.get_superuser(conn)
-    return owner is not None and owner["email"] == DEMO_OWNER_EMAIL
+def ensure_demo_account(control, data_dir: str | Path) -> dict:
+    """Return the demo account, creating it and its sample ledger when the data directory is empty.
 
-
-def ensure_demo_ledger(conn) -> dict:
-    """Return the demo owner, creating the sample ledger when the database is empty.
-
-    Raises ConflictError when the database already holds a different (real) owner."""
-    owner = repo.get_superuser(conn)
-    if owner is not None:
-        if owner["email"] != DEMO_OWNER_EMAIL:
-            raise ConflictError(
-                "Demo mode is on but this database belongs to a real owner; refusing to use it. "
-                "Unset MONETARY_DEMO_MODE or point MONETARY_DB_PATH at an empty demo database.")
-        return owner
-    return _build(conn)
-
-
-def reset_demo_database(db_path: str | Path) -> None:
-    """Delete the demo database files so the next `ensure_demo_ledger` rebuilds fresh sample data.
-
-    Only ever removes a database that is empty or owned by the demo owner; a real database raises
-    ConflictError and is left untouched."""
-    from monetary.infrastructure import db
-
-    path = Path(db_path)
-    if not path.exists():
-        return
-    conn = db.connect(path)
+    The demo account has no password (it is entered through /auth/demo). Raises ConflictError when the
+    control database already holds a real account, so a misconfigured MONETARY_DATA_DIR can never be
+    filled with sample data or opened without a password."""
+    existing = crepo.get_user_by_email(control, DEMO_OWNER_EMAIL)
+    if existing is not None:
+        return existing
+    if crepo.count_users(control) > 0:
+        raise ConflictError(
+            "Demo mode is on but this data directory holds real accounts; refusing to use it. "
+            "Unset MONETARY_DEMO_MODE or point MONETARY_DATA_DIR at an empty directory.")
+    now = utc_now_iso()
+    account = crepo.create_user(
+        control, email=DEMO_OWNER_EMAIL, name=DEMO_OWNER_NAME, password_hash=None,
+        security_question_id=None, security_answer_hash=None, role=PlatformRole.USER.value,
+        status=UserStatus.ACTIVE.value, timezone=DEMO_TIMEZONE, home_currency_code=DEMO_CURRENCY,
+        approved_at=now, now=now)
+    provisioning.provision_ledger(control, data_dir, account["id"], seed_defaults=True)
+    ledger = provisioning.open_ledger(control, data_dir, account["id"])
     try:
-        owner = repo.get_superuser(conn) if _has_user_table(conn) else None
-        if owner is not None and owner["email"] != DEMO_OWNER_EMAIL:
-            raise ConflictError(
-                "Refusing to reset: this database belongs to a real owner, not the demo owner.")
+        _build(ledger, user_service.require_owner(ledger))
+        ledger.commit()
     finally:
-        conn.close()
+        ledger.close()
+    return account
+
+
+def reset_demo_data(data_dir: str | Path) -> None:
+    """Delete the demo control database and ledgers so the next `ensure_demo_account` rebuilds them.
+
+    Only ever removes a data directory that is empty or holds nothing but the demo account; a real
+    one raises ConflictError and is left untouched."""
+    from monetary.infrastructure import control_db, tenant_store
+
+    directory = Path(data_dir)
+    control_file = directory / control_db.CONTROL_DB_FILENAME
+    if not control_file.exists():
+        return
+    control = control_db.connect_control(directory)
+    try:
+        emails = {u["email"] for u in crepo.list_users(control)}
+    finally:
+        control.close()
+    if emails - {DEMO_OWNER_EMAIL}:
+        raise ConflictError("Refusing to reset: this data directory holds real accounts, not just the demo.")
     for suffix in ("", "-wal", "-shm"):
-        Path(str(path) + suffix).unlink(missing_ok=True)
+        Path(str(control_file) + suffix).unlink(missing_ok=True)
+    tenants = tenant_store.tenants_dir(directory)
+    for leftover in tenants.glob("*"):
+        leftover.unlink(missing_ok=True)
 
 
-def _has_user_table(conn) -> bool:
-    return conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='user'").fetchone() is not None
+def start_demo_session(control, data_dir: str | Path) -> tuple[dict, str]:
+    """Create (if needed) the demo account and ledger and open a session for it."""
+    account = ensure_demo_account(control, data_dir)
+    return account, identity_service.start_session(control, account)
 
 
-def start_demo_session(conn) -> tuple[dict, str]:
-    """Create (if needed) the demo ledger and open a session for its owner."""
-    owner = ensure_demo_ledger(conn)
-    return owner, user_service.start_session(conn, owner)
-
-
-def _build(conn) -> dict:
-    # The owner's password is random and never shown: the demo is entered through /auth/demo.
-    owner = user_service.bootstrap_owner(
-        conn, name=DEMO_OWNER_NAME, email=DEMO_OWNER_EMAIL, timezone=DEMO_TIMEZONE,
-        home_currency_code=DEMO_CURRENCY, password=secrets.token_urlsafe(24),
-        security_question_id=1, security_answer=secrets.token_urlsafe(12))
-    seed_service.seed_default_categories(conn, currency_code=DEMO_CURRENCY)
-
+def _build(conn, owner: dict) -> None:
     def account(name, subtype, opening, **extra):
         return account_service.create_account_with_opening_balance(
             conn, owner, name=name, account_type="ASSET", currency_code=DEMO_CURRENCY, subtype=subtype,
@@ -236,4 +240,3 @@ def _build(conn) -> dict:
         settlement_service.create_settlement(
             conn, owner, friend_id=friend["id"], account_id=bank["id"], amount_major=amount,
             description=note, date_str=_day(days_ago))
-    return repo.get_superuser(conn)

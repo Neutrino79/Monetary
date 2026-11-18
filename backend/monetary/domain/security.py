@@ -13,6 +13,7 @@ import bcrypt
 
 SESSION_TOKEN_PREFIX = "ets_"  # "expense tracker session"
 SESSION_TTL_HOURS = 24 * 7  # one week
+SUPERUSER_SESSION_TTL_HOURS = 24  # administrators sign in again every day
 
 # Fixed list of security questions -- a signup/reset UI renders these by id.
 SECURITY_QUESTIONS: dict[int, str] = {
@@ -61,3 +62,13 @@ def generate_session_token() -> str:
 
 def hash_session_token(plaintext_token: str) -> str:
     return hashlib.sha256(plaintext_token.encode("utf-8")).hexdigest()
+
+
+TEMP_PASSWORD_LENGTH = 16
+# No look-alike characters (0/O, 1/l/I) so a temporary password can be read out or retyped reliably.
+_TEMP_PASSWORD_ALPHABET = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"  # pragma: allowlist secret
+
+
+def generate_temporary_password() -> str:
+    """A random one-time password for an account a superuser created or reset."""
+    return "".join(secrets.choice(_TEMP_PASSWORD_ALPHABET) for _ in range(TEMP_PASSWORD_LENGTH))

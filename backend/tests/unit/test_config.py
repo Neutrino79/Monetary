@@ -16,7 +16,8 @@ def test_defaults_are_safe(monkeypatch):
     assert config.environment_name() == "production"
     assert config.docs_enabled_from_environment() is False
     assert config.cors_origins_from_environment() == ""
-    assert config.database_path_from_environment() is None
+    assert config.data_dir_from_environment() == config.DEFAULT_DATA_DIR
+    assert config.legacy_db_path_from_environment() == config.DEFAULT_DB_PATH
 
 
 @pytest.mark.parametrize("env,override,expected", [
@@ -45,3 +46,13 @@ def test_every_variable_is_monetary_prefixed():
 
 def test_default_database_path():
     assert config.DEFAULT_DB_PATH.parts[-2:] == (".monetary_0.5", "monetary.db")
+
+
+def test_data_dir_precedence(monkeypatch, tmp_path):
+    monkeypatch.setenv("MONETARY_DB_PATH", str(tmp_path / "old" / "m.db"))
+    assert config.data_dir_from_environment() == tmp_path / "old"  # an old single-file setting still works
+    assert config.legacy_db_path_from_environment() == tmp_path / "old" / "m.db"
+    monkeypatch.setenv("MONETARY_DATA_DIR", str(tmp_path / "data"))
+    assert config.data_dir_from_environment() == tmp_path / "data"  # the new setting wins
+    monkeypatch.setenv("MONETARY_DEMO_MODE", "true")
+    assert config.legacy_db_path_from_environment() is None  # demo never adopts a real ledger

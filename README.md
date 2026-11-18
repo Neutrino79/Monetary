@@ -158,17 +158,17 @@ Then open <http://localhost:5173>. In demo mode the sign-in page is just a welco
 demo** button (there is no email/password form). You land on a dashboard with four accounts, a full year of
 transactions, two friends, splits and settlements; a banner at the top reminds you it is demo data.
 
-**Fresh or kept?** The sample data lives in its own file, `~/.monetary_0.5/demo.db`, never in your real
+**Fresh or kept?** The sample data lives in its own file, `~/.monetary_0.5/demo/`, never in your real
 `monetary.db`.
 
-| You run | What happens to `demo.db` |
+| You run | What happens to the demo data |
 |---|---|
 | `./scripts/dev.sh demo` (task **Dev: demo (reset demo DB)**) | Rebuilt from scratch on every start, so the data is clean and the dates are relative to *today* |
 | `./scripts/dev.sh demo --keep` (task **Dev: demo (keep demo DB)**) | Reused if it exists (created on the first run), so your edits survive restarts |
 
 Without `dev.sh` (for example `uvicorn` or Docker), set `MONETARY_DEMO_MODE=true` yourself. The sample
 ledger is created the first time the server starts and **reused afterwards**; add `MONETARY_DEMO_RESET=true`
-to rebuild it at every start, or delete `demo.db` to reset it by hand.
+to rebuild it at every start, or delete the `demo/` folder to reset it by hand.
 
 **How it works and what it protects.** The server generates the sample ledger through its normal services
 (no database file is committed). `POST /auth/demo` signs you in without a password and exists only in demo
@@ -222,8 +222,9 @@ template in [`backend/.env.example`](backend/.env.example) -- the app does not l
 |---|---|---|
 | `MONETARY_ENV` | `production` | `production` or `development`. Production hides API docs and sends HSTS + security headers |
 | `MONETARY_CORS_ORIGINS` | *(empty -- no origins)* | Comma-separated browser origins allowed to call the API; `*` allows all but disables credentials |
-| `MONETARY_DB_PATH` | `~/.monetary_0.5/monetary.db` | SQLite file path |
-| `MONETARY_DEMO_MODE` | `false` | `true` serves a generated sample ledger from a separate `demo.db` and adds a no-credentials `POST /auth/demo`; see [Demo mode](#demo-mode) |
+| `MONETARY_DATA_DIR` | `~/.monetary_0.5` | Folder holding `control.db` (accounts) and `tenants/` (one SQLite ledger per user) |
+| `MONETARY_DB_PATH` | *(unset)* | Ledger file of an earlier release; adopted in place as the first superuser's ledger. Its folder is the data directory when `MONETARY_DATA_DIR` is unset |
+| `MONETARY_DEMO_MODE` | `false` | `true` serves a generated sample ledger from a separate `demo/` data folder and adds a no-credentials `POST /auth/demo`; see [Demo mode](#demo-mode) |
 | `MONETARY_DEMO_RESET` | `false` | With demo mode on, `true` rebuilds the sample ledger at every start (only ever deletes a demo database) |
 | `MONETARY_ENABLE_DOCS` | *(follows `MONETARY_ENV`)* | `true`/`false` forces `/docs`, `/redoc`, `/openapi.json` on or off |
 | `MONETARY_APP_NAME` | `Monetary` | Product name served by `GET /meta` and shown by the web app |
