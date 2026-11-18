@@ -9,7 +9,7 @@ import { Input, Select, FormField } from "@/components/ui/form";
 import { timezoneOptions } from "@/config/timezones";
 import { appConfig } from "@/config/app";
 import { LogoMark } from "@/components/ui/LogoMark";
-import { useBranding } from "@/hooks/queries";
+import { useBranding, useDemoMode } from "@/hooks/queries";
 import { authService } from "@/lib/api/services/authService";
 import { currencySymbol } from "@/lib/utils/format";
 import type { LedgerMode } from "@/types";
@@ -96,6 +96,7 @@ export function SettingsPage() {
           </Card>
 
           <ChangePasswordCard />
+          <ExportCard />
 
           <Card>
             <div className="mb-1 text-[14.5px] font-semibold">Ledger mode</div>
@@ -206,6 +207,36 @@ function ChangePasswordCard() {
       <div className="mt-4">
         <Button onClick={submit} disabled={saving}>{saving ? "Saving…" : "Change password"}</Button>
       </div>
+    </Card>
+  );
+}
+
+/** Every user can take their own data with them: a SQLite file of their ledger, without any credentials in it. */
+function ExportCard() {
+  const toast = useToast();
+  const { isDemo } = useDemoMode();
+  const [busy, setBusy] = useState(false);
+  if (isDemo) return null; // the demo ledger is shared sample data
+  async function download() {
+    setBusy(true);
+    try {
+      const name = await authService.downloadMyData();
+      toast.show(`Saved ${name}`, { variant: "success" });
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : "Something went wrong.", { variant: "error" });
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Card>
+      <h3 className="mb-1 text-[15px] font-semibold">Your data</h3>
+      <p className="mb-4 text-[12.8px] text-ink-faint">
+        Download your whole ledger as one SQLite file. It contains your transactions, accounts and friends, never your password.
+      </p>
+      <Button variant="secondary" onClick={download} disabled={busy}>
+        {busy ? "Preparing…" : "Download my data"}
+      </Button>
     </Card>
   );
 }

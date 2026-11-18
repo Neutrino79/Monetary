@@ -15,7 +15,7 @@ import os
 import sys
 from typing import Sequence
 
-from monetary.application import admin_service, identity_service, provisioning
+from monetary.application import admin_service, identity_service, operations, provisioning
 from monetary.config import data_dir_from_environment
 from monetary.domain.exceptions import DomainError
 from monetary.infrastructure import control_db, control_repository as crepo
@@ -78,6 +78,39 @@ def _cmd_migrate_all(control, data_dir, args) -> int:
     return 0
 
 
+def _cmd_purge(control, data_dir, args) -> int:
+    """Housekeeping: finish deletions whose 30-day grace is over, drop stale sign-up requests and
+    leftover files. Safe to run daily (cron or a systemd timer)."""
+    stale = identity_service.purge_stale_requests(control)
+    result = operations.purge_due_accounts(control, data_dir)
+    if args.dry_run:
+        control.rollback()
+        print(f"Would purge {len(result.purged_emails)} account(s): {', '.join(result.purged_emails) or '-'}")
+        print(f"Would remove {len(result.files_to_delete)} ledger file(s) and {stale} stale request(s).")
+        return 0
+    control.commit()  # forget the accounts first; only then delete their files
+    removed = operations.delete_files(result.files_to_delete)
+    orphans = operations.remove_orphan_files(control, data_dir)
+    print(f"Purged {len(result.purged_emails)} account(s), removed {removed} ledger file(s), "
+          f"{stale} stale request(s) and {len(orphans)} orphan file(s).")
+    for kept in result.kept_files:
+        print(f"Kept adopted ledger file outside the data directory (delete it by hand if intended): {kept}")
+    return 0
+
+
+def _cmd_backup(control, data_dir, args) -> int:
+    summary = operations.backup_all(control, data_dir, args.to)
+    print(f"Backed up the control database and {summary['ledgers']} ledger(s) to {summary['destination']}.")
+    print("Restore by copying control.db and tenants/ into an empty data directory.")
+    return 0
+
+
+def _cmd_usage(control, data_dir, args) -> int:
+    u = operations.usage(control, data_dir)
+    print(f"{u['ledger_count']} ledger(s), {u['ledger_bytes'] / 1024 / 1024:.2f} MiB on disk")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="python -m monetary.cli", description=__doc__.split("\n\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
@@ -98,6 +131,17 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("reset-password", help="issue a temporary password for an account")
     p.add_argument("--email", required=True)
     p.set_defaults(func=_cmd_reset_password)
+
+    p = sub.add_parser("purge", help="finish due deletions and clear stale requests and leftover files")
+    p.add_argument("--dry-run", action="store_true", help="show what would happen and change nothing")
+    p.set_defaults(func=_cmd_purge)
+
+    p = sub.add_parser("backup", help="copy the control database and every ledger to a folder")
+    p.add_argument("--to", required=True, help="destination folder (created if needed)")
+    p.set_defaults(func=_cmd_backup)
+
+    p = sub.add_parser("usage", help="how many ledgers exist and how much disk they use")
+    p.set_defaults(func=_cmd_usage)
 
     p = sub.add_parser("migrate-all", help="upgrade every ledger database to the latest schema")
     p.set_defaults(func=_cmd_migrate_all)

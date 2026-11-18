@@ -177,3 +177,26 @@ def test_register_requires_valid_input_and_is_rate_limited(client):
 @pytest.mark.parametrize("path", ["/me", "/owner", "/accounts"])
 def test_endpoints_need_a_session(client, path):
     assert client.get(API + path).status_code == 401
+
+
+def test_users_can_download_only_their_own_data(client, api_data_dir):
+    owner = {"Authorization": f"Bearer {client.post(f'{API}/setup/init', json=OWNER).json()['accessToken']}"}
+    client.post(f"{API}/auth/register", json=NEWCOMER)
+    _approve(api_data_dir, NEWCOMER["email"])
+    ravi = _bearer(_login(client, NEWCOMER["email"], NEWCOMER["password"]))
+    client.post(f"{API}/accounts", headers=ravi, json={"name": "Ravi Bank", "type": "ASSET", "currency": "INR"})
+
+    assert client.get(f"{API}/me/export").status_code == 401
+    r = client.get(f"{API}/me/export", headers=ravi)
+    assert r.status_code == 200 and r.headers["content-type"] == "application/vnd.sqlite3"
+    assert 'filename="ledger-' in r.headers["content-disposition"]
+    assert r.content.startswith(b"SQLite format 3")
+    assert b"Ravi Bank" in r.content and OWNER["email"].encode() not in r.content  # theirs, and only theirs
+    assert b"$2b$" not in r.content  # no password hashes
+    assert client.get(f"{API}/me/export", headers=owner).status_code == 200
+
+
+def test_export_is_disabled_in_demo_mode(client, monkeypatch):
+    token = client.post(f"{API}/setup/init", json=OWNER).json()["accessToken"]
+    monkeypatch.setenv("MONETARY_DEMO_MODE", "true")
+    assert client.get(f"{API}/me/export", headers={"Authorization": f"Bearer {token}"}).status_code == 403

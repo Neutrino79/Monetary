@@ -28,13 +28,14 @@ export function AdminOverviewPage() {
         </Card>
       )}
 
-      <div className="grid grid-cols-5 gap-4 max-[980px]:grid-cols-2">
+      <div className="grid grid-cols-3 gap-4 max-[980px]:grid-cols-2">
         {[
           ["Total accounts", s.totalUsers],
           ["Active", s.byStatus.active ?? 0],
           ["Pending approval", s.pendingApproval],
           ["Suspended", s.byStatus.suspended ?? 0],
           ["Superusers", s.activeSuperusers],
+          ["Ledger storage", `${s.ledgerCount} · ${(s.ledgerBytes / 1024 / 1024).toFixed(1)} MB`],
         ].map(([label, value]) => (
           <Card key={label} className="p-4">
             <div className="text-[12px] text-ink-faint">{label}</div>

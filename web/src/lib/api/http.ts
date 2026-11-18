@@ -17,6 +17,8 @@ interface RequestOptions {
   form?: Record<string, string>;
   query?: Record<string, QueryValue>;
   signal?: AbortSignal;
+  /** Return the response body as a file instead of JSON. */
+  asBlob?: boolean;
   /** Don't treat a 401 as "session expired" (e.g. wrong password on the login form). */
   skipUnauthorizedHandler?: boolean;
 }
@@ -72,6 +74,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       if (res.status === 401 && token && !options.skipUnauthorizedHandler) onUnauthorized?.();
       throw apiErrorFromBody(res.status, res.statusText, parsed);
     }
+    if (options.asBlob) {
+      const named = /filename="?([^";]+)"?/.exec(res.headers.get("Content-Disposition") ?? "");
+      return { blob: await res.blob(), filename: named?.[1] ?? "download" } as T;
+    }
     if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
   } catch (err) {
@@ -90,6 +96,8 @@ export const http = {
   post: <T>(path: string, body?: unknown, opts?: Pick<RequestOptions, "query" | "signal">) => request<T>(path, { method: "POST", body, ...opts }),
   postForm: <T>(path: string, form: Record<string, string>, opts?: Pick<RequestOptions, "skipUnauthorizedHandler">) =>
     request<T>(path, { method: "POST", form, ...opts }),
+  /** A file download (the signed-in user's own data). */
+  download: (path: string) => request<{ blob: Blob; filename: string }>(path, { asBlob: true }),
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body }),
   delete: <T>(path: string, query?: Record<string, QueryValue>) => request<T>(path, { method: "DELETE", query }),

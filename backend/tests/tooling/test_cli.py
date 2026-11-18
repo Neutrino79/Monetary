@@ -62,3 +62,37 @@ def test_list_reset_and_migrate(env, monkeypatch, capsys):
     assert cli.main(["reset-password", "--email", "nobody@example.com"]) == 1
     assert cli.main(["migrate-all"]) == 0
     assert "1 ledger(s) are up to date" in capsys.readouterr().out
+
+
+def test_purge_backup_and_usage(env, monkeypatch, capsys, tmp_path):
+    from monetary.application import admin_service
+
+    _create(monkeypatch)
+    control = control_db.connect_control(env)
+    user, _ = admin_service.create_user(control, env, {"id": None}, name="Ravi", email="ravi@example.com",
+                                        timezone="UTC", home_currency_code="INR")
+    admin_service.delete(control, {"id": None}, user["id"])
+    crepo.update_user(control, user["id"], now="2020-01-01T00:00:00+00:00", delete_after="2020-01-01T00:00:00+00:00")
+    control.commit()
+    control.close()
+    capsys.readouterr()
+
+    assert cli.main(["usage"]) == 0
+    assert "2 ledger(s)" in capsys.readouterr().out
+    assert cli.main(["backup", "--to", str(tmp_path / "bk")]) == 0
+    assert "2 ledger(s)" in capsys.readouterr().out
+    assert (tmp_path / "bk" / "control.db").exists()
+
+    assert cli.main(["purge", "--dry-run"]) == 0
+    assert "Would purge 1 account(s): ravi@example.com" in capsys.readouterr().out
+    control = control_db.connect_control(env)
+    assert crepo.get_user_by_email(control, "ravi@example.com") is not None  # a dry run changes nothing
+    control.close()
+
+    assert cli.main(["purge"]) == 0
+    assert "Purged 1 account(s)" in capsys.readouterr().out
+    control = control_db.connect_control(env)
+    assert crepo.get_user_by_email(control, "ravi@example.com") is None
+    control.close()
+    assert cli.main(["usage"]) == 0
+    assert "1 ledger(s)" in capsys.readouterr().out

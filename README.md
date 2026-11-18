@@ -244,7 +244,9 @@ first `POST /setup/init` seeds the defaults.
 > **Schema versions.** Each database stores its schema version and is upgraded by numbered migrations
 > (`backend/monetary/infrastructure/migrations.py`) when it is opened; a database from an earlier release is
 > adopted as-is. The default location is `~/.monetary_0.5/monetary.db`. Back up the file before upgrading anything
-> you care about.
+> you care about. To back everything up while the service runs, use
+> `python -m monetary.cli backup --to <folder>` from `backend/` (see "Administration" in
+> [`docs/API.md`](docs/API.md)); every user can also download their own ledger from Settings.
 
 ## Testing and checks
 
