@@ -1,7 +1,7 @@
 # Multi-tenant design: one database per user
 
-Status: **design for review**. Nothing in this document is implemented until the PRs listed in
-[section 14](#14-implementation-plan) land on the `feat/multi-tenant` integration branch.
+Status: **implemented** on the `feat/multi-tenant` integration branch (see [section 14](#14-implementation-plan)).
+The authoritative control schema is [`CONTROL_SCHEMA.sql`](CONTROL_SCHEMA.sql); the SQL below is a summary.
 
 ## 1. Goal and scope
 
@@ -58,7 +58,9 @@ new code adds:
 - `infrastructure/control_db.py` and `control_repository.py`: control schema and its SQL.
 - `infrastructure/migrations.py`: the versioned migration runner, shared by both kinds of database.
 - `infrastructure/tenant_store.py`: resolves a user's database path, opens it, provisions new ones.
-- `application/account_service.py`: registration, login, sessions, states, roles, password handling.
+- `application/identity_service.py`: registration, login, sessions, states, roles, password handling
+  (`account_service.py` is the ledger-account service and is unrelated).
+- `application/provisioning.py`, `operations.py`: creating and opening ledgers; purge, backup, export, usage.
 - `application/admin_service.py`: superuser actions, each writing an audit-log row.
 - `presentation/api/routers/admin.py` and the `/auth` and `/setup` changes.
 
@@ -101,7 +103,7 @@ CREATE TABLE user (
     delete_after          TEXT,                            -- set while status = pending_delete
     last_login_at         TEXT,
     approved_at           TEXT,
-    approved_by           INTEGER REFERENCES user(id),
+    approved_by           INTEGER REFERENCES user(id) ON DELETE SET NULL,
     created_at            TEXT NOT NULL,
     updated_at            TEXT NOT NULL
 );
@@ -115,15 +117,15 @@ CREATE TABLE workspace (
 );
 
 CREATE TABLE membership (
-    workspace_id    INTEGER NOT NULL REFERENCES workspace(id),
-    user_id         INTEGER NOT NULL REFERENCES user(id),
+    workspace_id    INTEGER NOT NULL REFERENCES workspace(id) ON DELETE CASCADE,
+    user_id         INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
     role            TEXT NOT NULL DEFAULT 'owner',         -- only 'owner' for now
     PRIMARY KEY (workspace_id, user_id)
 );
 
 CREATE TABLE session (
     id           INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id      INTEGER NOT NULL REFERENCES user(id),
+    user_id      INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
     token_hash   TEXT NOT NULL UNIQUE,                     -- the raw token is never stored
     created_at   TEXT NOT NULL,
     expires_at   TEXT NOT NULL
@@ -132,9 +134,9 @@ CREATE TABLE session (
 CREATE TABLE audit_log (                                   -- append-only: no UPDATE or DELETE code paths
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     at               TEXT NOT NULL,
-    actor_user_id    INTEGER REFERENCES user(id),          -- NULL for system or pre-login events
+    actor_user_id    INTEGER REFERENCES user(id) ON DELETE SET NULL,          -- NULL for system or pre-login events
     action           TEXT NOT NULL,                        -- e.g. 'user.approve', 'user.suspend'
-    target_user_id   INTEGER REFERENCES user(id),
+    target_user_id   INTEGER REFERENCES user(id) ON DELETE SET NULL,
     detail           TEXT,                                 -- small JSON object, never secrets
     ip               TEXT
 );
@@ -350,7 +352,7 @@ Each item is a PR into `feat/multi-tenant`, with tests in the matching layer. Th
    mode on the new model.
 4. **Admin API, CLI and audit log**, including last-superuser protection and the cleanup of expired requests.
 5. **Web app**: sign-up and status screens, forced password change, Admin button and dashboard.
-6. **Operations**: backup, user data export, purge of deleted accounts, usage figures, final documentation sync and
+6. **Operations** (done): backup, user data export, purge of deleted accounts, usage figures, final documentation sync and
    full test runs (backend, web, integration).
 
 ## 15. Later (designed for, not built)
