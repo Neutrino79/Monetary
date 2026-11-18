@@ -36,7 +36,7 @@ jobs:
           TITLE: ${{ github.event.pull_request.title }}
       # Dependabot / release-please write their own descriptions and commits.
       - name: PR description
-        if: github.actor != 'dependabot[bot]' && !startsWith(github.event.pull_request.head.ref, 'release-please--')
+        if: github.event.pull_request.user.login != 'dependabot[bot]' && !startsWith(github.event.pull_request.head.ref, 'release-please--')
         run: |
           printf '%s' "$BODY" > "$RUNNER_TEMP/pr-body.md"
           python scripts/commit_lint.py body "$RUNNER_TEMP/pr-body.md"
@@ -46,7 +46,7 @@ jobs:
       # and a stacked PR retargeted after its parent was squashed would otherwise be blocked by old commits.
       # The commit-msg hook is the strict, local gate.
       - name: Commit messages (advisory)
-        if: github.actor != 'dependabot[bot]' && !startsWith(github.event.pull_request.head.ref, 'release-please--')
+        if: github.event.pull_request.user.login != 'dependabot[bot]' && !startsWith(github.event.pull_request.head.ref, 'release-please--')
         run: |
           if ! python scripts/commit_lint.py range "$BASE" "$HEAD"; then
             echo "::warning title=Commit messages::Some commits break the conventions (see this step's log). Not blocking: the PR title becomes the squash commit."
