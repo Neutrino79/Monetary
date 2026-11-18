@@ -562,4 +562,5 @@ fresh directory instead of opening an old database.
 - [`README.md`](../README.md): installation and application startup
 - [`API.md`](API.md): API endpoints and authentication
 - [`LIVE_SCHEMA.sql`](LIVE_SCHEMA.sql): complete generated SQLite schema
+- [`MULTI_TENANT.md`](MULTI_TENANT.md): design for per-user databases, the control database and the superuser Admin area
 - [`CONTROL_SCHEMA.sql`](CONTROL_SCHEMA.sql): schema of the control database (accounts, logins, workspaces, audit log)
