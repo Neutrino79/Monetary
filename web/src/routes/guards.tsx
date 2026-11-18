@@ -1,6 +1,6 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { useAuthStore } from "@/store/authStore";
-import { useBranding } from "@/hooks/queries";
+import { selectIsAdmin, useAuthStore } from "@/store/authStore";
+import { useBranding, useDemoMode } from "@/hooks/queries";
 import { Button } from "@/components/ui/Button";
 import { PasswordChangeRequiredPage } from "@/pages/auth/PasswordChangeRequiredPage";
 
@@ -44,5 +44,13 @@ export function GuestOnlyRoute() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   if (isHydrating) return <HydratingScreen />;
   if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  return <Outlet />;
+}
+
+/** Only superusers reach the Admin area; everyone else goes back to their own ledger. (The server checks too.) */
+export function AdminRoute() {
+  const isAdmin = useAuthStore(selectIsAdmin);
+  const { isDemo } = useDemoMode();
+  if (!isAdmin || isDemo) return <Navigate to="/dashboard" replace />;
   return <Outlet />;
 }

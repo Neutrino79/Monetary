@@ -1,9 +1,9 @@
-import { useLocation } from "react-router-dom";
-import { Menu, Search, Sun, Moon, Plus, LogOut } from "lucide-react";
+import { Link, useLocation } from "react-router-dom";
+import { Menu, Search, Sun, Moon, Plus, LogOut, ShieldCheck } from "lucide-react";
 import { ALL_NAV_ITEMS } from "@/config/nav";
-import { useBranding } from "@/hooks/queries";
+import { useBranding, useDemoMode } from "@/hooks/queries";
 import { useUiStore } from "@/store/uiStore";
-import { useAuthStore } from "@/store/authStore";
+import { selectIsAdmin, useAuthStore } from "@/store/authStore";
 import { IconButton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
@@ -25,6 +25,8 @@ export function Topbar({
   const toggleTheme = useUiStore((s) => s.toggleTheme);
   const logout = useAuthStore((s) => s.logout);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const isAdmin = useAuthStore(selectIsAdmin);
+  const { isDemo } = useDemoMode();
 
   const base = "/" + location.pathname.split("/")[1];
   const navItem = ALL_NAV_ITEMS.find((i) => i.path === base);
@@ -49,6 +51,14 @@ export function Topbar({
       </button>
       <span className="flex-1" />
       <div className="flex items-center gap-2">
+        {isAdmin && !isDemo && (
+          <Link
+            to="/admin"
+            className="inline-flex items-center gap-1.5 rounded-[10px] border border-line bg-paper-raised px-3 py-1.5 text-[13px] font-semibold text-accent hover:bg-paper-sunken"
+          >
+            <ShieldCheck size={15} /> <span className="max-[640px]:hidden">Admin</span>
+          </Link>
+        )}
         <IconButton aria-label="Toggle theme" onClick={toggleTheme}>
           {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
         </IconButton>
