@@ -1,5 +1,5 @@
-import type { SecurityQuestion, User } from "@/types";
-import type { OwnerDto, PasswordResetQuestion, ProfilePatch, SetupInput } from "@/types/api";
+import type { PlatformAccount, SecurityQuestion, User } from "@/types";
+import type { OwnerDto, PasswordResetQuestion, ProfilePatch, RegisterInput, SetupInput } from "@/types/api";
 import { http } from "@/lib/api/http";
 import { tokenStorage } from "@/lib/api/tokenStorage";
 import { ApiError } from "@/lib/api/errors";
@@ -10,8 +10,20 @@ interface TokenDto { access_token: string; token_type: string }
 interface InitDto { owner: OwnerDto; accessToken: string }
 
 export interface AuthResult {
-  user: User;
+  /** The owner row of the user's own ledger. `null` while a temporary password must still be replaced. */
+  user: User | null;
+  account: PlatformAccount;
   token: string;
+}
+
+/** Login refusals that mean "your account exists but is not usable": shown as a status notice, not as a form error. */
+export const ACCOUNT_STATE_CODES = ["AccountPendingApproval", "AccountRejected", "AccountSuspended", "AccountPendingDelete"] as const;
+export type AccountStateCode = (typeof ACCOUNT_STATE_CODES)[number];
+
+export function accountStateCode(err: unknown): AccountStateCode | null {
+  return ApiError.isApiError(err) && (ACCOUNT_STATE_CODES as readonly string[]).includes(err.code ?? "")
+    ? (err.code as AccountStateCode)
+    : null;
 }
 
 export const authService = {
@@ -21,8 +33,15 @@ export const authService = {
     // The HTTP client reads the bearer token from storage, so it has to be stored *before* the
     // follow-up request that loads the owner -- otherwise that request goes out unauthenticated.
     tokenStorage.set(t.access_token);
+    return authService.completeSignIn(t.access_token);
+  },
+
+  /** Loads who just signed in. A forced password change leaves the ledger locked, so only the account is read then. */
+  async completeSignIn(token: string): Promise<AuthResult> {
     try {
-      return { token: t.access_token, user: await authService.fetchOwner() };
+      const account = await authService.fetchAccount();
+      const user = account.mustChangePassword ? null : await authService.fetchOwner();
+      return { token, account, user };
     } catch (err) {
       tokenStorage.clear();
       throw err;
@@ -33,12 +52,23 @@ export const authService = {
   async demoLogin(): Promise<AuthResult> {
     const t = await http.post<TokenDto>("/auth/demo");
     tokenStorage.set(t.access_token);
-    try {
-      return { token: t.access_token, user: await authService.fetchOwner() };
-    } catch (err) {
-      tokenStorage.clear();
-      throw err;
-    }
+    return authService.completeSignIn(t.access_token);
+  },
+
+  /**
+   * Ask for an account. The answer is the same whether or not the email is already known, so the
+   * caller shows one neutral confirmation either way. An administrator approves the request.
+   */
+  async register(input: RegisterInput): Promise<void> {
+    await http.post("/auth/register", {
+      name: input.name, email: input.email, password: input.password, timezone: input.timezone,
+      currency: input.homeCurrencyCode, securityQuestionId: input.securityQuestionId,
+      securityAnswer: input.securityAnswer,
+    });
+  },
+
+  async fetchAccount(): Promise<PlatformAccount> {
+    return http.get<PlatformAccount>("/me");
   },
 
   /**
@@ -54,7 +84,8 @@ export const authService = {
         currency: input.homeCurrencyCode, securityQuestionId: input.securityQuestionId,
         securityAnswer: input.securityAnswer, seedDefaults: input.seedDefaults ?? true,
       });
-      return { token: r.accessToken, user: toUser(r.owner) };
+      tokenStorage.set(r.accessToken);
+      return { token: r.accessToken, user: toUser(r.owner), account: await authService.fetchAccount() };
     } catch (err) {
       if (ApiError.isApiError(err) && err.status === 409) throw alreadySetUp();
       throw err;
