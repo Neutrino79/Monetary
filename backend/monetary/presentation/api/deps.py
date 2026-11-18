@@ -23,7 +23,7 @@ from monetary.config import (
     demo_mode_enabled,
     legacy_db_path_from_environment,
 )
-from monetary.domain.exceptions import PasswordChangeRequired
+from monetary.domain.exceptions import PasswordChangeRequired, PermissionDeniedError
 from monetary.infrastructure import control_db
 from monetary.infrastructure.rate_limiter import (
     login_rate_limiter,
@@ -117,6 +117,17 @@ def get_current_account(
     /me requires that a temporary password has already been replaced."""
     if account["must_change_password"]:
         raise PasswordChangeRequired("Choose a new password before continuing.")
+    return account
+
+
+def get_superuser(account: dict = Depends(get_current_account)) -> dict:
+    """The signed-in account, only if it is a superuser (the role is read from the control database on
+    every request, so a demotion or suspension takes effect immediately). Administration is not
+    available in demo mode."""
+    if demo_mode_enabled():
+        raise PermissionDeniedError("Administration is disabled in demo mode.")
+    if account["role"] != "superuser":
+        raise PermissionDeniedError("Superuser access required.")
     return account
 
 

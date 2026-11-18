@@ -273,6 +273,28 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
 - **Split/fronted `DELETE` takes `?force=true` / `?remove_settlements=true`** query params
   (not a body -- DELETE-with-body is non-standard and some HTTP clients/proxies mishandle it).
 
+## Administration (superusers only)
+
+Everything under `/api/v0.5/admin` requires a superuser session. The role is read from the control
+database on every request, so a demotion or suspension applies at once. It is disabled (403) in demo
+mode. Superusers manage *accounts*; they never see ledger contents. Every action writes one audit row
+(actor, action, target, small detail, client address) and never a password.
+
+- `GET /admin/stats` -- `{totalUsers, byStatus, pendingApproval, activeSuperusers}`.
+- `GET /admin/users?status=&q=&limit=&offset=` / `GET /admin/users/{id}` -- accounts, never any credential.
+- `POST /admin/users` `{name, email, currency, timezone?, role?}` -- active account with an empty ledger and a
+  generated temporary password, returned **once** as `temporaryPassword`; the user must change it at first sign-in.
+- `POST /admin/users/{id}/approve` | `reject` (`{reason?}`) | `suspend` (`{reason?}`) | `reactivate` |
+  `reset-password` (new temporary password, returned once) | `revoke-sessions` | `delete` (locks the account,
+  data purged after 30 days) | `restore`; `PUT /admin/users/{id}/role` `{role: "user"|"superuser"}`.
+- `GET /admin/audit-log?user_id=&limit=&offset=` -- newest first.
+- Rules: a wrong state change is `409`; nobody can suspend or delete themselves; the last active
+  superuser can never be demoted, suspended or deleted.
+
+Without the web UI, `python -m monetary.cli` (run from `backend/`, same `MONETARY_DATA_DIR`) offers
+`create-superuser`, `list-users`, `reset-password` and `migrate-all`. Passwords come from a prompt,
+`--password-stdin` or `MONETARY_PASSWORD`, never from an argument.
+
 ## What's enforced at the API boundary
 
 - **CORS**: no browser origin is allowed until `MONETARY_CORS_ORIGINS` is set (see Configuration).
