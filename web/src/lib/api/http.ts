@@ -7,7 +7,7 @@ import { appConfig } from "@/config/app";
 import { tokenStorage } from "./tokenStorage";
 import { ApiError, apiErrorFromBody } from "./errors";
 
-type Method = "GET" | "POST" | "PATCH" | "DELETE";
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 type QueryValue = string | number | boolean | null | undefined | (string | number)[];
 
 interface RequestOptions {
@@ -90,6 +90,7 @@ export const http = {
   post: <T>(path: string, body?: unknown, opts?: Pick<RequestOptions, "query" | "signal">) => request<T>(path, { method: "POST", body, ...opts }),
   postForm: <T>(path: string, form: Record<string, string>, opts?: Pick<RequestOptions, "skipUnauthorizedHandler">) =>
     request<T>(path, { method: "POST", form, ...opts }),
+  put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body }),
   delete: <T>(path: string, query?: Record<string, QueryValue>) => request<T>(path, { method: "DELETE", query }),
 };
