@@ -70,6 +70,8 @@ email and a wrong password both give the same 401). While a temporary password i
 except `GET /me`, `POST /auth/change-password` and `POST /auth/logout` answers 403
 `PasswordChangeRequired`; an account without a ledger gets 403 `NoLedgerError`.
 `GET /me` returns `{id, email, name, role, status, mustChangePassword, hasLedger}`.
+`GET /me/export` downloads the signed-in user's own ledger as a SQLite file (a consistent snapshot, without
+password hashes, security answers or sessions); it is disabled in demo mode.
 
 **Is the instance set up?** `GET /api/v0.5/setup/status` (public) returns `{"initialized": true|false}`.
 A client can use it to choose between a first-run screen and a sign-in screen; `POST /setup/init` still
@@ -280,7 +282,7 @@ database on every request, so a demotion or suspension applies at once. It is di
 mode. Superusers manage *accounts*; they never see ledger contents. Every action writes one audit row
 (actor, action, target, small detail, client address) and never a password.
 
-- `GET /admin/stats` -- `{totalUsers, byStatus, pendingApproval, activeSuperusers}`.
+- `GET /admin/stats` -- `{totalUsers, byStatus, pendingApproval, activeSuperusers, ledgerCount, ledgerBytes}`.
 - `GET /admin/users?status=&q=&limit=&offset=` / `GET /admin/users/{id}` -- accounts, never any credential.
 - `POST /admin/users` `{name, email, currency, timezone?, role?}` -- active account with an empty ledger and a
   generated temporary password, returned **once** as `temporaryPassword`; the user must change it at first sign-in.
@@ -292,8 +294,17 @@ mode. Superusers manage *accounts*; they never see ledger contents. Every action
   superuser can never be demoted, suspended or deleted.
 
 Without the web UI, `python -m monetary.cli` (run from `backend/`, same `MONETARY_DATA_DIR`) offers
-`create-superuser`, `list-users`, `reset-password` and `migrate-all`. Passwords come from a prompt,
-`--password-stdin` or `MONETARY_PASSWORD`, never from an argument.
+`create-superuser`, `list-users`, `reset-password`, `migrate-all`, `usage`, `backup --to DIR` and
+`purge [--dry-run]`. Passwords come from a prompt, `--password-stdin` or `MONETARY_PASSWORD`, never from
+an argument.
+
+Operations: run `purge` daily (cron or a systemd timer). It finishes deletions whose 30-day grace period
+has ended (the account, its sessions and its ledger file; the audit row keeps the email), drops sign-up
+requests nobody approved in 30 days and rejected ones older than 30 days, and removes leftover ledger
+files that no account refers to. A ledger file outside the data directory (an adopted earlier install) is
+never deleted automatically. `backup --to DIR` writes consistent snapshots of `control.db` and every
+ledger (safe while the service runs); restore by copying `control.db` and `tenants/` into an empty
+`MONETARY_DATA_DIR`.
 
 ## What's enforced at the API boundary
 

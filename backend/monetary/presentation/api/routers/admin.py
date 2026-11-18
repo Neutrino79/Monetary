@@ -23,7 +23,7 @@ router = APIRouter(prefix=f"{API_PREFIX}/admin", tags=["admin"], dependencies=[D
 
 @router.get("/stats", response_model=AdminStatsOut)
 def stats(control: sqlite3.Connection = CONTROL):
-    return AdminStatsOut(**admin_service.stats(control))
+    return AdminStatsOut(**admin_service.stats(control, data_dir_from_environment()))
 
 
 @router.get("/users", response_model=Page[AdminUserOut])

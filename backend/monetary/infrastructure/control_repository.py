@@ -183,3 +183,27 @@ def begin_immediate(conn) -> None:
     insert cannot interleave with another process doing the same."""
     if not conn.in_transaction:
         conn.execute("BEGIN IMMEDIATE")
+
+
+# --------------------------------------------------------------------------- #
+# DELETION AND MAINTENANCE
+# --------------------------------------------------------------------------- #
+
+def list_due_for_deletion(conn, now: str) -> list[dict]:
+    return [_row(r) for r in conn.execute(
+        "SELECT * FROM user WHERE status = 'pending_delete' AND delete_after IS NOT NULL AND delete_after <= ? ORDER BY id",
+        (now,)).fetchall()]
+
+
+def delete_user(conn, user_id: int) -> None:
+    """Remove the account row. Sessions and memberships go with it (ON DELETE CASCADE); audit rows
+    stay, with their user references set to NULL."""
+    conn.execute("DELETE FROM user WHERE id = ?", (user_id,))
+
+
+def delete_workspace(conn, workspace_id: int) -> None:
+    conn.execute("DELETE FROM workspace WHERE id = ?", (workspace_id,))
+
+
+def list_workspaces(conn) -> list[dict]:
+    return [_row(r) for r in conn.execute("SELECT * FROM workspace ORDER BY id").fetchall()]

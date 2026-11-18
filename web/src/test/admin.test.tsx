@@ -55,7 +55,7 @@ beforeEach(() => {
   }))
   handlers['GET /meta'] = () => ({ json: { appName: 'Monetary', tagline: 't', version: '0.5.0', apiVersion: 'v0.5', demo: false } })
   handlers['GET /admin/stats'] = () => ({
-    json: { totalUsers: 4, byStatus: { active: 2, pending_approval: 2 }, pendingApproval: 2, activeSuperusers: 1 },
+    json: { totalUsers: 4, byStatus: { active: 2, pending_approval: 2 }, pendingApproval: 2, activeSuperusers: 1, ledgerCount: 3, ledgerBytes: 3145728 },
   })
   handlers['GET /admin/audit-log'] = () => ({
     json: page([{ id: 1, at: '2026-11-02T10:00:00+00:00', actorUserId: 1, action: 'user.approve', targetUserId: 5, detail: '{"reason":"ok"}', ip: '1.2.3.4' }]),
@@ -89,6 +89,13 @@ describe('who can open the Admin area', () => {
     expect(screen.getByRole('button', { name: /My ledger/ })).toBeInTheDocument()
     await userEvent.setup().click(screen.getByRole('button', { name: /My ledger/ }))
     await vi.waitFor(() => expect(window.location.pathname).toBe('/dashboard'))
+  })
+
+  it('shows how many ledgers there are and how much space they use', async () => {
+    signIn('superuser')
+    renderApp('/admin')
+    expect(await screen.findByText('Ledger storage')).toBeInTheDocument()
+    expect(screen.getByText('3 · 3.0 MB')).toBeInTheDocument()
   })
 
   it('offers the Admin button in the ledger top bar to superusers only', async () => {

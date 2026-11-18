@@ -67,6 +67,20 @@ export const authService = {
     });
   },
 
+  /** The signed-in user's own ledger as a SQLite file, handed to the browser as a download. */
+  async downloadMyData(): Promise<string> {
+    const { blob, filename } = await http.download("/me/export");
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+    return filename;
+  },
+
   async fetchAccount(): Promise<PlatformAccount> {
     return http.get<PlatformAccount>("/me");
   },

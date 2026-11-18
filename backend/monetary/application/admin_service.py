@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone as dt_timezone
 
-from monetary.application import audit_service, provisioning
+from monetary.application import audit_service, operations, provisioning
 from monetary.domain.credentials import validate_currency, validate_email
 from monetary.domain.enums import PlatformRole, UserStatus
 from monetary.domain.exceptions import ConflictError, NotFoundError, ValidationError
@@ -86,7 +86,7 @@ def get_user(conn, user_id: int) -> dict:
     return public_user(_target(conn, user_id))
 
 
-def stats(conn) -> dict:
+def stats(conn, data_dir=None) -> dict:
     by_status = {s.value: 0 for s in UserStatus}
     by_status.update(crepo.count_users_by_status(conn))
     return {
@@ -94,6 +94,7 @@ def stats(conn) -> dict:
         "by_status": by_status,
         "pending_approval": by_status[UserStatus.PENDING_APPROVAL.value],
         "active_superusers": crepo.count_active_superusers(conn),
+        **(operations.usage(conn, data_dir) if data_dir is not None else {"ledger_count": 0, "ledger_bytes": 0}),
     }
 
 
