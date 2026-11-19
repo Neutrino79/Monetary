@@ -32,6 +32,9 @@ async function assertPortFree() {
 }
 
 export default async function setup() {
+  // The owner is created in UTC, so the tests' own "today" must be the UTC date too. Without this the
+  // suite fails for hours every day on a machine in another time zone (the server rejects "future" dates).
+  process.env.TZ = 'UTC'
   await assertPortFree()
   dir = mkdtempSync(join(tmpdir(), 'monetary-it-'))
   server = spawn(process.env.PYTHON ?? 'python3', ['-m', 'uvicorn', 'monetary.presentation.api.app:app', '--port', String(PORT), '--log-level', 'warning'], {
