@@ -5,7 +5,7 @@
 -- Source: backend/monetary/infrastructure/control_db.py (see docs/MULTI_TENANT.md).
 -- ============================================================================
 
--- schema version: PRAGMA user_version = 1 (ledger databases are also at version 1)
+-- schema version: PRAGMA user_version = 2 (ledger databases are at their own version)
 
 -- table: audit_log
 CREATE TABLE audit_log (         -- append-only: nothing updates or deletes these rows
@@ -58,7 +58,7 @@ CREATE TABLE user (
     approved_by           INTEGER REFERENCES user(id) ON DELETE SET NULL,
     created_at            TEXT NOT NULL,
     updated_at            TEXT NOT NULL
-);
+, failed_login_count INTEGER NOT NULL DEFAULT 0, locked_until       TEXT, password_expires_at TEXT, rerequest_count    INTEGER NOT NULL DEFAULT 0);
 
 -- table: workspace
 CREATE TABLE workspace (
@@ -89,4 +89,3 @@ CREATE INDEX idx_cuser_status        ON user(status);
 
 -- index: idx_membership_user
 CREATE INDEX idx_membership_user     ON membership(user_id);
-

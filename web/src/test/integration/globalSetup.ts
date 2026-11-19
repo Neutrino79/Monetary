@@ -40,6 +40,7 @@ export default async function setup() {
       ...process.env,
       MONETARY_DATA_DIR: dir,
       MONETARY_ENV: 'development',
+      MONETARY_CAPTCHA_DIFFICULTY: '3000', // the built-in captcha stays on, just quick to solve
       MONETARY_CORS_ORIGINS: '*',
       MONETARY_APP_NAME: 'Monetary',
     },

@@ -8,7 +8,8 @@ from typing import Any, Optional
 _USER_UPDATABLE = frozenset({
     "name", "password_hash", "security_question_id", "security_answer_hash", "role", "status",
     "status_reason", "must_change_password", "timezone", "home_currency_code", "plan", "access_until",
-    "delete_after", "last_login_at", "approved_at", "approved_by",
+    "delete_after", "last_login_at", "approved_at", "approved_by", "failed_login_count", "locked_until",
+    "password_expires_at", "rerequest_count",
 })
 
 

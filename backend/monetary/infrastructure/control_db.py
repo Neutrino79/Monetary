@@ -84,6 +84,12 @@ CREATE INDEX IF NOT EXISTS idx_audit_target        ON audit_log(target_user_id);
 
 CONTROL_MIGRATIONS: list[migrations.Migration] = [
     migrations.Migration(1, "baseline control schema", sql=CONTROL_SCHEMA),
+    migrations.Migration(2, "login lockout, temporary-password expiry and re-request count", sql="""
+ALTER TABLE user ADD COLUMN failed_login_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE user ADD COLUMN locked_until       TEXT;
+ALTER TABLE user ADD COLUMN password_expires_at TEXT;
+ALTER TABLE user ADD COLUMN rerequest_count    INTEGER NOT NULL DEFAULT 0;
+"""),
 ]
 
 

@@ -15,6 +15,7 @@ type Handler = (req: { body: unknown }) => { status?: number; json?: unknown }
 let handlers: Record<string, Handler> = {}
 const calls: string[] = []
 const bodies: Record<string, unknown> = {}
+const sentHeaders: Record<string, Record<string, string>> = {}
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } })
@@ -32,6 +33,7 @@ beforeEach(() => {
   localStorage.clear()
   calls.length = 0
   for (const k of Object.keys(bodies)) delete bodies[k]
+  for (const k of Object.keys(sentHeaders)) delete sentHeaders[k]
   handlers = {}
   queryClient.clear()
   useAuthStore.setState({ user: null, account: null, isAuthenticated: false, isHydrating: false, hydrateError: null, sessionExpired: false })
@@ -40,12 +42,14 @@ beforeEach(() => {
     const key = `${init?.method ?? 'GET'} ${url.pathname.replace(/^\/api\/v0\.5/, '')}`
     calls.push(key)
     bodies[key] = init?.body
+    sentHeaders[key] = (init?.headers ?? {}) as Record<string, string>
     const h = handlers[key]
     if (!h) return json({ detail: `unhandled ${key}`, error_type: 'NotFoundError' }, 404)
     const r = h({ body: init?.body })
     return json(r.json ?? {}, r.status ?? 200)
   }))
   handlers['GET /meta'] = () => meta()
+  handlers['GET /auth/captcha'] = () => ({ json: { provider: 'none', challenge: null, siteKey: null } })
   handlers['GET /setup/status'] = () => ({ json: { initialized: true } })
   handlers['GET /auth/security-questions'] = () => ({ json: [{ id: 1, text: 'Pet?' }] })
 })
@@ -190,5 +194,82 @@ describe('who is signed in', () => {
     await useAuthStore.getState().hydrate()
     await waitFor(() => expect(useAuthStore.getState().hydrateError).toBe('This account has no ledger.'))
     expect(localStorage.getItem('emx_token')).toBe('ets_ok')
+  })
+})
+
+describe('asking again after a rejection', () => {
+  it('offers Request again, which opens the form with the email filled in', async () => {
+    handlers['POST /auth/login'] = () => ({ status: 403, json: { detail: 'declined', error_type: 'AccountRejected' } })
+    const user = userEvent.setup()
+    renderApp('/login')
+    await signIn(user)
+    await user.click(await screen.findByRole('button', { name: 'Request again' }))
+    expect(await screen.findByRole('heading', { name: 'Request an account' })).toBeInTheDocument()
+    expect(screen.getByLabelText('Email')).toHaveValue('ravi@example.com')
+  })
+
+  it('has no Request again once the re-requests are used up', async () => {
+    handlers['POST /auth/login'] = () => ({ status: 403, json: { detail: 'declined', error_type: 'AccountRejectedFinal' } })
+    const user = userEvent.setup()
+    renderApp('/login')
+    await signIn(user)
+    expect(await screen.findByRole('heading', { name: 'Request not approved' })).toBeInTheDocument()
+    expect(screen.getByText(/used all of your new requests/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Request again' })).toBeNull()
+  })
+
+  it('explains an expired temporary password', async () => {
+    handlers['POST /auth/login'] = () => ({ status: 403, json: { detail: 'expired', error_type: 'TemporaryPasswordExpired' } })
+    const user = userEvent.setup()
+    renderApp('/login')
+    await signIn(user)
+    expect(await screen.findByRole('heading', { name: 'Temporary password expired' })).toBeInTheDocument()
+  })
+
+  it('shows the lock message from the server as a form error', async () => {
+    handlers['POST /auth/login'] = () => ({ status: 429, json: { detail: 'Too many failed attempts. Try again in 15 minutes.', error_type: 'AccountLocked' } })
+    const user = userEvent.setup()
+    renderApp('/login')
+    await signIn(user)
+    expect(await screen.findByText(/Try again in 15 minutes/)).toBeInTheDocument()
+  })
+})
+
+describe('captcha and honeypot', () => {
+  it('retries the sign-in with a solved captcha when the server asks for one', async () => {
+    const { createHash, webcrypto } = await import('node:crypto')
+    vi.stubGlobal('crypto', webcrypto)
+    const salt = 'abc?expires=9999999999'
+    const challenge = createHash('sha256').update(`${salt}7`).digest('hex')
+    handlers['GET /auth/captcha'] = () => ({ json: { provider: 'altcha', siteKey: null, challenge: { algorithm: 'SHA-256', challenge, salt, maxnumber: 50, signature: 'sig' } } })
+    let attempts = 0
+    handlers['POST /auth/login'] = () => (++attempts === 1
+      ? { status: 400, json: { detail: 'captcha', error_type: 'CaptchaRequired' } }
+      : { json: { access_token: 'ets_ok', token_type: 'bearer' } })
+    handlers['GET /me'] = () => ({ json: account() })
+    handlers['GET /owner'] = () => ({ json: owner })
+    const user = userEvent.setup()
+    renderApp('/login')
+    await signIn(user)
+    await waitFor(() => expect(useAuthStore.getState().isAuthenticated).toBe(true))
+    expect(attempts).toBe(2)
+    const header = sentHeaders['POST /auth/login']['X-Captcha']
+    expect(JSON.parse(atob(header))).toMatchObject({ number: 7, salt, challenge, signature: 'sig' })
+  })
+
+  it('sends the hidden website field only when something filled it in', async () => {
+    handlers['POST /auth/register'] = () => ({ status: 202, json: { detail: 'ok' } })
+    const user = userEvent.setup()
+    const { container } = renderApp('/signup')
+    await screen.findByRole('heading', { name: 'Request an account' })
+    await user.type(screen.getByLabelText('Full name'), 'Bot Bot')
+    await user.type(screen.getByLabelText('Email'), 'bot@example.com')
+    await user.type(screen.getByLabelText('Password'), 'bot-password-1')  // pragma: allowlist secret
+    await user.type(screen.getByLabelText('Confirm password'), 'bot-password-1')  // pragma: allowlist secret
+    await user.type(screen.getByLabelText('Your answer'), 'x')
+    await user.type(container.querySelector('#su-website') as HTMLInputElement, 'http://spam.example')
+    await user.click(screen.getByRole('button', { name: 'Request account' }))
+    await screen.findByRole('heading', { name: 'Request received' })
+    expect(JSON.parse(String(bodies['POST /auth/register'])).website).toBe('http://spam.example')
   })
 })

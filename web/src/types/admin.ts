@@ -15,6 +15,9 @@ export interface AdminUser {
   accessUntil: string | null;
   deleteAfter: string | null;
   lastLoginAt: string | null;
+  lockedUntil: string | null;
+  passwordExpiresAt: string | null;
+  rerequestCount: number;
   approvedAt: string | null;
   approvedBy: number | null;
   createdAt: string;

@@ -64,6 +64,22 @@ def test_list_reset_and_migrate(env, monkeypatch, capsys):
     assert "1 ledger(s) are up to date" in capsys.readouterr().out
 
 
+def test_unlock_lifts_a_sign_in_lock(env, monkeypatch, capsys):
+    _create(monkeypatch)
+    control = control_db.connect_control(env)
+    user = crepo.get_user_by_email(control, "root@example.com")
+    crepo.update_user(control, user["id"], now="2026-01-01T00:00:00+00:00", failed_login_count=2,
+                      locked_until="2999-01-01T00:00:00+00:00")
+    control.commit()
+    control.close()
+    assert cli.main(["unlock", "--email", "root@example.com"]) == 0
+    assert "Unlocked root@example.com" in capsys.readouterr().out
+    control = control_db.connect_control(env)
+    assert crepo.get_user(control, user["id"])["locked_until"] is None
+    control.close()
+    assert cli.main(["unlock", "--email", "nobody@example.com"]) == 1
+
+
 def test_purge_backup_and_usage(env, monkeypatch, capsys, tmp_path):
     from monetary.application import admin_service
 

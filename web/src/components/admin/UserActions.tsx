@@ -10,6 +10,11 @@ import { useAdminMutation } from "@/hooks/admin";
 import type { AdminUser, IssuedPassword } from "@/types/admin";
 import { ReasonDialog } from "./adminUi";
 
+/** Locked after too many wrong passwords, and the lock has not run out yet. */
+export function isLocked(user: AdminUser): boolean {
+  return !!user.lockedUntil && new Date(user.lockedUntil).getTime() > Date.now();
+}
+
 type Pending = null | "reject" | "suspend" | "delete" | "reset" | "revoke" | "role";
 
 const itemClass = "flex w-full cursor-pointer items-center rounded-[8px] px-3 py-2 text-[13px] outline-none data-[highlighted]:bg-paper-sunken";
@@ -43,6 +48,12 @@ export function UserActions({ user, isSelf, onIssued }: { user: AdminUser; isSel
           <Button size="sm" onClick={() => attempt(() => adminService.approve(user.id), `${user.name} approved.`)}>Approve</Button>
           <Button size="sm" variant="secondary" onClick={() => setPending("reject")}>Reject</Button>
         </>
+      )}
+      {s === "rejected" && (
+        <Button size="sm" variant="secondary" onClick={() => attempt(() => adminService.reopen(user.id), `${user.name}'s request is pending again.`)}>Reopen</Button>
+      )}
+      {isLocked(user) && (
+        <Button size="sm" variant="secondary" onClick={() => attempt(() => adminService.unlock(user.id), `${user.name} unlocked.`)}>Unlock</Button>
       )}
       {s === "suspended" && (
         <Button size="sm" variant="secondary" onClick={() => attempt(() => adminService.reactivate(user.id), `${user.name} reactivated.`)}>Reactivate</Button>

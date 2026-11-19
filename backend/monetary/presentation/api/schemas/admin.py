@@ -19,6 +19,9 @@ class AdminUserOut(ApiModel):
     access_until: str | None = None
     delete_after: str | None = None
     last_login_at: str | None = None
+    locked_until: str | None = None
+    password_expires_at: str | None = None
+    rerequest_count: int = 0
     approved_at: str | None = None
     approved_by: int | None = None
     created_at: str

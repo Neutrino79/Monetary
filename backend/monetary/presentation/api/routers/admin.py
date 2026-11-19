@@ -80,6 +80,20 @@ def reactivate(user_id: int, request: Request, control: sqlite3.Connection = CON
     return AdminUserOut(**admin_service.reactivate(control, actor, user_id, ip=_client_key(request)))
 
 
+@router.post("/users/{user_id}/unlock", response_model=AdminUserOut)
+def unlock(user_id: int, request: Request, control: sqlite3.Connection = CONTROL,
+           actor: dict = Depends(get_superuser)):
+    """Lift a sign-in lock (too many wrong passwords) immediately."""
+    return AdminUserOut(**admin_service.unlock(control, actor, user_id, ip=_client_key(request)))
+
+
+@router.post("/users/{user_id}/reopen", response_model=AdminUserOut)
+def reopen(user_id: int, request: Request, control: sqlite3.Connection = CONTROL,
+           actor: dict = Depends(get_superuser)):
+    """Put a rejected request back to pending, with a fresh allowance of re-requests."""
+    return AdminUserOut(**admin_service.reopen(control, actor, user_id, ip=_client_key(request)))
+
+
 @router.post("/users/{user_id}/reset-password", response_model=AdminCreatedUserOut)
 def reset_password(user_id: int, request: Request, control: sqlite3.Connection = CONTROL,
                    actor: dict = Depends(get_superuser)):

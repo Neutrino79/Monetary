@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone as dt_timezone
 
+from monetary import config
 from monetary.application import audit_service, operations, provisioning
 from monetary.domain.credentials import validate_currency, validate_email
 from monetary.domain.enums import PlatformRole, UserStatus
@@ -37,6 +38,11 @@ def _target(conn, user_id: int) -> dict:
     if user is None:
         raise NotFoundError(f"User {user_id} not found.")
     return user
+
+
+def _temp_password_expiry() -> str:
+    return (datetime.now(dt_timezone.utc) + timedelta(hours=config.temp_password_hours())).isoformat(
+        timespec="seconds")
 
 
 def _reason(reason: str | None) -> str | None:
@@ -128,7 +134,8 @@ def create_user(conn, data_dir, actor: dict, *, name: str, email: str, timezone:
         conn, email=email, name=name, password_hash=hash_password(temp), role=role,
         status=UserStatus.ACTIVE.value, timezone=timezone, home_currency_code=currency,
         approved_at=now, now=now)
-    user = crepo.update_user(conn, user["id"], now=now, must_change_password=True, approved_by=actor["id"])
+    user = crepo.update_user(conn, user["id"], now=now, must_change_password=True, approved_by=actor["id"],
+                             password_expires_at=_temp_password_expiry())
     provisioning.provision_ledger(conn, data_dir, user["id"])
     _audit(conn, actor, "user.create", user, ip, email=email, role=role)
     return public_user(user), temp
@@ -183,10 +190,29 @@ def reset_password(conn, actor: dict, user_id: int, *, ip: str | None = None) ->
     _expect_status(user, UserStatus.ACTIVE, UserStatus.SUSPENDED, action="reset the password of")
     temp = generate_temporary_password()
     user = crepo.update_user(conn, user_id, now=utc_now_iso(), password_hash=hash_password(temp),
-                             must_change_password=True)
+                             must_change_password=True, password_expires_at=_temp_password_expiry(),
+                             failed_login_count=0, locked_until=None)
     crepo.delete_sessions_for_user(conn, user_id)
     _audit(conn, actor, "user.reset_password", user, ip)
     return public_user(user), temp
+
+
+def unlock(conn, actor: dict, user_id: int, *, ip: str | None = None) -> dict:
+    """Lift a sign-in lock now instead of waiting for it to run out."""
+    _target(conn, user_id)
+    user = crepo.update_user(conn, user_id, now=utc_now_iso(), failed_login_count=0, locked_until=None)
+    _audit(conn, actor, "user.unlock", user, ip)
+    return public_user(user)
+
+
+def reopen(conn, actor: dict, user_id: int, *, ip: str | None = None) -> dict:
+    """Put a rejected request back in the queue, with a fresh allowance of re-requests."""
+    user = _target(conn, user_id)
+    _expect_status(user, UserStatus.REJECTED, action="reopen")
+    user = crepo.update_user(conn, user_id, now=utc_now_iso(), status=UserStatus.PENDING_APPROVAL.value,
+                             status_reason=None, rerequest_count=0)
+    _audit(conn, actor, "user.reopen", user, ip)
+    return public_user(user)
 
 
 def revoke_sessions(conn, actor: dict, user_id: int, *, ip: str | None = None) -> None:

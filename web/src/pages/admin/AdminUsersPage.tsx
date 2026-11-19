@@ -6,7 +6,7 @@ import { Input, Select } from "@/components/ui/form";
 import { useAdminUsers } from "@/hooks/admin";
 import { useAuthStore } from "@/store/authStore";
 import { CreateUserDialog } from "@/components/admin/CreateUserDialog";
-import { UserActions } from "@/components/admin/UserActions";
+import { UserActions, isLocked } from "@/components/admin/UserActions";
 import { StatusBadge, TemporaryPasswordDialog, formatWhen } from "@/components/admin/adminUi";
 import type { AccountStatus } from "@/types";
 import type { IssuedPassword } from "@/types/admin";
@@ -61,6 +61,7 @@ export function AdminUsersPage() {
                     <StatusBadge status={u.status} />
                     {u.role === "superuser" && <span className="text-[11.5px] font-semibold text-accent">Superuser</span>}
                     {u.mustChangePassword && <span className="text-[11.5px] text-ink-faint">temporary password</span>}
+                    {isLocked(u) && <span className="text-[11.5px] font-semibold text-danger">locked</span>}
                   </div>
                   <div className="truncate text-[12.8px] text-ink-faint">
                     {u.email} · last sign-in {formatWhen(u.lastLoginAt)}

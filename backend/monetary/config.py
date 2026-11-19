@@ -124,3 +124,88 @@ def docs_enabled_from_environment() -> bool:
     if override is not None:
         return override.strip().lower() in ("1", "true", "yes", "on")
     return environment_name() != "production"
+
+
+# --------------------------------------------------------------------------- #
+# Account-security tuning. Every number is a setting with a safe default, so an operator can adjust
+# it without a code change (documented in README.md and backend/.env.example).
+# --------------------------------------------------------------------------- #
+LOGIN_MAX_FAILURES_ENV_VAR = "MONETARY_LOGIN_MAX_FAILURES"
+LOGIN_LOCKOUT_MINUTES_ENV_VAR = "MONETARY_LOGIN_LOCKOUT_MINUTES"
+LOGIN_CAPTCHA_AFTER_ENV_VAR = "MONETARY_LOGIN_CAPTCHA_AFTER"
+TEMP_PASSWORD_HOURS_ENV_VAR = "MONETARY_TEMP_PASSWORD_HOURS"  # pragma: allowlist secret
+MAX_REREQUESTS_ENV_VAR = "MONETARY_MAX_REREQUESTS"
+CAPTCHA_PROVIDER_ENV_VAR = "MONETARY_CAPTCHA_PROVIDER"
+CAPTCHA_DIFFICULTY_ENV_VAR = "MONETARY_CAPTCHA_DIFFICULTY"
+CAPTCHA_TTL_ENV_VAR = "MONETARY_CAPTCHA_TTL_SECONDS"
+TURNSTILE_SITE_KEY_ENV_VAR = "MONETARY_TURNSTILE_SITE_KEY"
+TURNSTILE_SECRET_ENV_VAR = "MONETARY_TURNSTILE_SECRET"  # pragma: allowlist secret
+SECRET_KEY_ENV_VAR = "MONETARY_SECRET_KEY"  # pragma: allowlist secret
+
+CAPTCHA_PROVIDERS = ("none", "altcha", "turnstile")
+
+
+def int_setting(name: str, default: int, *, minimum: int = 1) -> int:
+    """A whole-number setting from the environment: the default when unset, empty or not a number, and
+    never below `minimum` (a typo must not switch a protection off)."""
+    raw = (read_env(name) or "").strip()
+    try:
+        value = int(raw)
+    except ValueError:
+        return default
+    return max(value, minimum)
+
+
+def login_max_failures() -> int:
+    """Wrong passwords in a row before the account is locked."""
+    return int_setting(LOGIN_MAX_FAILURES_ENV_VAR, 5)
+
+
+def login_lockout_minutes() -> int:
+    return int_setting(LOGIN_LOCKOUT_MINUTES_ENV_VAR, 15)
+
+
+def login_captcha_after() -> int:
+    """Failed sign-ins from one client address before the sign-in form also needs a captcha."""
+    return int_setting(LOGIN_CAPTCHA_AFTER_ENV_VAR, 3)
+
+
+def temp_password_hours() -> int:
+    """How long an administrator-issued temporary password stays usable."""
+    return int_setting(TEMP_PASSWORD_HOURS_ENV_VAR, 72)
+
+
+def max_rerequests() -> int:
+    """How many times a rejected person can ask again before only an administrator can reopen it."""
+    return int_setting(MAX_REREQUESTS_ENV_VAR, 3, minimum=0)
+
+
+def captcha_provider() -> str:
+    """'altcha' (default, self-contained proof of work), 'turnstile' (Cloudflare) or 'none'.
+    An unknown value falls back to the default instead of silently disabling the protection."""
+    value = (read_env(CAPTCHA_PROVIDER_ENV_VAR) or "altcha").strip().lower()
+    return value if value in CAPTCHA_PROVIDERS else "altcha"
+
+
+def captcha_difficulty() -> int:
+    """Largest number the proof-of-work client may have to try (higher is slower for bots and people)."""
+    return int_setting(CAPTCHA_DIFFICULTY_ENV_VAR, 50_000)
+
+
+def captcha_ttl_seconds() -> int:
+    return int_setting(CAPTCHA_TTL_ENV_VAR, 300)
+
+
+def turnstile_site_key() -> str:
+    return (read_env(TURNSTILE_SITE_KEY_ENV_VAR) or "").strip()
+
+
+def turnstile_secret() -> str:
+    return (read_env(TURNSTILE_SECRET_ENV_VAR) or "").strip()
+
+
+def secret_key_from_environment() -> str | None:
+    """Optional fixed server secret (MONETARY_SECRET_KEY). When unset one is generated and kept in the
+    data directory, which suits a single server; set it to share one secret across several."""
+    value = (read_env(SECRET_KEY_ENV_VAR) or "").strip()
+    return value or None

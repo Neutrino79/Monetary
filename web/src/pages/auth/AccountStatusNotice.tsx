@@ -8,7 +8,15 @@ const COPY: Record<AccountStateCode, { title: string; body: string }> = {
   },
   AccountRejected: {
     title: "Request not approved",
-    body: "Your account request was not approved. If you think this is a mistake, contact the administrator.",
+    body: "Your account request was not approved. You can send a new request with updated details, or contact the administrator if you think this is a mistake.",
+  },
+  AccountRejectedFinal: {
+    title: "Request not approved",
+    body: "Your account request was not approved, and you have used all of your new requests. Please contact the administrator.",
+  },
+  TemporaryPasswordExpired: {
+    title: "Temporary password expired",
+    body: "The temporary password you were given is no longer valid. Ask the administrator to issue a new one.",
   },
   AccountSuspended: {
     title: "Account suspended",
@@ -21,13 +29,18 @@ const COPY: Record<AccountStateCode, { title: string; body: string }> = {
 };
 
 /** What a signed-out person sees when their password was right but the account cannot be used yet (or any more). */
-export function AccountStatusNotice({ code, reason, onBack }: { code: AccountStateCode; reason?: string | null; onBack: () => void }) {
+export function AccountStatusNotice({ code, reason, onBack, onRequestAgain }: {
+  code: AccountStateCode; reason?: string | null; onBack: () => void; onRequestAgain?: () => void;
+}) {
   const copy = COPY[code];
   return (
     <>
       <h1 className="mb-1 text-[19px] font-semibold">{copy.title}</h1>
       <p className="mb-4 text-[12.8px] text-ink-faint">{copy.body}</p>
       {reason && <p className="mb-4 rounded-[10px] bg-paper-sunken px-3 py-3 text-[12.8px]">Reason given: {reason}</p>}
+      {code === "AccountRejected" && onRequestAgain && (
+        <Button block className="mb-2" onClick={onRequestAgain}>Request again</Button>
+      )}
       <Button block variant="secondary" onClick={onBack}>
         Back to sign in
       </Button>

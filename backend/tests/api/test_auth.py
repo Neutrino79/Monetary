@@ -66,7 +66,8 @@ def test_login_expects_form_not_json(anon):
     assert r.status_code == 422
 
 
-def test_login_rate_limit_kicks_in_after_10_attempts(anon):
+def test_login_rate_limit_kicks_in_after_10_attempts(anon, monkeypatch):
+    monkeypatch.setenv("MONETARY_LOGIN_MAX_FAILURES", "1000")  # isolate the per-address limiter from the account lock
     anon.post("/setup/init", json=OWNER)
     codes = [login(anon, password="wrong-password").status_code for _ in range(12)]
     assert codes[:10] == [401] * 10 and codes[10:] == [429, 429]
@@ -149,13 +150,17 @@ def test_reset_wrong_answer_and_unknown_email_look_identical(anon):
     assert a.status_code == b.status_code == 422 and a.json() == b.json()
 
 
-def test_security_question_unknown_email_404(anon):
-    assert anon.get("/auth/security-question", params={"email": "ghost@example.com"}).status_code == 404
+def test_security_question_for_an_unknown_email_is_a_stable_decoy(anon):
+    """Asking about an email nobody registered must look like asking about a real one."""
+    first = anon.get("/auth/security-question", params={"email": "ghost@example.com"})
+    again = anon.get("/auth/security-question", params={"email": "Ghost@Example.com"})
+    assert first.status_code == 200 and first.json() == again.json()
+    assert first.json()["securityQuestionId"] in {1, 2, 3, 4, 5}
 
 
 def test_reset_endpoints_are_rate_limited(anon):
     codes = [anon.get("/auth/security-question", params={"email": "ghost@example.com"}).status_code for _ in range(12)]
-    assert codes[:10] == [404] * 10 and codes[10:] == [429, 429]
+    assert codes[:10] == [200] * 10 and codes[10:] == [429, 429]
 
 
 def test_security_questions_list_is_public(anon):

@@ -63,6 +63,16 @@ def _cmd_reset_password(control, data_dir, args) -> int:
     return 0
 
 
+def _cmd_unlock(control, data_dir, args) -> int:
+    user = crepo.get_user_by_email(control, args.email)
+    if user is None:
+        print(f"error: no account with email {args.email}", file=sys.stderr)
+        return 1
+    admin_service.unlock(control, {"id": None}, user["id"])
+    print(f"Unlocked {user['email']}.")
+    return 0
+
+
 def _cmd_migrate_all(control, data_dir, args) -> int:
     """Upgrade every ledger now instead of lazily at each user's next request."""
     count = 0
@@ -131,6 +141,10 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("reset-password", help="issue a temporary password for an account")
     p.add_argument("--email", required=True)
     p.set_defaults(func=_cmd_reset_password)
+
+    p = sub.add_parser("unlock", help="lift a sign-in lock (too many wrong passwords) on an account")
+    p.add_argument("--email", required=True)
+    p.set_defaults(func=_cmd_unlock)
 
     p = sub.add_parser("purge", help="finish due deletions and clear stale requests and leftover files")
     p.add_argument("--dry-run", action="store_true", help="show what would happen and change nothing")

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { TriangleAlert } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
@@ -24,7 +24,9 @@ export function SignupPage() {
   const toast = useToast();
 
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [params] = useSearchParams();
+  const [email, setEmail] = useState(params.get("email") ?? ""); // "Request again" arrives here with it filled in
+  const [website, setWebsite] = useState(""); // honeypot: real people never see or fill this
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [timezone, setTimezone] = useState(appConfig.defaultTimezone);
@@ -58,7 +60,7 @@ export function SignupPage() {
     setLoading(true);
     try {
       if (requesting) {
-        await authService.register({ name: name.trim(), email: email.trim(), password, timezone, homeCurrencyCode: currency.toUpperCase(), securityQuestionId: selectedQuestion, securityAnswer: answer.trim() });
+        await authService.register({ name: name.trim(), email: email.trim(), password, timezone, homeCurrencyCode: currency.toUpperCase(), securityQuestionId: selectedQuestion, securityAnswer: answer.trim(), website });
         setRequested(true);
         return;
       }
@@ -124,6 +126,10 @@ export function SignupPage() {
         <FormField label="Full name" htmlFor="su-name">
           <Input id="su-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
         </FormField>
+      </div>
+      <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+        <label htmlFor="su-website">Website</label>
+        <input id="su-website" name="website" type="text" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
       </div>
       <div className="mb-4">
         <FormField label="Email" htmlFor="su-email">

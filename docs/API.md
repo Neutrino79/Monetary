@@ -69,6 +69,23 @@ are created by a superuser. `POST /auth/login` answers 403 with `AccountPendingA
 email and a wrong password both give the same 401). While a temporary password is pending, everything
 except `GET /me`, `POST /auth/change-password` and `POST /auth/logout` answers 403
 `PasswordChangeRequired`; an account without a ledger gets 403 `NoLedgerError`.
+
+**Protections** (every number is a setting, see the README configuration table):
+- *Lock:* after `MONETARY_LOGIN_MAX_FAILURES` wrong passwords (or wrong security answers) in a row an account
+  is locked for `MONETARY_LOGIN_LOCKOUT_MINUTES`; sign-in and password reset answer 429 `AccountLocked` while
+  it lasts. A superuser can lift it (`POST /admin/users/{id}/unlock`, or `python -m monetary.cli unlock`).
+- *Temporary passwords* expire after `MONETARY_TEMP_PASSWORD_HOURS`; a correct but expired one answers 403
+  `TemporaryPasswordExpired` and needs a new reset by an administrator.
+- *Asking again:* registering with the email of a **rejected** request puts it back to pending with the new
+  details (same generic 202), at most `MONETARY_MAX_REREQUESTS` times; after that only a superuser can
+  `reopen` it. The 403 `AccountRejected` message says which applies.
+- *Captcha:* `GET /auth/captcha` returns `{provider, challenge, siteKey}`. With provider `altcha` (default;
+  a self-contained proof of work) or `turnstile`, `POST /auth/register`, `GET /auth/security-question` and
+  `POST /auth/reset-password` need the solution in an `X-Captcha` header, and `POST /auth/login` needs it
+  once the client address has failed `MONETARY_LOGIN_CAPTCHA_AFTER` times. Without it: 400 `CaptchaRequired`.
+  Each proof-of-work solution works once. `MONETARY_CAPTCHA_PROVIDER=none` turns it off.
+- `POST /auth/register` also accepts an optional hidden `website` field; a request that fills it in is a bot
+  and is answered normally but ignored.
 `GET /me` returns `{id, email, name, role, status, mustChangePassword, hasLedger}`.
 `GET /me/export` downloads the signed-in user's own ledger as a SQLite file (a consistent snapshot, without
 password hashes, security answers or sessions); it is disabled in demo mode.
@@ -122,7 +139,9 @@ curl "http://localhost:8000/api/v0.5/auth/security-question?email=you@example.co
 curl -X POST http://localhost:8000/api/v0.5/auth/reset-password -H "Content-Type: application/json" \
   -d '{"email": "you@example.com", "securityAnswer": "Whiskers", "newPassword": "a new one"}'
 ```
-Both of these are also rate-limited per client IP. A correct reset (or
+Both of these are also rate-limited per client IP and need the captcha above. The question endpoint never
+reveals whether an email has an account: an unknown email gets a stable decoy question, and any answer is
+then refused with the same "Invalid email or security answer". A correct reset (or
 `POST /api/v0.5/auth/change-password`) invalidates every existing session,
 forcing a fresh login everywhere.
 
@@ -147,6 +166,9 @@ the message string:
 | `OwnershipError` | 403 | (not currently reachable in single-owner scope, reserved) |
 | `ConflictError` | 409 | Valid input, but conflicts with current state (over-refund, settlement-history guard, etc.) |
 | `RateLimitError` | 429 | Too many attempts against a rate-limited endpoint |
+| `AccountLocked` | 429 | Too many wrong passwords in a row; the account is locked for a while |
+| `CaptchaRequired` | 400 | The request needs a solved captcha (`X-Captcha` header) |
+| `TemporaryPasswordExpired` | 403 | The temporary password is too old; ask an administrator for a new one |
 | `InternalError` | 500 | An unexpected server-side error. The response never includes the raw exception or a traceback; details are logged server-side only |
 | anything else | 400 | Fallback |
 
@@ -287,14 +309,15 @@ mode. Superusers manage *accounts*; they never see ledger contents. Every action
 - `POST /admin/users` `{name, email, currency, timezone?, role?}` -- active account with an empty ledger and a
   generated temporary password, returned **once** as `temporaryPassword`; the user must change it at first sign-in.
 - `POST /admin/users/{id}/approve` | `reject` (`{reason?}`) | `suspend` (`{reason?}`) | `reactivate` |
-  `reset-password` (new temporary password, returned once) | `revoke-sessions` | `delete` (locks the account,
+  `reset-password` (new temporary password, returned once) | `unlock` (lift a sign-in lock) | `reopen` (a
+  rejected request back to pending, with a fresh allowance of re-requests) | `revoke-sessions` | `delete` (locks the account,
   data purged after 30 days) | `restore`; `PUT /admin/users/{id}/role` `{role: "user"|"superuser"}`.
 - `GET /admin/audit-log?user_id=&limit=&offset=` -- newest first.
 - Rules: a wrong state change is `409`; nobody can suspend or delete themselves; the last active
   superuser can never be demoted, suspended or deleted.
 
 Without the web UI, `python -m monetary.cli` (run from `backend/`, same `MONETARY_DATA_DIR`) offers
-`create-superuser`, `list-users`, `reset-password`, `migrate-all`, `usage`, `backup --to DIR` and
+`create-superuser`, `list-users`, `reset-password`, `unlock`, `migrate-all`, `usage`, `backup --to DIR` and
 `purge [--dry-run]`. Passwords come from a prompt, `--password-stdin` or `MONETARY_PASSWORD`, never from
 an argument.
 

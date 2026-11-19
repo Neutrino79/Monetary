@@ -17,6 +17,8 @@ interface RequestOptions {
   form?: Record<string, string>;
   query?: Record<string, QueryValue>;
   signal?: AbortSignal;
+  /** Extra request headers (for example the captcha solution). */
+  headers?: Record<string, string>;
   /** Return the response body as a file instead of JSON. */
   asBlob?: boolean;
   /** Don't treat a 401 as "session expired" (e.g. wrong password on the login form). */
@@ -45,7 +47,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), appConfig.apiTimeoutMs);
   const token = tokenStorage.get();
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...options.headers };
   if (token) headers.Authorization = `Bearer ${token}`;
   let body: BodyInit | undefined;
   if (options.form) {
@@ -92,9 +94,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 export const http = {
-  get: <T>(path: string, query?: Record<string, QueryValue>, signal?: AbortSignal) => request<T>(path, { query, signal }),
-  post: <T>(path: string, body?: unknown, opts?: Pick<RequestOptions, "query" | "signal">) => request<T>(path, { method: "POST", body, ...opts }),
-  postForm: <T>(path: string, form: Record<string, string>, opts?: Pick<RequestOptions, "skipUnauthorizedHandler">) =>
+  get: <T>(path: string, query?: Record<string, QueryValue>, signal?: AbortSignal, headers?: Record<string, string>) =>
+    request<T>(path, { query, signal, headers }),
+  post: <T>(path: string, body?: unknown, opts?: Pick<RequestOptions, "query" | "signal" | "headers">) => request<T>(path, { method: "POST", body, ...opts }),
+  postForm: <T>(path: string, form: Record<string, string>, opts?: Pick<RequestOptions, "skipUnauthorizedHandler" | "headers">) =>
     request<T>(path, { method: "POST", form, ...opts }),
   /** A file download (the signed-in user's own data). */
   download: (path: string) => request<{ blob: Blob; filename: string }>(path, { asBlob: true }),

@@ -20,7 +20,7 @@ const json = (body: unknown, status = 200) =>
 const user = (over: Record<string, unknown> = {}) => ({
   id: 5, email: 'ravi@example.com', name: 'Ravi Kumar', role: 'user', status: 'active', statusReason: null, mustChangePassword: false,
   timezone: 'Asia/Kolkata', homeCurrencyCode: 'INR', plan: 'manual', accessUntil: null, deleteAfter: null, lastLoginAt: null,
-  approvedAt: null, approvedBy: null, createdAt: '2026-11-01T10:00:00+00:00', updatedAt: '2026-11-01T10:00:00+00:00', ...over,
+  lockedUntil: null, passwordExpiresAt: null, rerequestCount: 0, approvedAt: null, approvedBy: null, createdAt: '2026-11-01T10:00:00+00:00', updatedAt: '2026-11-01T10:00:00+00:00', ...over,
 })
 const page = (items: unknown[]) => ({ items, total: items.length, limit: 50, offset: 0 })
 const owner = {
@@ -234,5 +234,39 @@ describe('audit log', () => {
     renderApp('/admin/audit')
     expect(await screen.findByText(/Admin \(admin@example.com\) approved an account: Ravi Kumar/)).toBeInTheDocument()
     expect(screen.getByText(/reason: ok/)).toBeInTheDocument()
+  })
+})
+
+describe('sign-in locks and rejected requests', () => {
+  it('shows a lock and lifts it with Unlock', async () => {
+    const until = new Date(Date.now() + 10 * 60_000).toISOString()
+    handlers['GET /admin/users'] = () => ({ json: page([user({ lockedUntil: until })]) })
+    handlers['POST /admin/users/5/unlock'] = () => ({ json: user() })
+    signIn('superuser')
+    renderApp('/admin/users')
+    expect(await screen.findByText('locked')).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Unlock' }))
+    await vi.waitFor(() => expect(calls).toContain('POST /admin/users/5/unlock'))
+    expect(await screen.findByText('Ravi Kumar unlocked.')).toBeInTheDocument()
+  })
+
+  it('does not offer Unlock once the lock has run out', async () => {
+    const past = new Date(Date.now() - 60_000).toISOString()
+    handlers['GET /admin/users'] = () => ({ json: page([user({ lockedUntil: past })]) })
+    signIn('superuser')
+    renderApp('/admin/users')
+    await screen.findByText('Ravi Kumar')
+    expect(screen.queryByRole('button', { name: 'Unlock' })).toBeNull()
+    expect(screen.queryByText('locked')).toBeNull()
+  })
+
+  it('reopens a rejected request', async () => {
+    handlers['GET /admin/users'] = () => ({ json: page([user({ status: 'rejected' })]) })
+    handlers['POST /admin/users/5/reopen'] = () => ({ json: user({ status: 'pending_approval' }) })
+    signIn('superuser')
+    renderApp('/admin/users')
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Reopen' }))
+    await vi.waitFor(() => expect(calls).toContain('POST /admin/users/5/reopen'))
+    expect(await screen.findByText("Ravi Kumar's request is pending again.")).toBeInTheDocument()
   })
 })
