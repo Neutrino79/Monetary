@@ -125,7 +125,7 @@ export interface User {
 }
 
 /** The signed-in platform account (GET /me): who they are on the service, as opposed to `User`, the owner row of their own ledger. */
-export type AccountRole = "user" | "superuser";
+export type AccountRole = "user" | "admin" | "superuser";
 export type AccountStatus = "pending_approval" | "active" | "rejected" | "suspended" | "pending_delete";
 
 export interface PlatformAccount {

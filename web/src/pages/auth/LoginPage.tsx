@@ -84,7 +84,11 @@ export function LoginPage() {
   if (accountState) {
     return (
       <AuthShell>
-        <AccountStatusNotice code={accountState} onBack={() => { setAccountState(null); setPassword(""); }} />
+        <AccountStatusNotice
+          code={accountState}
+          onBack={() => { setAccountState(null); setPassword(""); }}
+          onRequestAgain={() => navigate(`/signup?email=${encodeURIComponent(email.trim())}`)}
+        />
       </AuthShell>
     );
   }

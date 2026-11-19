@@ -17,6 +17,7 @@ from monetary.domain.exceptions import (
 )
 from monetary.infrastructure import control_repository as crepo
 
+SECRET = b"test-secret"
 REG = dict(name="Asha Rao", email="Asha@Example.com", password="correct horse", timezone="Asia/Kolkata",  # pragma: allowlist secret
            home_currency_code="inr", security_question_id=1, security_answer="Bruno")  # pragma: allowlist secret
 
@@ -179,12 +180,12 @@ def test_changing_the_password_needs_the_current_one_ends_all_sessions_and_clear
 
 def test_the_security_question_flow_resets_the_password_for_active_accounts_only(control):
     u = _register(control)
-    with pytest.raises(NotFoundError):
-        acc.get_security_question(control, REG["email"])  # still pending
+    pending_qid, _ = acc.get_security_question(control, REG["email"], SECRET)  # still pending: a decoy
+    assert pending_qid == acc.get_security_question(control, REG["email"], SECRET)[0]
     with pytest.raises(ValidationError):
         acc.reset_password(control, email=REG["email"], security_answer="Bruno", new_password="reset password")  # pragma: allowlist secret
     _activate(control, u)
-    qid, text = acc.get_security_question(control, REG["email"])
+    qid, text = acc.get_security_question(control, REG["email"], SECRET)
     assert qid == 1 and "pet" in text
     with pytest.raises(ValidationError):
         acc.reset_password(control, email=REG["email"], security_answer="Rex", new_password="reset password")  # pragma: allowlist secret
@@ -197,8 +198,8 @@ def test_the_security_question_flow_resets_the_password_for_active_accounts_only
 def test_accounts_without_a_security_question_cannot_use_the_reset_flow(control):
     acc.create_superuser(control, name="Root", email="root@example.com", password="correct horse",  # pragma: allowlist secret
                          timezone=None, home_currency_code="INR")
-    with pytest.raises(NotFoundError):
-        acc.get_security_question(control, "root@example.com")
+    qid, _ = acc.get_security_question(control, "root@example.com", SECRET)  # a decoy, not an error
+    assert qid in {1, 2, 3, 4, 5}
     with pytest.raises(ValidationError):
         acc.reset_password(control, email="root@example.com", security_answer="x", new_password="reset password")  # pragma: allowlist secret
 
@@ -221,9 +222,13 @@ def test_the_first_superuser_is_active_and_setup_closes_afterwards(control):
 def test_creating_a_superuser_rejects_a_duplicate_email_and_a_half_given_question(control):
     acc.create_superuser(control, name="Root", email="root@example.com", password="correct horse",  # pragma: allowlist secret
                          timezone=None, home_currency_code="INR")
-    with pytest.raises(ConflictError):
-        acc.create_superuser(control, name="Root 2", email="ROOT@example.com", password="correct horse",  # pragma: allowlist secret
+    with pytest.raises(ConflictError, match="only one"):  # a second superuser is never created
+        acc.create_superuser(control, name="Root 2", email="other@example.com", password="correct horse",  # pragma: allowlist secret
                              timezone=None, home_currency_code="INR")
+    with pytest.raises(ConflictError, match="already in use"):
+        acc._create_active_superuser(
+            control, name="Root 2", email="ROOT@example.com", password="correct horse", timezone=None,  # pragma: allowlist secret
+            home_currency_code="INR", security_question_id=None, security_answer=None, actor_user_id=None)
     with pytest.raises(ValidationError):
         acc._create_active_superuser(
             control, name="X", email="x@example.com", password="correct horse", timezone=None,  # pragma: allowlist secret

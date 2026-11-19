@@ -1,15 +1,20 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { Plus, Search, Users } from "lucide-react";
 import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/form";
-import { useAdminUsers } from "@/hooks/admin";
+import { useAdminMutation, useAdminUsers } from "@/hooks/admin";
+import { useToast } from "@/components/ui/Toast";
+import { adminService } from "@/lib/api/services/adminService";
+import { formatBytes } from "@/lib/format/bytes";
 import { useAuthStore } from "@/store/authStore";
+import { ROLE_LABEL } from "@/lib/roles";
 import { CreateUserDialog } from "@/components/admin/CreateUserDialog";
-import { UserActions } from "@/components/admin/UserActions";
+import { UserActions, isLocked } from "@/components/admin/UserActions";
 import { StatusBadge, TemporaryPasswordDialog, formatWhen } from "@/components/admin/adminUi";
 import type { AccountStatus } from "@/types";
-import type { IssuedPassword } from "@/types/admin";
+import type { BulkAction, IssuedPassword } from "@/types/admin";
 
 const PAGE = 25;
 
@@ -20,6 +25,21 @@ export function AdminUsersPage() {
   const [offset, setOffset] = useState(0);
   const [creating, setCreating] = useState(false);
   const [issued, setIssued] = useState<IssuedPassword | null>(null);
+  const toast = useToast();
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const bulk = useAdminMutation((vars: { action: BulkAction; ids: number[] }) => adminService.bulk(vars.action, vars.ids));
+  const toggle = (id: number) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
+  async function runBulk(action: BulkAction) {
+    try {
+      const r = await bulk.mutateAsync({ action, ids: [...picked] });
+      const firstError = r.results.find((x) => !x.ok)?.error;
+      toast.show(`${r.succeeded} done${r.failed ? `, ${r.failed} skipped${firstError ? ` (${firstError})` : ""}` : ""}.`,
+        { variant: r.failed ? "error" : "success" });
+      setPicked(new Set());
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : "Something went wrong.", { variant: "error" });
+    }
+  }
   const q = useAdminUsers({ q: search, status, limit: PAGE, offset });
   const items = q.data?.items ?? [];
   const total = q.data?.total ?? 0;
@@ -44,6 +64,17 @@ export function AdminUsersPage() {
         <Button onClick={() => setCreating(true)}><Plus size={15} /> Create user</Button>
       </div>
 
+      {picked.size > 0 && (
+        <Card className="flex flex-wrap items-center gap-2 p-3" role="toolbar" aria-label="Bulk actions">
+          <span className="mr-2 text-[13px] font-medium">{picked.size} selected</span>
+          <Button size="sm" disabled={bulk.isPending} onClick={() => runBulk("approve")}>Approve</Button>
+          <Button size="sm" variant="secondary" disabled={bulk.isPending} onClick={() => runBulk("reject")}>Reject</Button>
+          <Button size="sm" variant="secondary" disabled={bulk.isPending} onClick={() => runBulk("suspend")}>Suspend</Button>
+          <Button size="sm" variant="secondary" disabled={bulk.isPending} onClick={() => runBulk("reactivate")}>Reactivate</Button>
+          <Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>Clear</Button>
+        </Card>
+      )}
+
       {q.isLoading ? (
         <Skeleton className="h-48 w-full" />
       ) : q.isError ? (
@@ -55,15 +86,18 @@ export function AdminUsersPage() {
           <ul>
             {items.map((u) => (
               <li key={u.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-0">
-                <div className="min-w-0">
+                <input type="checkbox" aria-label={`Select ${u.name}`} checked={picked.has(u.id)} onChange={() => toggle(u.id)} className="mr-1" />
+                <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="truncate text-[14px] font-semibold">{u.name}</span>
+                    <Link to={`/admin/users/${u.id}`} className="truncate text-[14px] font-semibold hover:underline">{u.name}</Link>
                     <StatusBadge status={u.status} />
+                    {u.role !== "user" && <span data-testid={`role-${u.id}`} className="ml-2 text-[11.5px] font-semibold text-ink-soft">{ROLE_LABEL[u.role]}</span>}
                     {u.role === "superuser" && <span className="text-[11.5px] font-semibold text-accent">Superuser</span>}
                     {u.mustChangePassword && <span className="text-[11.5px] text-ink-faint">temporary password</span>}
+                    {isLocked(u) && <span className="text-[11.5px] font-semibold text-danger">locked</span>}
                   </div>
                   <div className="truncate text-[12.8px] text-ink-faint">
-                    {u.email} · last sign-in {formatWhen(u.lastLoginAt)}
+                    {u.email} · active {formatWhen(u.lastActivityAt)}{u.storageBytes !== null ? ` · ${formatBytes(u.storageBytes)}` : ""}
                     {u.statusReason ? ` · ${u.statusReason}` : ""}
                   </div>
                 </div>

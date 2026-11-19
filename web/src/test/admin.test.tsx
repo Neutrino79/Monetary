@@ -20,7 +20,7 @@ const json = (body: unknown, status = 200) =>
 const user = (over: Record<string, unknown> = {}) => ({
   id: 5, email: 'ravi@example.com', name: 'Ravi Kumar', role: 'user', status: 'active', statusReason: null, mustChangePassword: false,
   timezone: 'Asia/Kolkata', homeCurrencyCode: 'INR', plan: 'manual', accessUntil: null, deleteAfter: null, lastLoginAt: null,
-  approvedAt: null, approvedBy: null, createdAt: '2026-11-01T10:00:00+00:00', updatedAt: '2026-11-01T10:00:00+00:00', ...over,
+  lockedUntil: null, passwordExpiresAt: null, rerequestCount: 0, approvedAt: null, approvedBy: null, createdAt: '2026-11-01T10:00:00+00:00', updatedAt: '2026-11-01T10:00:00+00:00', lastActivityAt: '2026-11-03T10:00:00+00:00', storageBytes: 2048, ...over,
 })
 const page = (items: unknown[]) => ({ items, total: items.length, limit: 50, offset: 0 })
 const owner = {
@@ -28,7 +28,7 @@ const owner = {
   ledgerMode: 'DIRECT', securityQuestionId: 1, createdAt: 'x', updatedAt: 'x',
 }
 
-function signIn(role: 'user' | 'superuser') {
+function signIn(role: 'user' | 'admin' | 'superuser') {
   useAuthStore.setState({
     user: owner as never, isAuthenticated: true, isHydrating: false, hydrateError: null, sessionExpired: false,
     account: { id: 1, email: 'admin@example.com', name: 'Admin', role, status: 'active', mustChangePassword: false, hasLedger: true },
@@ -206,15 +206,12 @@ describe('users', () => {
     expect(JSON.parse(String(bodies['POST /admin/users/5/suspend']))).toEqual({ reason: 'abuse' })
   })
 
-  it('does not offer to suspend or delete yourself', async () => {
+  it('offers no account actions on your own row', async () => {
     handlers['GET /admin/users'] = () => ({ json: page([user({ id: 1, name: 'Admin', email: 'admin@example.com', role: 'superuser' })]) })
-    const ui = userEvent.setup()
     signIn('superuser')
     renderApp('/admin/users')
-    await ui.click(await screen.findByRole('button', { name: 'More actions for Admin' }))
-    expect(await screen.findByRole('menuitem', { name: 'Reset password…' })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: 'Suspend…' })).toBeNull()
-    expect(screen.queryByRole('menuitem', { name: 'Delete…' })).toBeNull()
+    await screen.findByText('Admin')
+    expect(screen.queryByRole('button', { name: 'More actions for Admin' })).toBeNull()
   })
 
   it('offers Restore for an account scheduled for deletion', async () => {
@@ -234,5 +231,178 @@ describe('audit log', () => {
     renderApp('/admin/audit')
     expect(await screen.findByText(/Admin \(admin@example.com\) approved an account: Ravi Kumar/)).toBeInTheDocument()
     expect(screen.getByText(/reason: ok/)).toBeInTheDocument()
+  })
+})
+
+describe('sign-in locks and rejected requests', () => {
+  it('shows a lock and lifts it with Unlock', async () => {
+    const until = new Date(Date.now() + 10 * 60_000).toISOString()
+    handlers['GET /admin/users'] = () => ({ json: page([user({ lockedUntil: until })]) })
+    handlers['POST /admin/users/5/unlock'] = () => ({ json: user() })
+    signIn('superuser')
+    renderApp('/admin/users')
+    expect(await screen.findByText('locked')).toBeInTheDocument()
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Unlock' }))
+    await vi.waitFor(() => expect(calls).toContain('POST /admin/users/5/unlock'))
+    expect(await screen.findByText('Ravi Kumar unlocked.')).toBeInTheDocument()
+  })
+
+  it('does not offer Unlock once the lock has run out', async () => {
+    const past = new Date(Date.now() - 60_000).toISOString()
+    handlers['GET /admin/users'] = () => ({ json: page([user({ lockedUntil: past })]) })
+    signIn('superuser')
+    renderApp('/admin/users')
+    await screen.findByText('Ravi Kumar')
+    expect(screen.queryByRole('button', { name: 'Unlock' })).toBeNull()
+    expect(screen.queryByText('locked')).toBeNull()
+  })
+
+  it('reopens a rejected request', async () => {
+    handlers['GET /admin/users'] = () => ({ json: page([user({ status: 'rejected' })]) })
+    handlers['POST /admin/users/5/reopen'] = () => ({ json: user({ status: 'pending_approval' }) })
+    signIn('superuser')
+    renderApp('/admin/users')
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Reopen' }))
+    await vi.waitFor(() => expect(calls).toContain('POST /admin/users/5/reopen'))
+    expect(await screen.findByText("Ravi Kumar's request is pending again.")).toBeInTheDocument()
+  })
+})
+
+describe('roles', () => {
+  const rows = () => ({
+    json: page([
+      user({ id: 5, name: 'Ravi Kumar' }),
+      user({ id: 6, name: 'Helen Admin', email: 'helen@example.com', role: 'admin' }),
+      user({ id: 1, name: 'The Boss', email: 'boss@example.com', role: 'superuser' }),
+    ]),
+  })
+
+  it('lets the superuser make admins and take it back, but never offers a second superuser', async () => {
+    handlers['GET /admin/users'] = rows
+    handlers['PUT /admin/users/5/role'] = () => ({ json: user({ role: 'admin' }) })
+    const ui = userEvent.setup()
+    signIn('superuser')
+    renderApp('/admin/users')
+    await ui.click(await screen.findByRole('button', { name: 'More actions for Ravi Kumar' }))
+    expect(screen.queryByRole('menuitem', { name: /superuser/i })).toBeNull()
+    await ui.click(await screen.findByRole('menuitem', { name: 'Make admin…' }))
+    await ui.click(await screen.findByRole('button', { name: 'Change role' }))
+    await vi.waitFor(() => expect(calls).toContain('PUT /admin/users/5/role'))
+    expect(JSON.parse(String(bodies['PUT /admin/users/5/role']))).toEqual({ role: 'admin' })
+    await ui.keyboard('{Escape}')
+    await ui.click(await screen.findByRole('button', { name: 'More actions for Helen Admin' }))
+    expect(await screen.findByRole('menuitem', { name: 'Make regular user…' })).toBeInTheDocument()
+  })
+
+  it('gives an admin the everyday actions on users only', async () => {
+    handlers['GET /admin/users'] = rows
+    const ui = userEvent.setup()
+    signIn('admin')
+    renderApp('/admin/users')
+    await ui.click(await screen.findByRole('button', { name: 'More actions for Ravi Kumar' }))
+    expect(await screen.findByRole('menuitem', { name: 'Suspend…' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Reset password…' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Delete…' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: /Make /})).toBeNull()
+    await ui.keyboard('{Escape}')
+    // another admin and the superuser are out of reach
+    expect(screen.queryByRole('button', { name: 'More actions for Helen Admin' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'More actions for The Boss' })).toBeNull()
+  })
+
+  it('shows each role next to its account', async () => {
+    handlers['GET /admin/users'] = rows
+    signIn('superuser')
+    renderApp('/admin/users')
+    await screen.findByText('Ravi Kumar')
+    expect(screen.getByTestId('role-6')).toHaveTextContent('Admin')
+    expect(screen.getByTestId('role-1')).toHaveTextContent('Superuser')
+    expect(screen.queryByTestId('role-5')).toBeNull() // ordinary users carry no label
+  })
+
+  it('lets only the superuser choose a role when creating an account', async () => {
+    handlers['GET /admin/users'] = () => ({ json: page([]) })
+    const ui = userEvent.setup()
+    signIn('admin')
+    renderApp('/admin/users')
+    await ui.click(await screen.findByRole('button', { name: /Create user/ }))
+    await screen.findByLabelText('Email')
+    expect(screen.queryByLabelText('Role')).toBeNull()
+  })
+
+  it('shows the superuser a role choice of user or admin', async () => {
+    handlers['GET /admin/users'] = () => ({ json: page([]) })
+    const ui = userEvent.setup()
+    signIn('superuser')
+    renderApp('/admin/users')
+    await ui.click(await screen.findByRole('button', { name: /Create user/ }))
+    await ui.click(await screen.findByLabelText('Role'))
+    expect(await screen.findByText('Admin', { selector: '[role="option"] *, [role="option"]' })).toBeInTheDocument()
+    expect(screen.queryByText('Superuser')).toBeNull()
+  })
+
+  it('opens the Admin area to an admin', async () => {
+    handlers['GET /admin/stats'] = () => ({ json: { totalUsers: 1, byStatus: {}, pendingApproval: 0, activeSuperusers: 1, activeAdmins: 1, ledgerCount: 1, ledgerBytes: 1024 } })
+    signIn('admin')
+    renderApp('/admin')
+    expect(await screen.findByText('Admins')).toBeInTheDocument()
+  })
+})
+
+describe('managing one account and many', () => {
+  it('shows the detail page with its sessions, and signs one device out', async () => {
+    signIn('admin')
+    handlers['GET /admin/users/5'] = () => ({ json: user() })
+    handlers['GET /admin/users/5/sessions'] = () => ({ json: [{ id: 9, createdAt: '2026-11-03T10:00:00+00:00', expiresAt: '2026-12-03T10:00:00+00:00', lastSeenAt: null, ip: '9.9.9.9', userAgent: 'TestBrowser/1.0' }] })
+    handlers['DELETE /admin/users/5/sessions/9'] = () => ({ json: { detail: 'Session revoked.' } })
+    renderApp('/admin/users/5')
+    expect(await screen.findByText('TestBrowser/1.0')).toBeInTheDocument()
+    expect(screen.getByText('2 KB')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Sign out TestBrowser/ }))
+    await vi.waitFor(() => expect(calls).toContain('DELETE /admin/users/5/sessions/9'))
+  })
+
+  it('saves profile changes, warning that a new email signs the person out', async () => {
+    signIn('admin')
+    handlers['GET /admin/users/5'] = () => ({ json: user() })
+    handlers['GET /admin/users/5/sessions'] = () => ({ json: [] })
+    handlers['PATCH /admin/users/5'] = () => ({ json: user({ name: 'Ravi K' }) })
+    renderApp('/admin/users/5')
+    const name = await screen.findByLabelText('Name')
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Ravi K')
+    await userEvent.type(screen.getByLabelText('Email'), 'x')
+    expect(screen.getByText(/signs this person out/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await vi.waitFor(() => expect(calls).toContain('PATCH /admin/users/5'))
+    expect(JSON.parse(String(bodies['PATCH /admin/users/5']))).toMatchObject({ name: 'Ravi K' })
+  })
+
+  it('runs a bulk action on the selected accounts and reports the skipped ones', async () => {
+    signIn('admin')
+    handlers['GET /admin/users'] = () => ({ json: page([user(), user({ id: 6, name: 'Sam', email: 'sam@example.com' })]) })
+    handlers['POST /admin/users/bulk'] = () => ({ json: { action: 'suspend', succeeded: 1, failed: 1, results: [{ userId: 5, ok: true, error: null }, { userId: 6, ok: false, error: 'Cannot suspend an account that is suspended.' }] } })
+    renderApp('/admin/users')
+    await userEvent.click(await screen.findByLabelText('Select Ravi Kumar'))
+    await userEvent.click(screen.getByLabelText('Select Sam'))
+    expect(screen.getByText('2 selected')).toBeInTheDocument()
+    await userEvent.click(within(screen.getByRole('toolbar', { name: 'Bulk actions' })).getByRole('button', { name: 'Suspend' }))
+    expect(await screen.findByText(/1 done, 1 skipped/)).toBeInTheDocument()
+    expect(JSON.parse(String(bodies['POST /admin/users/bulk']))).toMatchObject({ action: 'suspend', userIds: [5, 6] })
+  })
+
+  it('offers the purge only to the superuser, behind a confirmation', async () => {
+    handlers['GET /admin/stats'] = () => ({ json: { totalUsers: 4, byStatus: {}, pendingApproval: 0, activeSuperusers: 1, activeAdmins: 0, overdueForPurge: 2, ledgerCount: 3, ledgerBytes: 1 } })
+    handlers['POST /admin/purge'] = () => ({ json: { purged: 2 } })
+    signIn('admin')
+    const first = renderApp('/admin')
+    expect(await screen.findByText(/2 accounts overdue for purge/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Purge now' })).toBeNull()
+    first.unmount()
+    signIn('superuser')
+    renderApp('/admin')
+    await userEvent.click(await screen.findByRole('button', { name: 'Purge now' }))
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Purge now' }))
+    await vi.waitFor(() => expect(calls).toContain('POST /admin/purge'))
   })
 })

@@ -6,9 +6,10 @@ import sqlite3
 from typing import Any, Optional
 
 _USER_UPDATABLE = frozenset({
-    "name", "password_hash", "security_question_id", "security_answer_hash", "role", "status",
+    "name", "email", "password_hash", "security_question_id", "security_answer_hash", "role", "status",
     "status_reason", "must_change_password", "timezone", "home_currency_code", "plan", "access_until",
-    "delete_after", "last_login_at", "approved_at", "approved_by",
+    "delete_after", "last_login_at", "approved_at", "approved_by", "failed_login_count", "locked_until",
+    "password_expires_at", "rerequest_count",
 })
 
 
@@ -85,6 +86,19 @@ def count_users_by_status(conn) -> dict[str, int]:
     return {r["status"]: r["n"] for r in rows}
 
 
+def count_superusers(conn) -> int:
+    """Superusers of any status (there is meant to be exactly one)."""
+    return conn.execute("SELECT COUNT(*) FROM user WHERE role = 'superuser'").fetchone()[0]
+
+
+def count_active_admins(conn) -> int:
+    return conn.execute("SELECT COUNT(*) FROM user WHERE role = 'admin' AND status = 'active'").fetchone()[0]
+
+
+def list_superusers(conn) -> list[dict]:
+    return [dict(r) for r in conn.execute("SELECT * FROM user WHERE role = 'superuser' ORDER BY id").fetchall()]
+
+
 def count_active_superusers(conn) -> int:
     return conn.execute("SELECT COUNT(*) FROM user WHERE role = 'superuser' AND status = 'active'").fetchone()[0]
 
@@ -104,16 +118,60 @@ def delete_stale_requests(conn, *, pending_before: str, rejected_before: str) ->
 # SESSION
 # --------------------------------------------------------------------------- #
 
-def create_session(conn, *, user_id, token_hash, created_at, expires_at) -> dict:
+def create_session(conn, *, user_id, token_hash, created_at, expires_at, ip=None, user_agent=None) -> dict:
     cur = conn.execute(
-        "INSERT INTO session (user_id, token_hash, created_at, expires_at) VALUES (?, ?, ?, ?)",
-        (user_id, token_hash, created_at, expires_at),
+        "INSERT INTO session (user_id, token_hash, created_at, expires_at, last_seen_at, ip, user_agent) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (user_id, token_hash, created_at, expires_at, created_at, ip, user_agent),
     )
     return _row(conn.execute("SELECT * FROM session WHERE id = ?", (cur.lastrowid,)).fetchone())
 
 
 def get_session_by_token_hash(conn, token_hash) -> Optional[dict]:
     return _row(conn.execute("SELECT * FROM session WHERE token_hash = ?", (token_hash,)).fetchone())
+
+
+def touch_session(conn, session_id, now_iso) -> None:
+    conn.execute("UPDATE session SET last_seen_at = ? WHERE id = ?", (now_iso, session_id))
+
+
+def list_sessions_for_user(conn, user_id, now_iso) -> list[dict]:
+    """Sessions that have not expired, most recently used first."""
+    return [dict(r) for r in conn.execute(
+        "SELECT id, user_id, created_at, expires_at, last_seen_at, ip, user_agent FROM session "
+        "WHERE user_id = ? AND expires_at >= ? ORDER BY COALESCE(last_seen_at, created_at) DESC, id DESC",
+        (user_id, now_iso)).fetchall()]
+
+
+def delete_session_of_user(conn, user_id, session_id) -> bool:
+    return conn.execute("DELETE FROM session WHERE id = ? AND user_id = ?", (session_id, user_id)).rowcount > 0
+
+
+def last_activity_by_user(conn, user_ids) -> dict[int, str]:
+    """The latest time each of these users' sessions was seen."""
+    ids = list(user_ids)
+    if not ids:
+        return {}
+    marks = ",".join("?" * len(ids))
+    return {r["user_id"]: r["seen"] for r in conn.execute(
+        f"SELECT user_id, MAX(COALESCE(last_seen_at, created_at)) AS seen FROM session "
+        f"WHERE user_id IN ({marks}) GROUP BY user_id", ids).fetchall()}
+
+
+def workspaces_by_user(conn, user_ids) -> dict[int, dict]:
+    ids = list(user_ids)
+    if not ids:
+        return {}
+    marks = ",".join("?" * len(ids))
+    return {r["user_id"]: dict(r) for r in conn.execute(
+        f"""SELECT w.*, m.user_id AS user_id FROM workspace w JOIN membership m ON m.workspace_id = w.id
+            WHERE m.user_id IN ({marks}) ORDER BY w.id DESC""", ids).fetchall()}
+
+
+def count_due_for_deletion(conn, now: str) -> int:
+    return conn.execute(
+        "SELECT COUNT(*) FROM user WHERE status = 'pending_delete' AND delete_after IS NOT NULL "
+        "AND delete_after <= ?", (now,)).fetchone()[0]
 
 
 def delete_session(conn, session_id) -> None:

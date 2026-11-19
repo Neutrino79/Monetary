@@ -43,7 +43,7 @@ def test_update_user_changes_only_whitelisted_columns_and_bumps_updated_at(contr
     assert (updated["status"], updated["status_reason"], updated["must_change_password"]) == ("suspended", "chargeback", 1)
     assert updated["updated_at"] == "2026-02-02T00:00:00+00:00" and updated["created_at"] == NOW
     with pytest.raises(ValueError):
-        crepo.update_user(control, u["id"], now=NOW, email="x@example.com")
+        crepo.update_user(control, u["id"], now=NOW, created_at="2020-01-01T00:00:00+00:00")
     with pytest.raises(ValueError):
         crepo.update_user(control, u["id"], now=NOW, id=99)
 
@@ -69,9 +69,12 @@ def test_search_treats_percent_and_underscore_literally(control):
 
 def test_counting_active_superusers_ignores_other_states_and_roles(control):
     _user(control, email="s1@example.com", role="superuser")
-    _user(control, email="s2@example.com", role="superuser", status="suspended")
+    _user(control, email="a1@example.com", role="admin")
+    _user(control, email="a2@example.com", role="admin", status="suspended")
     _user(control, email="u@example.com")
     assert crepo.count_active_superusers(control) == 1
+    assert crepo.count_superusers(control) == 1
+    assert crepo.count_active_admins(control) == 1
 
 
 def test_stale_requests_are_removed_but_active_and_recent_ones_are_kept(control):

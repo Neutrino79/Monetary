@@ -16,16 +16,20 @@ from typing import Iterator
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 
-from monetary.application import identity_service, provisioning
+from monetary.application import captcha_service, identity_service, provisioning
 from monetary.config import (
     API_PREFIX,
     data_dir_from_environment,
     demo_mode_enabled,
     legacy_db_path_from_environment,
+    login_captcha_after,
 )
+from monetary.domain.enums import PlatformRole
 from monetary.domain.exceptions import PasswordChangeRequired, PermissionDeniedError
-from monetary.infrastructure import control_db
+from monetary.infrastructure import control_db, instance_secret
 from monetary.infrastructure.rate_limiter import (
+    login_failure_counter,
+    captcha_rate_limiter,
     login_rate_limiter,
     password_reset_rate_limiter,
     register_rate_limiter,
@@ -131,6 +135,16 @@ def get_superuser(account: dict = Depends(get_current_account)) -> dict:
     return account
 
 
+def get_admin(account: dict = Depends(get_current_account)) -> dict:
+    """The signed-in account, only if it is an admin or the superuser (read from the control database on
+    every request). Administration is not available in demo mode."""
+    if demo_mode_enabled():
+        raise PermissionDeniedError("Administration is disabled in demo mode.")
+    if account["role"] not in (PlatformRole.ADMIN.value, PlatformRole.SUPERUSER.value):
+        raise PermissionDeniedError("Administrator access required.")
+    return account
+
+
 def get_db(
     account: dict = Depends(get_current_account), control: sqlite3.Connection = CONTROL
 ) -> Iterator[sqlite3.Connection]:
@@ -177,8 +191,28 @@ def enforce_password_reset_rate_limit(request: Request) -> None:
     password_reset_rate_limiter.check(_client_key(request))
 
 
+def enforce_captcha_rate_limit(request: Request) -> None:
+    captcha_rate_limiter.check(_client_key(request))
+
+
 def enforce_register_rate_limit(request: Request) -> None:
     register_rate_limiter.check(_client_key(request))
+
+
+def server_secret() -> bytes:
+    return instance_secret.load_secret(data_dir_from_environment())
+
+
+def require_captcha(request: Request) -> None:
+    """Gate for public forms that bots love: a solved captcha in the `X-Captcha` header (a no-op when
+    MONETARY_CAPTCHA_PROVIDER=none)."""
+    captcha_service.require(request.headers.get("X-Captcha"), server_secret(), remote_ip=_client_key(request))
+
+
+def require_login_captcha(request: Request) -> None:
+    """Sign-in needs a captcha only once this client address has failed a few times in a row."""
+    if login_failure_counter.count(_client_key(request)) >= login_captcha_after():
+        require_captcha(request)
 
 
 def require_demo_mode() -> None:

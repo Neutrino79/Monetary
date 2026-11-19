@@ -17,6 +17,8 @@ export interface RegisterInput {
   homeCurrencyCode: string;
   securityQuestionId: number;
   securityAnswer: string;
+  /** Hidden honeypot field: people leave it empty, form-filling bots do not. */
+  website?: string;
 }
 
 export interface PageDto<T> {

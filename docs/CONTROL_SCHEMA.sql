@@ -5,7 +5,7 @@
 -- Source: backend/monetary/infrastructure/control_db.py (see docs/MULTI_TENANT.md).
 -- ============================================================================
 
--- schema version: PRAGMA user_version = 1 (ledger databases are also at version 1)
+-- schema version: PRAGMA user_version = 4 (ledger databases are at their own version)
 
 -- table: audit_log
 CREATE TABLE audit_log (         -- append-only: nothing updates or deletes these rows
@@ -32,7 +32,10 @@ CREATE TABLE session (
     user_id      INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
     token_hash   TEXT NOT NULL UNIQUE,        -- the raw token is never stored
     created_at   TEXT NOT NULL,
-    expires_at   TEXT NOT NULL
+    expires_at   TEXT NOT NULL,
+    last_seen_at TEXT,                        -- refreshed at most every MONETARY_SESSION_TOUCH_SECONDS
+    ip           TEXT,
+    user_agent   TEXT
 );
 
 -- table: user
@@ -43,7 +46,7 @@ CREATE TABLE user (
     password_hash         TEXT,                                   -- bcrypt; NULL = password login impossible
     security_question_id  INTEGER,                                -- optional for admin-created users
     security_answer_hash  TEXT,
-    role                  TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','superuser')),
+    role                  TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','admin','superuser')),
     status                TEXT NOT NULL CHECK(status IN
                               ('pending_approval','active','rejected','suspended','pending_delete')),
     status_reason         TEXT,                                   -- shown to the user when rejected / suspended
@@ -58,7 +61,7 @@ CREATE TABLE user (
     approved_by           INTEGER REFERENCES user(id) ON DELETE SET NULL,
     created_at            TEXT NOT NULL,
     updated_at            TEXT NOT NULL
-);
+, failed_login_count INTEGER NOT NULL DEFAULT 0, locked_until       TEXT, password_expires_at TEXT, rerequest_count    INTEGER NOT NULL DEFAULT 0);
 
 -- table: workspace
 CREATE TABLE workspace (
@@ -84,9 +87,11 @@ CREATE INDEX idx_csession_user       ON session(user_id);
 -- index: idx_cuser_role
 CREATE INDEX idx_cuser_role          ON user(role);
 
+-- index: uq_single_superuser
+CREATE UNIQUE INDEX uq_single_superuser ON user(role) WHERE role = 'superuser';  -- at most one superuser
+
 -- index: idx_cuser_status
 CREATE INDEX idx_cuser_status        ON user(status);
 
 -- index: idx_membership_user
 CREATE INDEX idx_membership_user     ON membership(user_id);
-

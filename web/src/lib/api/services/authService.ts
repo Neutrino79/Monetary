@@ -3,6 +3,7 @@ import type { OwnerDto, PasswordResetQuestion, ProfilePatch, RegisterInput, Setu
 import { http } from "@/lib/api/http";
 import { tokenStorage } from "@/lib/api/tokenStorage";
 import { ApiError } from "@/lib/api/errors";
+import { CAPTCHA_REQUIRED, captchaHeaders } from "@/lib/api/captcha";
 import { toUser } from "@/lib/api/mappers";
 import { metaService } from "./metaService";
 
@@ -17,7 +18,9 @@ export interface AuthResult {
 }
 
 /** Login refusals that mean "your account exists but is not usable": shown as a status notice, not as a form error. */
-export const ACCOUNT_STATE_CODES = ["AccountPendingApproval", "AccountRejected", "AccountSuspended", "AccountPendingDelete"] as const;
+export const ACCOUNT_STATE_CODES = [
+  "AccountPendingApproval", "AccountRejected", "AccountRejectedFinal", "AccountSuspended", "AccountPendingDelete", "TemporaryPasswordExpired",
+] as const;
 export type AccountStateCode = (typeof ACCOUNT_STATE_CODES)[number];
 
 export function accountStateCode(err: unknown): AccountStateCode | null {
@@ -29,7 +32,15 @@ export function accountStateCode(err: unknown): AccountStateCode | null {
 export const authService = {
   /** The login endpoint is OAuth2 form-encoded (`username` carries the email). */
   async login(email: string, password: string): Promise<AuthResult> {
-    const t = await http.postForm<TokenDto>("/auth/login", { username: email, password }, { skipUnauthorizedHandler: true });
+    const form = { username: email, password };
+    let t: TokenDto;
+    try {
+      t = await http.postForm<TokenDto>("/auth/login", form, { skipUnauthorizedHandler: true });
+    } catch (err) {
+      // After a few failures from this address the server wants a captcha too: solve it and try once more.
+      if (!ApiError.isApiError(err) || err.code !== CAPTCHA_REQUIRED) throw err;
+      t = await http.postForm<TokenDto>("/auth/login", form, { skipUnauthorizedHandler: true, headers: await captchaHeaders() });
+    }
     // The HTTP client reads the bearer token from storage, so it has to be stored *before* the
     // follow-up request that loads the owner -- otherwise that request goes out unauthenticated.
     tokenStorage.set(t.access_token);
@@ -63,8 +74,8 @@ export const authService = {
     await http.post("/auth/register", {
       name: input.name, email: input.email, password: input.password, timezone: input.timezone,
       currency: input.homeCurrencyCode, securityQuestionId: input.securityQuestionId,
-      securityAnswer: input.securityAnswer,
-    });
+      securityAnswer: input.securityAnswer, website: input.website || undefined,
+    }, { headers: await captchaHeaders() });
   },
 
   /** The signed-in user's own ledger as a SQLite file, handed to the browser as a download. */
@@ -127,12 +138,13 @@ export const authService = {
   },
 
   async getResetQuestion(email: string): Promise<PasswordResetQuestion> {
-    const r = await http.get<{ securityQuestionId: number; question: string }>("/auth/security-question", { email });
+    const r = await http.get<{ securityQuestionId: number; question: string }>(
+      "/auth/security-question", { email }, undefined, await captchaHeaders());
     return { email, questionId: r.securityQuestionId, question: r.question };
   },
 
   async resetPassword(email: string, answer: string, newPassword: string): Promise<void> {
-    await http.post("/auth/reset-password", { email, securityAnswer: answer, newPassword });
+    await http.post("/auth/reset-password", { email, securityAnswer: answer, newPassword }, { headers: await captchaHeaders() });
   },
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {

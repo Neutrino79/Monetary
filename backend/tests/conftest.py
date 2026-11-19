@@ -7,6 +7,7 @@ import os
 for _key in [k for k in os.environ if k.startswith("MONETARY_")]:
     del os.environ[_key]
 os.environ["MONETARY_ENV"] = "development"
+os.environ["MONETARY_CAPTCHA_PROVIDER"] = "none"  # tests that exercise the captcha turn it on themselves
 
 import bcrypt  # noqa: E402
 import pytest  # noqa: E402
@@ -14,6 +15,8 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from monetary.infrastructure import db as db_module  # noqa: E402
 from monetary.infrastructure.rate_limiter import (  # noqa: E402
+    captcha_rate_limiter,
+    login_failure_counter,
     login_rate_limiter,
     password_reset_rate_limiter,
     register_rate_limiter,
@@ -40,10 +43,12 @@ def _fast_bcrypt(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _reset_rate_limiters():
-    for lim in (login_rate_limiter, password_reset_rate_limiter, register_rate_limiter):
+    limiters = (login_rate_limiter, password_reset_rate_limiter, register_rate_limiter, captcha_rate_limiter,
+                login_failure_counter)
+    for lim in limiters:
         lim._hits.clear()
     yield
-    for lim in (login_rate_limiter, password_reset_rate_limiter, register_rate_limiter):
+    for lim in limiters:
         lim._hits.clear()
 
 

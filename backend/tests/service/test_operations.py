@@ -10,7 +10,7 @@ import pytest
 from monetary.application import admin_service, operations, provisioning
 from monetary.infrastructure import control_repository as crepo, db, tenant_store
 
-ACTOR = {"id": None}
+ACTOR = {"id": None, "role": "superuser"}
 PAST = "2020-01-01T00:00:00+00:00"
 
 

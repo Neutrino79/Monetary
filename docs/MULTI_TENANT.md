@@ -29,7 +29,7 @@ friends between real users, SSO, email delivery, subscriptions and payments, Pos
 | Isolation | One SQLite file per user. No `workspace_id` on ledger tables. A request only ever holds a connection to its own user's file. |
 | Account data | A separate **control database** (`control.db`). |
 | Future sharing | `workspace` and `membership` tables exist from day one (one workspace per user, one member). Shared workspaces later add rows and screens, not a redesign. |
-| Roles | Platform role `user` or `superuser`, stored in the control database and read on every request. |
+| Roles | Platform role `user`, `admin` or `superuser` (exactly one superuser), stored in the control database and read on every request. |
 | Login | One login page, email plus password, for every role. |
 | Superuser data access | None. A superuser can manage accounts but the API never exposes another user's ledger. |
 | Sign-up | Admin-created (active at once, temporary password) **and** self-registration that waits for approval. No sign-up mode setting. |
@@ -91,7 +91,7 @@ CREATE TABLE user (
     password_hash         TEXT,                            -- bcrypt; NULL = password login impossible (demo user)
     security_question_id  INTEGER,                         -- optional for admin-created users
     security_answer_hash  TEXT,
-    role                  TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','superuser')),
+    role                  TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','admin','superuser')),
     status                TEXT NOT NULL CHECK(status IN
                               ('pending_approval','active','rejected','suspended','pending_delete')),
     status_reason         TEXT,                            -- shown to the user for rejected / suspended
@@ -217,9 +217,16 @@ every request; the token carries no claims.
 | Role | Can do |
 |---|---|
 | `user` | Use their own ledger. |
-| `superuser` | Everything a user can, **plus** the Admin area. A superuser created with `--no-ledger` has the Admin area only. |
+| `admin` | Everything a user can, **plus** a limited Admin area: create ordinary users, approve/reject/reopen requests, suspend/reactivate, reset passwords, unlock, revoke sessions and read the audit log, all on ordinary users only. |
+| `superuser` | Everything an admin can, on any lower role, **plus** delete/restore, creating and promoting/demoting admins. A superuser created with `--no-ledger` has the Admin area only. |
 
-### 6.1 Admin API (`/api/v0.5/admin`, superuser only)
+There is **exactly one superuser**: it is created at setup, a unique index in the control database enforces it,
+and `create-superuser` refuses when one exists. Ownership moves with
+`python -m monetary.cli transfer-superuser --to EMAIL [--demote-to admin|user]`. An actor can only act on a
+strictly lower role, and never on their own account. Installs that already had several superusers are
+upgraded without losing any (the migration logs a warning and skips the unique index until only one is left).
+
+### 6.1 Admin API (`/api/v0.5/admin`, admin or superuser; delete, restore and role are superuser only)
 
 | Endpoint | Purpose |
 |---|---|
@@ -230,8 +237,12 @@ every request; the token carries no claims.
 | `POST /users/{id}/suspend` and `/reactivate` | Block or restore login (suspend takes an optional reason). |
 | `POST /users/{id}/reset-password` | New temporary password (returned once), forces a change, revokes sessions. |
 | `POST /users/{id}/revoke-sessions` | Log the user out everywhere. |
+| `GET /users/{id}/sessions`, `DELETE /users/{id}/sessions/{sid}` | List sign-ins (device, address, last seen) and end one. |
+| `PATCH /users/{id}` | Edit name, email, time zone (a new email signs the user out). |
+| `POST /users/bulk` | Approve, reject, suspend or reactivate up to 50 accounts, reported one by one. |
+| `POST /purge` | Superuser: purge accounts past their deletion grace period. |
 | `DELETE /users/{id}` and `POST /users/{id}/restore` | Move to `pending_delete` with a grace period, or cancel it. |
-| `POST /users/{id}/role` | Promote to or demote from `superuser`. |
+| `PUT /users/{id}/role` | Superuser only: set `user` or `admin` (`superuser` is refused; use `transfer-superuser`). |
 | `GET /stats` | Counts per status and pending requests, for the dashboard. |
 | `GET /audit-log` | The audit log, newest first, paginated. |
 

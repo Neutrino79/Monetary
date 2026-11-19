@@ -125,6 +125,7 @@ cd backend
 python -m uvicorn monetary.presentation.api.app:app --reload --port 8000
 # first account (or skip this and use the setup page in the web app):
 # python -m monetary.cli create-superuser --email you@example.com --name "Your Name"
+# (there is exactly one superuser; to hand over: python -m monetary.cli transfer-superuser --to other@example.com)
 
 # 2. Web app -> http://localhost:5173   (second terminal, from the repo root)
 cd web
@@ -231,6 +232,18 @@ template in [`backend/.env.example`](backend/.env.example) -- the app does not l
 | `MONETARY_ENABLE_DOCS` | *(follows `MONETARY_ENV`)* | `true`/`false` forces `/docs`, `/redoc`, `/openapi.json` on or off |
 | `MONETARY_APP_NAME` | `Monetary` | Product name served by `GET /meta` and shown by the web app |
 | `MONETARY_APP_TAGLINE` | `Personal expense ledger` | Tagline served by `GET /meta` |
+| `MONETARY_LOGIN_MAX_FAILURES` | `5` | Wrong passwords (or security answers) in a row before an account is locked |
+| `MONETARY_LOGIN_LOCKOUT_MINUTES` | `15` | How long that lock lasts |
+| `MONETARY_LOGIN_CAPTCHA_AFTER` | `3` | Failed sign-ins from one address before the sign-in form also needs a captcha |
+| `MONETARY_TEMP_PASSWORD_HOURS` | `72` | How long an administrator-issued temporary password stays valid |
+| `MONETARY_SESSION_TOUCH_SECONDS` | `300` | At most how often a session's "last seen" time is refreshed |
+| `MONETARY_ADMIN_BULK_LIMIT` | `50` | Most accounts one bulk admin action may touch |
+| `MONETARY_MAX_REREQUESTS` | `3` | How many times a rejected person can ask again before only a superuser can reopen the request |
+| `MONETARY_CAPTCHA_PROVIDER` | `altcha` | `altcha` (built-in proof of work, no third party), `turnstile` (Cloudflare) or `none` |
+| `MONETARY_CAPTCHA_DIFFICULTY` | `50000` | Altcha: largest number a browser may have to try (higher = slower for bots and people) |
+| `MONETARY_CAPTCHA_TTL_SECONDS` | `300` | Altcha: how long a challenge stays valid |
+| `MONETARY_TURNSTILE_SITE_KEY` / `MONETARY_TURNSTILE_SECRET` | *(empty)* | Turnstile: the public site key (served to the web app) and the secret used to verify tokens |
+| `MONETARY_SECRET_KEY` | *(generated)* | Optional fixed server secret; otherwise a random `instance.key` is created in the data folder |
 | `MONETARY_SEED_DEFAULTS_PATH` | bundled `backend/monetary/seed_defaults.json` | Replace the default categories / income sources |
 
 The web app's own settings (`VITE_*`) are documented in [`web/.env.example`](web/.env.example).

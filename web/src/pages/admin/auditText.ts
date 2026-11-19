@@ -10,6 +10,9 @@ const ACTIONS: Record<string, string> = {
   "user.revoke_sessions": "signed an account out everywhere",
   "user.delete": "scheduled an account for deletion",
   "user.restore": "restored an account",
+  "user.edit": "edited an account",
+  "user.revoke_session": "ended one sign-in",
+  "admin.purge": "purged overdue accounts",
   "user.set_role": "changed a role",
 };
 

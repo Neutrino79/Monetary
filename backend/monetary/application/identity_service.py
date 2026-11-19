@@ -8,9 +8,12 @@ Superuser actions on other accounts live in `admin_service.py`.
 
 from __future__ import annotations
 
+import math
 from datetime import datetime, timedelta, timezone as dt_timezone
 
+from monetary import config
 from monetary.application import audit_service
+from monetary.domain import captcha as captcha_math
 from monetary.domain.credentials import (
     validate_currency,
     validate_email,
@@ -19,14 +22,17 @@ from monetary.domain.credentials import (
 )
 from monetary.domain.enums import PlatformRole, UserStatus
 from monetary.domain.exceptions import (
+    AccountLocked,
     AccountPendingApproval,
     AccountPendingDelete,
     AccountRejected,
+    AccountRejectedFinal,
     AccountSuspended,
     AuthenticationError,
     ConflictError,
     NotFoundError,
     RateLimitError,
+    TemporaryPasswordExpired,
     ValidationError,
 )
 from monetary.domain.security import (
@@ -99,12 +105,41 @@ def bootstrap_first_superuser(conn, *, name: str, email: str, password: str, tim
 
 def create_superuser(conn, *, name: str, email: str, password: str, timezone: str | None,
                      home_currency_code: str) -> dict:
-    """Create an additional active superuser (command-line tool)."""
+    """Create the superuser from the command line. There is exactly one superuser per installation:
+    once one exists this is refused (use `transfer_superuser` to hand the role over)."""
+    if crepo.count_superusers(conn) > 0:
+        raise ConflictError("A superuser already exists. There can be only one; use transfer-superuser "
+                            "to hand the role to someone else.")
     return _create_active_superuser(
         conn, name=name, email=email, password=password, timezone=timezone,
         home_currency_code=home_currency_code, security_question_id=None, security_answer=None,
         actor_user_id=None,
     )
+
+
+def transfer_superuser(conn, *, to_email: str, demote_to: str = PlatformRole.ADMIN.value) -> dict:
+    """Hand the single superuser role to another active account (command-line tool, also the way back in
+    when the superuser is lost). The former superuser(s) become `demote_to` ('admin' or 'user'); every
+    session of the people involved ends. Returns the new superuser."""
+    if demote_to not in (PlatformRole.ADMIN.value, PlatformRole.USER.value):
+        raise ValidationError("The former superuser can become 'admin' or 'user'.")
+    target = crepo.get_user_by_email(conn, validate_email(to_email))
+    if target is None:
+        raise NotFoundError(f"No account with email {to_email}.")
+    if target["status"] != UserStatus.ACTIVE.value:
+        raise ConflictError(f"Only an active account can become the superuser (this one is {target['status']}).")
+    if target["role"] == PlatformRole.SUPERUSER.value and crepo.count_superusers(conn) == 1:
+        raise ConflictError(f"{target['email']} is already the superuser.")
+    now = utc_now_iso()
+    previous = crepo.list_superusers(conn)
+    for old in previous:  # demote first: the database allows only one superuser row at a time
+        crepo.update_user(conn, old["id"], now=now, role=demote_to)
+        crepo.delete_sessions_for_user(conn, old["id"])
+    user = crepo.update_user(conn, target["id"], now=now, role=PlatformRole.SUPERUSER.value)
+    crepo.delete_sessions_for_user(conn, target["id"])
+    audit_service.record(conn, actor_user_id=None, action="user.transfer_superuser", target_user_id=target["id"],
+                         detail={"from": [o["email"] for o in previous], "demoted_to": demote_to})
+    return user
 
 
 def _create_active_superuser(conn, *, name, email, password, timezone, home_currency_code,
@@ -151,7 +186,21 @@ def register(conn, *, name: str, email: str, password: str, timezone: str | None
     answer_hash = hash_security_answer(security_answer)
 
     purge_stale_requests(conn)
-    if crepo.get_user_by_email(conn, email) is not None:
+    existing = crepo.get_user_by_email(conn, email)
+    if existing is not None:
+        # A rejected person may ask again a limited number of times; the answer stays the same neutral
+        # message, so this does not reveal that the email is known.
+        if (existing["status"] == UserStatus.REJECTED.value
+                and existing["rerequest_count"] < config.max_rerequests()):
+            crepo.update_user(
+                conn, existing["id"], now=utc_now_iso(), name=name, password_hash=password_hash,
+                security_question_id=security_question_id, security_answer_hash=answer_hash,
+                timezone=timezone, home_currency_code=currency, status=UserStatus.PENDING_APPROVAL.value,
+                status_reason=None, must_change_password=False, rerequest_count=existing["rerequest_count"] + 1,
+                failed_login_count=0, locked_until=None)
+            audit_service.record(conn, actor_user_id=None, action="user.re_request",
+                                 target_user_id=existing["id"],
+                                 detail={"email": email, "attempt": existing["rerequest_count"] + 1}, ip=ip)
         return
     if crepo.count_users(conn, status=UserStatus.PENDING_APPROVAL.value) >= MAX_PENDING_REGISTRATIONS:
         raise RateLimitError("Registration is temporarily unavailable. Please try again later.")
@@ -169,13 +218,14 @@ def register(conn, *, name: str, email: str, password: str, timezone: str | None
 # Sessions
 # --------------------------------------------------------------------------- #
 
-def _new_session(conn, user: dict) -> str:
+def _new_session(conn, user: dict, *, ip: str | None = None, user_agent: str | None = None) -> str:
     token = generate_session_token()
     now = datetime.now(dt_timezone.utc)
-    hours = SUPERUSER_SESSION_TTL_HOURS if user["role"] == PlatformRole.SUPERUSER.value else SESSION_TTL_HOURS
+    hours = SUPERUSER_SESSION_TTL_HOURS if user["role"] != PlatformRole.USER.value else SESSION_TTL_HOURS
     crepo.create_session(
         conn, user_id=user["id"], token_hash=hash_session_token(token),
         created_at=now.isoformat(), expires_at=(now + timedelta(hours=hours)).isoformat(),
+        ip=ip, user_agent=(user_agent or None) and user_agent[:200],
     )
     crepo.delete_expired_sessions(conn, now.isoformat())  # cheap housekeeping on every login
     return token
@@ -192,7 +242,10 @@ def _require_active(user: dict) -> None:
     if status == UserStatus.PENDING_APPROVAL.value:
         raise AccountPendingApproval("Your request is waiting for approval.")
     if status == UserStatus.REJECTED.value:
-        raise AccountRejected("Your request was declined." + reason)
+        if user.get("rerequest_count", 0) >= config.max_rerequests():
+            raise AccountRejectedFinal("Your request was declined." + reason
+                                       + " You cannot request again; please contact an administrator.")
+        raise AccountRejected("Your request was declined." + reason + " You can submit a new request.")
     if status == UserStatus.SUSPENDED.value:
         raise AccountSuspended("This account is suspended." + reason)
     if status == UserStatus.PENDING_DELETE.value:
@@ -200,21 +253,69 @@ def _require_active(user: dict) -> None:
             f"This account is scheduled for deletion on {(user.get('delete_after') or '')[:10] or 'a later date'}.")
 
 
-def login(conn, *, email: str, password: str) -> tuple[dict, str]:
+def _lock_minutes_left(user: dict, now: datetime) -> int:
+    """Whole minutes until the account unlocks, or 0 when it is not locked."""
+    until = user.get("locked_until")
+    if not until:
+        return 0
+    when = datetime.fromisoformat(until)
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=dt_timezone.utc)
+    return max(0, math.ceil((when - now).total_seconds() / 60))
+
+
+def _raise_if_locked(user: dict) -> None:
+    minutes = _lock_minutes_left(user, datetime.now(dt_timezone.utc))
+    if minutes:
+        raise AccountLocked(f"Too many failed attempts. Try again in {minutes} minute{'s' if minutes != 1 else ''}.")
+
+
+def _record_failed_attempt(conn, user: dict) -> None:
+    """Count a wrong password (or wrong security answer); lock the account when the limit is reached."""
+    count = user["failed_login_count"] + 1
+    if count >= config.login_max_failures():
+        until = (datetime.now(dt_timezone.utc) + timedelta(minutes=config.login_lockout_minutes())).isoformat(
+            timespec="seconds")
+        crepo.update_user(conn, user["id"], now=utc_now_iso(), failed_login_count=0, locked_until=until)
+        audit_service.record(conn, actor_user_id=None, action="user.lockout", target_user_id=user["id"],
+                             detail={"until": until})
+    else:
+        crepo.update_user(conn, user["id"], now=utc_now_iso(), failed_login_count=count)
+
+
+def _temporary_password_expired(user: dict) -> bool:
+    expires = user.get("password_expires_at")
+    if not user["must_change_password"] or not expires:
+        return False
+    when = datetime.fromisoformat(expires)
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=dt_timezone.utc)
+    return when < datetime.now(dt_timezone.utc)
+
+
+def login(conn, *, email: str, password: str, ip: str | None = None,
+          user_agent: str | None = None) -> tuple[dict, str]:
     """Check the credentials, then the account state, and open a session.
 
     The state is only revealed after a correct password, and a wrong email and a wrong password give
-    the same error. Returns (account row, plaintext session token)."""
+    the same error. Wrong passwords are counted per account and lock it for a while. Returns
+    (account row, plaintext session token). The caller must commit when this raises
+    AuthenticationError, because the failed attempt has to be remembered."""
     user = crepo.get_user_by_email(conn, validate_email(email))
     if user is None or user["password_hash"] is None:
         _burn_password_check(password)
         raise AuthenticationError("Invalid email or password.")
+    _raise_if_locked(user)
     if not verify_password(password, user["password_hash"]):
+        _record_failed_attempt(conn, user)
         raise AuthenticationError("Invalid email or password.")
     _require_active(user)
+    if _temporary_password_expired(user):
+        raise TemporaryPasswordExpired("Your temporary password has expired. Ask an administrator for a new one.")
     now = utc_now_iso()
-    user = crepo.update_user(conn, user["id"], now=now, last_login_at=now)
-    return user, _new_session(conn, user)
+    user = crepo.update_user(conn, user["id"], now=now, last_login_at=now, failed_login_count=0,
+                             locked_until=None)
+    return user, _new_session(conn, user, ip=ip, user_agent=user_agent)
 
 
 def logout(conn, plaintext_token: str) -> None:
@@ -240,7 +341,21 @@ def verify_session(conn, plaintext_token: str) -> dict | None:
     user = crepo.get_user(conn, session["user_id"])
     if user is None or user["status"] != UserStatus.ACTIVE.value:
         return None
+    _touch(conn, session)
     return user
+
+
+def _touch(conn, session: dict) -> None:
+    """Refresh "last seen" at most every `session_touch_seconds`, so reads do not all become writes."""
+    now = datetime.now(dt_timezone.utc)
+    seen = session.get("last_seen_at")
+    if seen:
+        last = datetime.fromisoformat(seen)
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=dt_timezone.utc)
+        if (now - last).total_seconds() < config.session_touch_seconds():
+            return
+    crepo.touch_session(conn, session["id"], now.isoformat())
 
 
 def get_account_or_raise(conn, user_id: int) -> dict:
@@ -261,26 +376,40 @@ def change_password(conn, user: dict, *, current_password: str, new_password: st
         raise ValidationError("Current password is incorrect.")
     validate_password(new_password)
     crepo.update_user(conn, user["id"], now=utc_now_iso(), password_hash=hash_password(new_password),
-                      must_change_password=False)
+                      must_change_password=False, password_expires_at=None)
     crepo.delete_sessions_for_user(conn, user["id"])
 
 
-def get_security_question(conn, email: str) -> tuple[int, str]:
-    user = crepo.get_user_by_email(conn, validate_email(email))
-    if user is None or user["status"] != UserStatus.ACTIVE.value or user["security_question_id"] is None:
-        raise NotFoundError("No account with that email has a security question set.")
-    question_id = user["security_question_id"]
+def get_security_question(conn, email: str, secret: bytes) -> tuple[int, str]:
+    """The question a "forgot password" form shows. An email with no usable account gets a stable
+    decoy question, so this cannot be used to find out who has an account."""
+    email = validate_email(email)
+    user = crepo.get_user_by_email(conn, email)
+    if user is not None and user["status"] == UserStatus.ACTIVE.value and user["security_question_id"] is not None:
+        question_id = user["security_question_id"]
+    else:
+        question_id = captcha_math.decoy_question_id(email, secret, len(SECURITY_QUESTIONS))
     return question_id, SECURITY_QUESTIONS[question_id]
 
 
 def reset_password(conn, *, email: str, security_answer: str, new_password: str) -> None:
+    """Answer the security question to choose a new password. Wrong answers count towards the same
+    lock as wrong passwords, because a security answer is far easier to guess than a password. The
+    caller must commit when this raises ValidationError (the failed attempt must be remembered)."""
     user = crepo.get_user_by_email(conn, validate_email(email))
-    if (user is None or user["status"] != UserStatus.ACTIVE.value or user["security_answer_hash"] is None
-            or not verify_security_answer(security_answer, user["security_answer_hash"])):
+    usable = (user is not None and user["status"] == UserStatus.ACTIVE.value
+              and user["security_answer_hash"] is not None)
+    if not usable:
+        _burn_password_check(security_answer)
+        raise ValidationError("Invalid email or security answer.")
+    _raise_if_locked(user)
+    if not verify_security_answer(security_answer, user["security_answer_hash"]):
+        _record_failed_attempt(conn, user)
         raise ValidationError("Invalid email or security answer.")
     validate_password(new_password)
     crepo.update_user(conn, user["id"], now=utc_now_iso(), password_hash=hash_password(new_password),
-                      must_change_password=False)
+                      must_change_password=False, password_expires_at=None, failed_login_count=0,
+                      locked_until=None)
     crepo.delete_sessions_for_user(conn, user["id"])
 
 

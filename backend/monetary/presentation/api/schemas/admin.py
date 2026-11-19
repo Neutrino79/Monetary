@@ -19,10 +19,15 @@ class AdminUserOut(ApiModel):
     access_until: str | None = None
     delete_after: str | None = None
     last_login_at: str | None = None
+    locked_until: str | None = None
+    password_expires_at: str | None = None
+    rerequest_count: int = 0
     approved_at: str | None = None
     approved_by: int | None = None
     created_at: str
     updated_at: str
+    last_activity_at: str | None = None
+    storage_bytes: int | None = None
 
 
 class AdminCreateUserRequest(ApiModel):
@@ -52,6 +57,8 @@ class AdminStatsOut(ApiModel):
     by_status: dict[str, int]
     pending_approval: int
     active_superusers: int
+    active_admins: int = 0
+    overdue_for_purge: int = 0
     ledger_count: int = 0
     ledger_bytes: int = 0
 
@@ -64,3 +71,41 @@ class AuditEntryOut(ApiModel):
     target_user_id: int | None = None
     detail: str | None = None
     ip: str | None = None
+
+
+class SessionOut(ApiModel):
+    id: int
+    created_at: str
+    expires_at: str
+    last_seen_at: str | None = None
+    ip: str | None = None
+    user_agent: str | None = None
+
+
+class UpdateUserRequest(ApiModel):
+    name: str | None = Field(default=None, max_length=100)
+    email: EmailStr | None = None
+    timezone: str | None = None
+
+
+class BulkRequest(ApiModel):
+    action: str
+    user_ids: list[int] = Field(min_length=1, max_length=1000)  # the real cap is a setting
+    reason: str | None = Field(default=None, max_length=300)
+
+
+class BulkItemOut(ApiModel):
+    user_id: int
+    ok: bool
+    error: str | None = None
+
+
+class BulkOut(ApiModel):
+    action: str
+    succeeded: int
+    failed: int
+    results: list[BulkItemOut]
+
+
+class PurgeOut(ApiModel):
+    purged: int

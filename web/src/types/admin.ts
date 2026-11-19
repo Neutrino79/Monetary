@@ -15,10 +15,15 @@ export interface AdminUser {
   accessUntil: string | null;
   deleteAfter: string | null;
   lastLoginAt: string | null;
+  lockedUntil: string | null;
+  passwordExpiresAt: string | null;
+  rerequestCount: number;
   approvedAt: string | null;
   approvedBy: number | null;
   createdAt: string;
   updatedAt: string;
+  lastActivityAt: string | null;
+  storageBytes: number | null;
 }
 
 export interface AdminPage<T> {
@@ -33,6 +38,8 @@ export interface AdminStats {
   byStatus: Record<string, number>;
   pendingApproval: number;
   activeSuperusers: number;
+  activeAdmins: number;
+  overdueForPurge: number;
   ledgerCount: number;
   ledgerBytes: number;
 }
@@ -67,4 +74,28 @@ export interface AdminUserFilters {
   q?: string;
   limit?: number;
   offset?: number;
+}
+
+export interface AdminSession {
+  id: number;
+  createdAt: string;
+  expiresAt: string;
+  lastSeenAt: string | null;
+  ip: string | null;
+  userAgent: string | null;
+}
+
+export type BulkAction = "approve" | "reject" | "suspend" | "reactivate";
+
+export interface BulkResult {
+  action: BulkAction;
+  succeeded: number;
+  failed: number;
+  results: { userId: number; ok: boolean; error: string | null }[];
+}
+
+export interface ProfileChanges {
+  name?: string;
+  email?: string;
+  timezone?: string;
 }

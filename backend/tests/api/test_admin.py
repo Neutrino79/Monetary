@@ -148,20 +148,12 @@ def test_nobody_can_suspend_or_delete_themselves_or_the_last_superuser(client, a
     assert client.put(f"{ADMIN}/users/{me}/role", headers=admin, json={"role": "user"}).status_code == 409
 
 
-def test_roles_can_be_changed_and_a_second_superuser_may_demote_the_first(client, admin):
-    second = _create(client, admin, email="boss@example.com", role="superuser")
-    first = client.get(f"{API}/me", headers=admin).json()["id"]
-    boss = _bearer(_login(client, "boss@example.com", second["temporaryPassword"]).json()["access_token"])
-    client.post(f"{API}/auth/change-password", headers=boss, json={
-        "current_password": second["temporaryPassword"], "new_password": "boss-new-password-1"})  # pragma: allowlist secret
-    boss = _bearer(_login(client, "boss@example.com", "boss-new-password-1").json()["access_token"])  # pragma: allowlist secret
-    assert client.put(f"{ADMIN}/users/{first}/role", headers=boss, json={"role": "user"}).json()["role"] == "user"
-    # the demoted admin loses admin rights immediately, even with the same token
-    assert client.get(f"{ADMIN}/stats", headers=admin).status_code == 401  # role change signed them out
-    # and now `boss` is the last superuser
-    me = client.get(f"{API}/me", headers=boss).json()["id"]
-    assert client.put(f"{ADMIN}/users/{me}/role", headers=boss, json={"role": "user"}).status_code == 409
-    assert client.put(f"{ADMIN}/users/{first}/role", headers=boss, json={"role": "nope"}).status_code == 422
+def test_the_superuser_can_make_an_admin_and_take_it_back(client, admin):
+    sam = _create(client, admin)["user"]["id"]
+    made = client.put(f"{ADMIN}/users/{sam}/role", headers=admin, json={"role": "admin"})
+    assert made.json()["role"] == "admin"
+    assert client.put(f"{ADMIN}/users/{sam}/role", headers=admin, json={"role": "user"}).json()["role"] == "user"
+    assert client.put(f"{ADMIN}/users/{sam}/role", headers=admin, json={"role": "nope"}).status_code == 422
 
 
 def test_unknown_user_and_filters(client, admin):

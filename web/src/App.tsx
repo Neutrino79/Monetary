@@ -5,6 +5,7 @@ import { AdminShell } from "@/components/admin/AdminShell";
 import { AdminOverviewPage } from "@/pages/admin/AdminOverviewPage";
 import { AdminPendingPage } from "@/pages/admin/AdminPendingPage";
 import { AdminUsersPage } from "@/pages/admin/AdminUsersPage";
+import { AdminUserDetailPage } from "@/pages/admin/AdminUserDetailPage";
 import { AdminAuditPage } from "@/pages/admin/AdminAuditPage";
 import { AppShell } from "@/components/layout/AppShell";
 import { useBranding } from "@/hooks/queries";
@@ -74,6 +75,7 @@ export default function App() {
                 <Route index element={<AdminOverviewPage />} />
                 <Route path="pending" element={<AdminPendingPage />} />
                 <Route path="users" element={<AdminUsersPage />} />
+                <Route path="users/:id" element={<AdminUserDetailPage />} />
                 <Route path="audit" element={<AdminAuditPage />} />
               </Route>
             </Route>

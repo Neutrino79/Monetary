@@ -35,13 +35,14 @@ def test_create_superuser_without_ledger_and_duplicates(env, monkeypatch, capsys
     assert crepo.get_workspace_for_user(control, crepo.get_user_by_email(control, "a@example.com")["id"]) is None
     control.close()
     assert _create(monkeypatch, "a@example.com") == 1
-    assert "already in use" in capsys.readouterr().err
+    assert "A superuser already exists" in capsys.readouterr().err  # there is only ever one
 
 
-def test_password_from_environment_and_prompt(env, monkeypatch):
+def test_password_from_environment_and_prompt(env, monkeypatch, tmp_path):
     monkeypatch.setenv("MONETARY_PASSWORD", "env-password-123")  # pragma: allowlist secret
     assert cli.main(["create-superuser", "--email", "e@example.com", "--name", "E"]) == 0
     monkeypatch.delenv("MONETARY_PASSWORD")
+    monkeypatch.setenv("MONETARY_DATA_DIR", str(tmp_path / "second-installation"))  # one superuser per installation
     answers = iter(["prompt-password-1", "prompt-password-1"])  # pragma: allowlist secret
     monkeypatch.setattr("getpass.getpass", lambda _p: next(answers))
     assert cli.main(["create-superuser", "--email", "p@example.com", "--name", "P"]) == 0
@@ -64,14 +65,46 @@ def test_list_reset_and_migrate(env, monkeypatch, capsys):
     assert "1 ledger(s) are up to date" in capsys.readouterr().out
 
 
+def test_unlock_lifts_a_sign_in_lock(env, monkeypatch, capsys):
+    _create(monkeypatch)
+    control = control_db.connect_control(env)
+    user = crepo.get_user_by_email(control, "root@example.com")
+    crepo.update_user(control, user["id"], now="2026-01-01T00:00:00+00:00", failed_login_count=2,
+                      locked_until="2999-01-01T00:00:00+00:00")
+    control.commit()
+    control.close()
+    assert cli.main(["unlock", "--email", "root@example.com"]) == 0
+    assert "Unlocked root@example.com" in capsys.readouterr().out
+    control = control_db.connect_control(env)
+    assert crepo.get_user(control, user["id"])["locked_until"] is None
+    control.close()
+    assert cli.main(["unlock", "--email", "nobody@example.com"]) == 1
+
+
+def test_transfer_superuser_hands_the_role_over(env, monkeypatch, capsys):
+    _create(monkeypatch)
+    control = control_db.connect_control(env)
+    crepo.create_user(control, email="next@example.com", name="Next", role="admin", status="active",
+                      now="2026-01-01T00:00:00+00:00", password_hash=None)
+    control.commit()
+    control.close()
+    assert cli.main(["transfer-superuser", "--to", "next@example.com"]) == 0
+    assert "next@example.com is now the superuser" in capsys.readouterr().out
+    control = control_db.connect_control(env)
+    assert {u["email"]: u["role"] for u in crepo.list_users(control)} == {
+        "next@example.com": "superuser", "root@example.com": "admin"}
+    control.close()
+    assert cli.main(["transfer-superuser", "--to", "nobody@example.com"]) == 1
+
+
 def test_purge_backup_and_usage(env, monkeypatch, capsys, tmp_path):
     from monetary.application import admin_service
 
     _create(monkeypatch)
     control = control_db.connect_control(env)
-    user, _ = admin_service.create_user(control, env, {"id": None}, name="Ravi", email="ravi@example.com",
+    user, _ = admin_service.create_user(control, env, {"id": None, "role": "superuser"}, name="Ravi", email="ravi@example.com",
                                         timezone="UTC", home_currency_code="INR")
-    admin_service.delete(control, {"id": None}, user["id"])
+    admin_service.delete(control, {"id": None, "role": "superuser"}, user["id"])
     crepo.update_user(control, user["id"], now="2020-01-01T00:00:00+00:00", delete_after="2020-01-01T00:00:00+00:00")
     control.commit()
     control.close()
