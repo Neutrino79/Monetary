@@ -87,7 +87,9 @@ def login(
     automatically. `username` is your email. Rate-limited per client IP to
     slow down credential-stuffing/brute-force attempts."""
     try:
-        _owner, token = identity_service.login(control, email=form_data.username, password=form_data.password)
+        _owner, token = identity_service.login(
+            control, email=form_data.username, password=form_data.password, ip=_client_key(request),
+            user_agent=request.headers.get("user-agent"))
     except AuthenticationError:
         # A wrong password is counted on the account and on this client; keep that although the
         # request fails (the dependency would otherwise roll it back).

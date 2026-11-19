@@ -156,6 +156,11 @@ ALTER TABLE user ADD COLUMN password_expires_at TEXT;
 ALTER TABLE user ADD COLUMN rerequest_count    INTEGER NOT NULL DEFAULT 0;
 """),
     migrations.Migration(3, "admin role and a single superuser", fn=_add_admin_role, rebuilds_tables=True),
+    migrations.Migration(4, "session details: last seen, address and device", sql="""
+ALTER TABLE session ADD COLUMN last_seen_at TEXT;
+ALTER TABLE session ADD COLUMN ip          TEXT;
+ALTER TABLE session ADD COLUMN user_agent  TEXT;
+"""),
 ]
 
 

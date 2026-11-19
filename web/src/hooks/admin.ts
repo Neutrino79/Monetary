@@ -10,6 +10,12 @@ export const adminKeys = {
   audit: (offset: number, limit: number) => ["admin", "audit", offset, limit] as const,
 };
 
+export const useAdminUser = (id: number) =>
+  useQuery({ queryKey: [...adminKeys.all, "user", id], queryFn: () => adminService.getUser(id) });
+
+export const useAdminSessions = (id: number) =>
+  useQuery({ queryKey: [...adminKeys.all, "sessions", id], queryFn: () => adminService.sessions(id) });
+
 /** The pending count drives the badge in the Admin header, so keep it fresh without a reload. */
 export const useAdminStats = () =>
   useQuery({ queryKey: adminKeys.stats, queryFn: adminService.stats, refetchInterval: 60_000, retry: 1 });

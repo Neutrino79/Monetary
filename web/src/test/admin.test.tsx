@@ -20,7 +20,7 @@ const json = (body: unknown, status = 200) =>
 const user = (over: Record<string, unknown> = {}) => ({
   id: 5, email: 'ravi@example.com', name: 'Ravi Kumar', role: 'user', status: 'active', statusReason: null, mustChangePassword: false,
   timezone: 'Asia/Kolkata', homeCurrencyCode: 'INR', plan: 'manual', accessUntil: null, deleteAfter: null, lastLoginAt: null,
-  lockedUntil: null, passwordExpiresAt: null, rerequestCount: 0, approvedAt: null, approvedBy: null, createdAt: '2026-11-01T10:00:00+00:00', updatedAt: '2026-11-01T10:00:00+00:00', ...over,
+  lockedUntil: null, passwordExpiresAt: null, rerequestCount: 0, approvedAt: null, approvedBy: null, createdAt: '2026-11-01T10:00:00+00:00', updatedAt: '2026-11-01T10:00:00+00:00', lastActivityAt: '2026-11-03T10:00:00+00:00', storageBytes: 2048, ...over,
 })
 const page = (items: unknown[]) => ({ items, total: items.length, limit: 50, offset: 0 })
 const owner = {
@@ -346,5 +346,63 @@ describe('roles', () => {
     signIn('admin')
     renderApp('/admin')
     expect(await screen.findByText('Admins')).toBeInTheDocument()
+  })
+})
+
+describe('managing one account and many', () => {
+  it('shows the detail page with its sessions, and signs one device out', async () => {
+    signIn('admin')
+    handlers['GET /admin/users/5'] = () => ({ json: user() })
+    handlers['GET /admin/users/5/sessions'] = () => ({ json: [{ id: 9, createdAt: '2026-11-03T10:00:00+00:00', expiresAt: '2026-12-03T10:00:00+00:00', lastSeenAt: null, ip: '9.9.9.9', userAgent: 'TestBrowser/1.0' }] })
+    handlers['DELETE /admin/users/5/sessions/9'] = () => ({ json: { detail: 'Session revoked.' } })
+    renderApp('/admin/users/5')
+    expect(await screen.findByText('TestBrowser/1.0')).toBeInTheDocument()
+    expect(screen.getByText('2 KB')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /Sign out TestBrowser/ }))
+    await vi.waitFor(() => expect(calls).toContain('DELETE /admin/users/5/sessions/9'))
+  })
+
+  it('saves profile changes, warning that a new email signs the person out', async () => {
+    signIn('admin')
+    handlers['GET /admin/users/5'] = () => ({ json: user() })
+    handlers['GET /admin/users/5/sessions'] = () => ({ json: [] })
+    handlers['PATCH /admin/users/5'] = () => ({ json: user({ name: 'Ravi K' }) })
+    renderApp('/admin/users/5')
+    const name = await screen.findByLabelText('Name')
+    await userEvent.clear(name)
+    await userEvent.type(name, 'Ravi K')
+    await userEvent.type(screen.getByLabelText('Email'), 'x')
+    expect(screen.getByText(/signs this person out/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
+    await vi.waitFor(() => expect(calls).toContain('PATCH /admin/users/5'))
+    expect(JSON.parse(String(bodies['PATCH /admin/users/5']))).toMatchObject({ name: 'Ravi K' })
+  })
+
+  it('runs a bulk action on the selected accounts and reports the skipped ones', async () => {
+    signIn('admin')
+    handlers['GET /admin/users'] = () => ({ json: page([user(), user({ id: 6, name: 'Sam', email: 'sam@example.com' })]) })
+    handlers['POST /admin/users/bulk'] = () => ({ json: { action: 'suspend', succeeded: 1, failed: 1, results: [{ userId: 5, ok: true, error: null }, { userId: 6, ok: false, error: 'Cannot suspend an account that is suspended.' }] } })
+    renderApp('/admin/users')
+    await userEvent.click(await screen.findByLabelText('Select Ravi Kumar'))
+    await userEvent.click(screen.getByLabelText('Select Sam'))
+    expect(screen.getByText('2 selected')).toBeInTheDocument()
+    await userEvent.click(within(screen.getByRole('toolbar', { name: 'Bulk actions' })).getByRole('button', { name: 'Suspend' }))
+    expect(await screen.findByText(/1 done, 1 skipped/)).toBeInTheDocument()
+    expect(JSON.parse(String(bodies['POST /admin/users/bulk']))).toMatchObject({ action: 'suspend', userIds: [5, 6] })
+  })
+
+  it('offers the purge only to the superuser, behind a confirmation', async () => {
+    handlers['GET /admin/stats'] = () => ({ json: { totalUsers: 4, byStatus: {}, pendingApproval: 0, activeSuperusers: 1, activeAdmins: 0, overdueForPurge: 2, ledgerCount: 3, ledgerBytes: 1 } })
+    handlers['POST /admin/purge'] = () => ({ json: { purged: 2 } })
+    signIn('admin')
+    const first = renderApp('/admin')
+    expect(await screen.findByText(/2 accounts overdue for purge/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Purge now' })).toBeNull()
+    first.unmount()
+    signIn('superuser')
+    renderApp('/admin')
+    await userEvent.click(await screen.findByRole('button', { name: 'Purge now' }))
+    await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Purge now' }))
+    await vi.waitFor(() => expect(calls).toContain('POST /admin/purge'))
   })
 })

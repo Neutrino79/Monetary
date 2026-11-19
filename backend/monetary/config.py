@@ -133,6 +133,8 @@ def docs_enabled_from_environment() -> bool:
 LOGIN_MAX_FAILURES_ENV_VAR = "MONETARY_LOGIN_MAX_FAILURES"
 LOGIN_LOCKOUT_MINUTES_ENV_VAR = "MONETARY_LOGIN_LOCKOUT_MINUTES"
 LOGIN_CAPTCHA_AFTER_ENV_VAR = "MONETARY_LOGIN_CAPTCHA_AFTER"
+SESSION_TOUCH_ENV_VAR = "MONETARY_SESSION_TOUCH_SECONDS"
+BULK_LIMIT_ENV_VAR = "MONETARY_ADMIN_BULK_LIMIT"
 TEMP_PASSWORD_HOURS_ENV_VAR = "MONETARY_TEMP_PASSWORD_HOURS"  # pragma: allowlist secret
 MAX_REREQUESTS_ENV_VAR = "MONETARY_MAX_REREQUESTS"
 CAPTCHA_PROVIDER_ENV_VAR = "MONETARY_CAPTCHA_PROVIDER"
@@ -168,6 +170,16 @@ def login_lockout_minutes() -> int:
 def login_captcha_after() -> int:
     """Failed sign-ins from one client address before the sign-in form also needs a captcha."""
     return int_setting(LOGIN_CAPTCHA_AFTER_ENV_VAR, 3)
+
+
+def session_touch_seconds() -> int:
+    """How often a session's "last seen" time is refreshed at most (keeps reads from becoming writes)."""
+    return int_setting(SESSION_TOUCH_ENV_VAR, 300)
+
+
+def bulk_action_limit() -> int:
+    """The most accounts one bulk admin action may touch."""
+    return int_setting(BULK_LIMIT_ENV_VAR, 50)
 
 
 def temp_password_hours() -> int:

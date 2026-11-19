@@ -1,7 +1,12 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
+import { ConfirmDialog } from "@/components/ui/Dialog";
+import { useToast } from "@/components/ui/Toast";
+import { adminService } from "@/lib/api/services/adminService";
+import { selectIsSuperuser, useAuthStore } from "@/store/authStore";
 import { Card, Skeleton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
-import { useAdminStats, useAuditLog, useUserNames } from "@/hooks/admin";
+import { useAdminMutation, useAdminStats, useAuditLog, useUserNames } from "@/hooks/admin";
 import { formatWhen } from "@/components/admin/adminUi";
 import { auditSummary } from "./auditText";
 
@@ -9,6 +14,10 @@ export function AdminOverviewPage() {
   const stats = useAdminStats();
   const recent = useAuditLog(0, 8);
   const names = useUserNames();
+  const toast = useToast();
+  const isSuperuser = useAuthStore(selectIsSuperuser);
+  const [confirmPurge, setConfirmPurge] = useState(false);
+  const purge = useAdminMutation(() => adminService.purge());
 
   if (stats.isLoading) return <Skeleton className="h-40 w-full" />;
   if (stats.isError || !stats.data) return <p role="alert" className="text-danger">Couldn&apos;t load the overview.</p>;
@@ -27,6 +36,28 @@ export function AdminOverviewPage() {
           <Link to="/admin/pending"><Button size="sm">Review</Button></Link>
         </Card>
       )}
+
+      {s.overdueForPurge > 0 && (
+        <Card className="flex items-center justify-between gap-4 border-danger p-4">
+          <div>
+            <div className="text-[15px] font-semibold">{s.overdueForPurge} account{s.overdueForPurge === 1 ? "" : "s"} overdue for purge</div>
+            <div className="text-[12.8px] text-ink-faint">
+              Their 30-day deletion period has ended. {isSuperuser ? "Purging removes them and their ledgers for good." : "Only the superuser can purge them."}
+            </div>
+          </div>
+          {isSuperuser && <Button size="sm" variant="danger" onClick={() => setConfirmPurge(true)}>Purge now</Button>}
+        </Card>
+      )}
+      <ConfirmDialog
+        open={confirmPurge} onOpenChange={setConfirmPurge}
+        title={`Purge ${s.overdueForPurge} account${s.overdueForPurge === 1 ? "" : "s"}?`}
+        message="This permanently deletes the accounts and their ledgers. It cannot be undone."
+        confirmLabel="Purge now"
+        onConfirm={async () => {
+          try { const r = await purge.mutateAsync(undefined); toast.show(`Purged ${r.purged} account${r.purged === 1 ? "" : "s"}.`, { variant: "success" }); }
+          catch (e) { toast.show(e instanceof Error ? e.message : "Couldn't purge.", { variant: "error" }); }
+        }}
+      />
 
       <div className="grid grid-cols-3 gap-4 max-[980px]:grid-cols-2">
         {[

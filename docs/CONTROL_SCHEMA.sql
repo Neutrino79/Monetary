@@ -5,7 +5,7 @@
 -- Source: backend/monetary/infrastructure/control_db.py (see docs/MULTI_TENANT.md).
 -- ============================================================================
 
--- schema version: PRAGMA user_version = 3 (ledger databases are at their own version)
+-- schema version: PRAGMA user_version = 4 (ledger databases are at their own version)
 
 -- table: audit_log
 CREATE TABLE audit_log (         -- append-only: nothing updates or deletes these rows
@@ -32,7 +32,10 @@ CREATE TABLE session (
     user_id      INTEGER NOT NULL REFERENCES user(id) ON DELETE CASCADE,
     token_hash   TEXT NOT NULL UNIQUE,        -- the raw token is never stored
     created_at   TEXT NOT NULL,
-    expires_at   TEXT NOT NULL
+    expires_at   TEXT NOT NULL,
+    last_seen_at TEXT,                        -- refreshed at most every MONETARY_SESSION_TOUCH_SECONDS
+    ip           TEXT,
+    user_agent   TEXT
 );
 
 -- table: user

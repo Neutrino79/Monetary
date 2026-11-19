@@ -126,6 +126,12 @@ def export_ledger(control, data_dir, user_id: int) -> Path:
     return target
 
 
+def ledger_bytes(data_dir, workspace: dict) -> int:
+    """Disk used by one ledger (its database file and sidecars)."""
+    path = tenant_store.resolve_db_path(data_dir, workspace["db_path"])
+    return sum(Path(str(path) + s).stat().st_size for s in _SIDECARS if Path(str(path) + s).exists())
+
+
 def usage(control, data_dir) -> dict:
     """How many ledgers exist and how much disk they use (rough: the files, not their free space)."""
     total = 0

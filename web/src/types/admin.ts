@@ -22,6 +22,8 @@ export interface AdminUser {
   approvedBy: number | null;
   createdAt: string;
   updatedAt: string;
+  lastActivityAt: string | null;
+  storageBytes: number | null;
 }
 
 export interface AdminPage<T> {
@@ -37,6 +39,7 @@ export interface AdminStats {
   pendingApproval: number;
   activeSuperusers: number;
   activeAdmins: number;
+  overdueForPurge: number;
   ledgerCount: number;
   ledgerBytes: number;
 }
@@ -71,4 +74,28 @@ export interface AdminUserFilters {
   q?: string;
   limit?: number;
   offset?: number;
+}
+
+export interface AdminSession {
+  id: number;
+  createdAt: string;
+  expiresAt: string;
+  lastSeenAt: string | null;
+  ip: string | null;
+  userAgent: string | null;
+}
+
+export type BulkAction = "approve" | "reject" | "suspend" | "reactivate";
+
+export interface BulkResult {
+  action: BulkAction;
+  succeeded: number;
+  failed: number;
+  results: { userId: number; ok: boolean; error: string | null }[];
+}
+
+export interface ProfileChanges {
+  name?: string;
+  email?: string;
+  timezone?: string;
 }

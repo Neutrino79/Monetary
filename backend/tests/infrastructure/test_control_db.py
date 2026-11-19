@@ -43,7 +43,7 @@ def test_update_user_changes_only_whitelisted_columns_and_bumps_updated_at(contr
     assert (updated["status"], updated["status_reason"], updated["must_change_password"]) == ("suspended", "chargeback", 1)
     assert updated["updated_at"] == "2026-02-02T00:00:00+00:00" and updated["created_at"] == NOW
     with pytest.raises(ValueError):
-        crepo.update_user(control, u["id"], now=NOW, email="x@example.com")
+        crepo.update_user(control, u["id"], now=NOW, created_at="2020-01-01T00:00:00+00:00")
     with pytest.raises(ValueError):
         crepo.update_user(control, u["id"], now=NOW, id=99)
 

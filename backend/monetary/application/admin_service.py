@@ -106,16 +106,37 @@ def _audit(conn, actor: dict, action: str, user: dict, ip: str | None, **detail)
 
 # -- reading --------------------------------------------------------------------------------------
 
+def _with_usage(conn, data_dir, users: list[dict]) -> list[dict]:
+    """Add each account's last activity and ledger size (the size only when a data directory is given)."""
+    ids = [u["id"] for u in users]
+    seen = crepo.last_activity_by_user(conn, ids)
+    spaces = crepo.workspaces_by_user(conn, ids) if data_dir is not None else {}
+    out = []
+    for u in users:
+        row = public_user(u)
+        row["last_activity_at"] = seen.get(u["id"]) or u.get("last_login_at")
+        space = spaces.get(u["id"])
+        row["storage_bytes"] = operations.ledger_bytes(data_dir, space) if space else None
+        out.append(row)
+    return out
+
+
 def list_users(conn, *, status: str | None = None, q: str | None = None, limit: int = 50,
-               offset: int = 0) -> tuple[list[dict], int]:
+               offset: int = 0, data_dir=None) -> tuple[list[dict], int]:
     if status is not None and status not in {s.value for s in UserStatus}:
         raise ValidationError(f"Unknown status: {status}")
     items = crepo.list_users(conn, status=status, q=q, limit=limit, offset=offset)
-    return [public_user(u) for u in items], crepo.count_users(conn, status=status, q=q)
+    return _with_usage(conn, data_dir, items), crepo.count_users(conn, status=status, q=q)
 
 
-def get_user(conn, user_id: int) -> dict:
-    return public_user(_target(conn, user_id))
+def get_user(conn, user_id: int, data_dir=None) -> dict:
+    return _with_usage(conn, data_dir, [_target(conn, user_id)])[0]
+
+
+def sessions(conn, user_id: int) -> list[dict]:
+    """The account's live sign-ins (never the tokens)."""
+    _target(conn, user_id)
+    return crepo.list_sessions_for_user(conn, user_id, utc_now_iso())
 
 
 def stats(conn, data_dir=None) -> dict:
@@ -127,6 +148,7 @@ def stats(conn, data_dir=None) -> dict:
         "pending_approval": by_status[UserStatus.PENDING_APPROVAL.value],
         "active_superusers": crepo.count_active_superusers(conn),
         "active_admins": crepo.count_active_admins(conn),
+        "overdue_for_purge": crepo.count_due_for_deletion(conn, utc_now_iso()),
         **(operations.usage(conn, data_dir) if data_dir is not None else {"ledger_count": 0, "ledger_bytes": 0}),
     }
 
@@ -260,6 +282,102 @@ def revoke_sessions(conn, actor: dict, user_id: int, *, ip: str | None = None) -
     _authorize(actor, user, action="sign out", allow_self=True)
     crepo.delete_sessions_for_user(conn, user_id)
     _audit(conn, actor, "user.revoke_sessions", user, ip)
+
+
+def revoke_session(conn, actor: dict, user_id: int, session_id: int, *, ip: str | None = None) -> None:
+    user = _target(conn, user_id)
+    _authorize(actor, user, action="sign out", allow_self=True)
+    if not crepo.delete_session_of_user(conn, user_id, session_id):
+        raise NotFoundError(f"Session {session_id} not found.")
+    _audit(conn, actor, "user.revoke_session", user, ip, session_id=session_id)
+
+
+def update_profile(conn, actor: dict, user_id: int, *, name: str | None = None, email: str | None = None,
+                   timezone: str | None = None, ip: str | None = None) -> dict:
+    """Correct an account's name, email or time zone. Changing the email signs the person out, since the
+    email is what they sign in with."""
+    user = _target(conn, user_id)
+    _authorize(actor, user, action="edit")
+    _expect_status(user, UserStatus.PENDING_APPROVAL, UserStatus.ACTIVE, UserStatus.REJECTED,
+                   UserStatus.SUSPENDED, action="edit")
+    fields: dict = {}
+    if name is not None:
+        name = name.strip()
+        if not name:
+            raise ValidationError("Name is required.")
+        if len(name) > 100:
+            raise ValidationError("Name must be at most 100 characters.")
+        if name != user["name"]:
+            fields["name"] = name
+    if email is not None:
+        email = validate_email(email)
+        if email != user["email"]:
+            if crepo.get_user_by_email(conn, email) is not None:
+                raise ConflictError(f"Email already in use: {email}")
+            fields["email"] = email
+    if timezone is not None:
+        validate_timezone(timezone)
+        if timezone != user["timezone"]:
+            fields["timezone"] = timezone
+    if not fields:
+        return public_user(user)
+    updated = crepo.update_user(conn, user_id, now=utc_now_iso(), **fields)
+    if "email" in fields:
+        crepo.delete_sessions_for_user(conn, user_id)
+    _audit(conn, actor, "user.edit", updated, ip, changed=",".join(sorted(fields)),
+           old_email=user["email"] if "email" in fields else None,
+           new_email=fields.get("email"))
+    return public_user(updated)
+
+
+BULK_ACTIONS = ("approve", "reject", "suspend", "reactivate")
+
+
+def bulk(conn, data_dir, actor: dict, action: str, user_ids: list[int], *, reason: str | None = None,
+         ip: str | None = None) -> list[dict]:
+    """Apply one of approve / reject / suspend / reactivate to several accounts. Each account stands on
+    its own: one that is refused (wrong state, higher role) is reported and the rest still go through.
+    Deleting is deliberately not available in bulk."""
+    if action not in BULK_ACTIONS:
+        raise ValidationError(f"Unknown bulk action: {action}. Use one of {', '.join(BULK_ACTIONS)}.")
+    ids = list(dict.fromkeys(user_ids))
+    if not ids:
+        raise ValidationError("Choose at least one account.")
+    limit = config.bulk_action_limit()
+    if len(ids) > limit:
+        raise ValidationError(f"At most {limit} accounts at a time.")
+    results = []
+    if not conn.in_transaction:  # a savepoint released outside a transaction would commit
+        conn.execute("BEGIN")
+    for uid in ids:
+        conn.execute("SAVEPOINT bulk_item")
+        try:
+            if action == "approve":
+                approve(conn, data_dir, actor, uid, ip=ip)
+            elif action == "reject":
+                reject(conn, actor, uid, reason=reason, ip=ip)
+            elif action == "suspend":
+                suspend(conn, actor, uid, reason=reason, ip=ip)
+            else:
+                reactivate(conn, actor, uid, ip=ip)
+        except (ConflictError, NotFoundError, PermissionDeniedError, ValidationError) as exc:
+            conn.execute("ROLLBACK TO bulk_item")
+            conn.execute("RELEASE bulk_item")
+            results.append({"user_id": uid, "ok": False, "error": str(exc)})
+        else:
+            conn.execute("RELEASE bulk_item")
+            results.append({"user_id": uid, "ok": True, "error": None})
+    return results
+
+
+def purge_now(conn, data_dir, actor: dict, *, ip: str | None = None) -> operations.PurgeResult:
+    """Finish every deletion whose grace period is over (superuser only). The caller commits and then
+    removes `result.files_to_delete`; the accounts are forgotten before their files go."""
+    _require_superuser(actor, action="purge accounts")
+    result = operations.purge_due_accounts(conn, data_dir)
+    audit_service.record(conn, actor_user_id=actor["id"], action="admin.purge", target_user_id=None,
+                         detail={"accounts": len(result.purged_emails)}, ip=ip)
+    return result
 
 
 def delete(conn, actor: dict, user_id: int, *, ip: str | None = None) -> dict:

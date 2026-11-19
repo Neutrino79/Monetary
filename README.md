@@ -236,6 +236,8 @@ template in [`backend/.env.example`](backend/.env.example) -- the app does not l
 | `MONETARY_LOGIN_LOCKOUT_MINUTES` | `15` | How long that lock lasts |
 | `MONETARY_LOGIN_CAPTCHA_AFTER` | `3` | Failed sign-ins from one address before the sign-in form also needs a captcha |
 | `MONETARY_TEMP_PASSWORD_HOURS` | `72` | How long an administrator-issued temporary password stays valid |
+| `MONETARY_SESSION_TOUCH_SECONDS` | `300` | At most how often a session's "last seen" time is refreshed |
+| `MONETARY_ADMIN_BULK_LIMIT` | `50` | Most accounts one bulk admin action may touch |
 | `MONETARY_MAX_REREQUESTS` | `3` | How many times a rejected person can ask again before only a superuser can reopen the request |
 | `MONETARY_CAPTCHA_PROVIDER` | `altcha` | `altcha` (built-in proof of work, no third party), `turnstile` (Cloudflare) or `none` |
 | `MONETARY_CAPTCHA_DIFFICULTY` | `50000` | Altcha: largest number a browser may have to try (higher = slower for bots and people) |

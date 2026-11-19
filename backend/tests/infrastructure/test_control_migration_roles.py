@@ -29,7 +29,7 @@ def test_data_ids_links_and_foreign_keys_survive_the_rebuild(tmp_path):
     conn.execute("INSERT INTO audit_log (at, actor_user_id, target_user_id, action) VALUES ('t', 1, 2, 'x')")
     conn.commit()
 
-    assert migrations.migrate(conn, control_db.CONTROL_MIGRATIONS) == 3
+    assert migrations.migrate(conn, control_db.CONTROL_MIGRATIONS) == 4
 
     assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1  # restored after the rebuild
     assert conn.execute("PRAGMA foreign_key_check").fetchall() == []
@@ -58,7 +58,7 @@ def test_an_installation_with_two_superusers_still_upgrades_with_a_warning(tmp_p
     _user(conn, "b@example.com", "superuser")
     conn.commit()
     with caplog.at_level(logging.WARNING, logger="monetary.migrations"):
-        assert migrations.migrate(conn, control_db.CONTROL_MIGRATIONS) == 3
+        assert migrations.migrate(conn, control_db.CONTROL_MIGRATIONS) == 4
     assert "transfer-superuser" in caplog.text
     indexes = [r[1] for r in conn.execute("PRAGMA index_list('user')")]
     assert "uq_single_superuser" not in indexes
@@ -82,3 +82,18 @@ def test_a_failing_rebuild_changes_nothing(tmp_path, monkeypatch):
     assert migrations.current_version(conn) == 2
     assert conn.execute("SELECT COUNT(*) FROM user").fetchone()[0] == 1
     assert conn.execute("PRAGMA foreign_keys").fetchone()[0] == 1
+
+
+def test_migration_4_adds_session_details_and_keeps_existing_sessions(tmp_path):
+    from monetary.infrastructure import control_db, control_repository as crepo, migrations
+    conn = control_db.open_connection(tmp_path / "control.db")
+    migrations.migrate(conn, control_db.CONTROL_MIGRATIONS[:3])
+    user = crepo.create_user(conn, email="a@example.com", name="A", password_hash="x", role="user",
+                             status="active", timezone=None, home_currency_code="INR", now="2026-01-01T00:00:00+00:00")
+    conn.execute("INSERT INTO session (user_id, token_hash, created_at, expires_at) VALUES (?, 'h', 'a', 'b')",
+                 (user["id"],))
+    conn.commit()
+    migrations.migrate(conn, control_db.CONTROL_MIGRATIONS)
+    row = conn.execute("SELECT last_seen_at, ip, user_agent, token_hash FROM session").fetchone()
+    assert tuple(row) == (None, None, None, "h")
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 4

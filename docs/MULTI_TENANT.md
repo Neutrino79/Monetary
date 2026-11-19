@@ -237,6 +237,10 @@ upgraded without losing any (the migration logs a warning and skips the unique i
 | `POST /users/{id}/suspend` and `/reactivate` | Block or restore login (suspend takes an optional reason). |
 | `POST /users/{id}/reset-password` | New temporary password (returned once), forces a change, revokes sessions. |
 | `POST /users/{id}/revoke-sessions` | Log the user out everywhere. |
+| `GET /users/{id}/sessions`, `DELETE /users/{id}/sessions/{sid}` | List sign-ins (device, address, last seen) and end one. |
+| `PATCH /users/{id}` | Edit name, email, time zone (a new email signs the user out). |
+| `POST /users/bulk` | Approve, reject, suspend or reactivate up to 50 accounts, reported one by one. |
+| `POST /purge` | Superuser: purge accounts past their deletion grace period. |
 | `DELETE /users/{id}` and `POST /users/{id}/restore` | Move to `pending_delete` with a grace period, or cancel it. |
 | `PUT /users/{id}/role` | Superuser only: set `user` or `admin` (`superuser` is refused; use `transfer-superuser`). |
 | `GET /stats` | Counts per status and pending requests, for the dashboard. |

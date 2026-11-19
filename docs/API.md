@@ -312,6 +312,15 @@ mode. Superusers manage *accounts*; they never see ledger contents. Every action
   `reset-password` (new temporary password, returned once) | `unlock` (lift a sign-in lock) | `reopen` (a
   rejected request back to pending, with a fresh allowance of re-requests) | `revoke-sessions` | `delete` (locks the account,
   data purged after 30 days) | `restore`; `PUT /admin/users/{id}/role` `{role: "user"|"admin"}` (`superuser` -> `409`, unknown -> `422`).
+- `PATCH /admin/users/{id}` `{name?, email?, timezone?}` -- correct a profile (equal/higher role `403`, taken
+  email `409`); a new email signs the person out.
+- `GET /admin/users/{id}/sessions` -- live sign-ins `{id, createdAt, expiresAt, lastSeenAt, ip, userAgent}` (never
+  tokens); `DELETE /admin/users/{id}/sessions/{sessionId}` ends one (`404` if it is not theirs).
+- `POST /admin/users/bulk` `{action: approve|reject|suspend|reactivate, userIds, reason?}` -- at most
+  `MONETARY_ADMIN_BULK_LIMIT` (50) ids; each account is attempted on its own and reported:
+  `{action, succeeded, failed, results: [{userId, ok, error}]}`. There is no bulk delete.
+- `POST /admin/purge` (superuser) -- permanently remove accounts whose 30-day grace ended; `{purged}`.
+  `stats.overdueForPurge` counts them. User rows also carry `lastActivityAt` and `storageBytes`.
 - `GET /admin/audit-log?user_id=&limit=&offset=` -- newest first.
 - Rules: a wrong state change is `409`; acting on an equal or higher role is `403`; `POST /admin/users` with
   `role: admin` needs the superuser and `role: superuser` is `409`.

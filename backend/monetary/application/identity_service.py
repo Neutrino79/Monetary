@@ -218,13 +218,14 @@ def register(conn, *, name: str, email: str, password: str, timezone: str | None
 # Sessions
 # --------------------------------------------------------------------------- #
 
-def _new_session(conn, user: dict) -> str:
+def _new_session(conn, user: dict, *, ip: str | None = None, user_agent: str | None = None) -> str:
     token = generate_session_token()
     now = datetime.now(dt_timezone.utc)
     hours = SUPERUSER_SESSION_TTL_HOURS if user["role"] != PlatformRole.USER.value else SESSION_TTL_HOURS
     crepo.create_session(
         conn, user_id=user["id"], token_hash=hash_session_token(token),
         created_at=now.isoformat(), expires_at=(now + timedelta(hours=hours)).isoformat(),
+        ip=ip, user_agent=(user_agent or None) and user_agent[:200],
     )
     crepo.delete_expired_sessions(conn, now.isoformat())  # cheap housekeeping on every login
     return token
@@ -292,7 +293,8 @@ def _temporary_password_expired(user: dict) -> bool:
     return when < datetime.now(dt_timezone.utc)
 
 
-def login(conn, *, email: str, password: str) -> tuple[dict, str]:
+def login(conn, *, email: str, password: str, ip: str | None = None,
+          user_agent: str | None = None) -> tuple[dict, str]:
     """Check the credentials, then the account state, and open a session.
 
     The state is only revealed after a correct password, and a wrong email and a wrong password give
@@ -313,7 +315,7 @@ def login(conn, *, email: str, password: str) -> tuple[dict, str]:
     now = utc_now_iso()
     user = crepo.update_user(conn, user["id"], now=now, last_login_at=now, failed_login_count=0,
                              locked_until=None)
-    return user, _new_session(conn, user)
+    return user, _new_session(conn, user, ip=ip, user_agent=user_agent)
 
 
 def logout(conn, plaintext_token: str) -> None:
@@ -339,7 +341,21 @@ def verify_session(conn, plaintext_token: str) -> dict | None:
     user = crepo.get_user(conn, session["user_id"])
     if user is None or user["status"] != UserStatus.ACTIVE.value:
         return None
+    _touch(conn, session)
     return user
+
+
+def _touch(conn, session: dict) -> None:
+    """Refresh "last seen" at most every `session_touch_seconds`, so reads do not all become writes."""
+    now = datetime.now(dt_timezone.utc)
+    seen = session.get("last_seen_at")
+    if seen:
+        last = datetime.fromisoformat(seen)
+        if last.tzinfo is None:
+            last = last.replace(tzinfo=dt_timezone.utc)
+        if (now - last).total_seconds() < config.session_touch_seconds():
+            return
+    crepo.touch_session(conn, session["id"], now.isoformat())
 
 
 def get_account_or_raise(conn, user_id: int) -> dict:
