@@ -7,6 +7,7 @@ belongs to which user.
 
 from __future__ import annotations
 
+import logging
 import sqlite3
 from pathlib import Path
 
@@ -82,6 +83,70 @@ CREATE INDEX IF NOT EXISTS idx_audit_at            ON audit_log(at);
 CREATE INDEX IF NOT EXISTS idx_audit_target        ON audit_log(target_user_id);
 """
 
+_USER_COLUMNS = (
+    "id, email, name, password_hash, security_question_id, security_answer_hash, role, status, status_reason, "
+    "must_change_password, timezone, home_currency_code, plan, access_until, delete_after, last_login_at, "
+    "approved_at, approved_by, created_at, updated_at, failed_login_count, locked_until, password_expires_at, "
+    "rerequest_count"
+)
+
+_USER_TABLE_WITH_ADMIN_ROLE = """
+CREATE TABLE user_new (
+    id                    INTEGER PRIMARY KEY AUTOINCREMENT,
+    email                 TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    name                  TEXT NOT NULL,
+    password_hash         TEXT,
+    security_question_id  INTEGER,
+    security_answer_hash  TEXT,
+    role                  TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','admin','superuser')),
+    status                TEXT NOT NULL CHECK(status IN
+                              ('pending_approval','active','rejected','suspended','pending_delete')),
+    status_reason         TEXT,
+    must_change_password  INTEGER NOT NULL DEFAULT 0,
+    timezone              TEXT,
+    home_currency_code    TEXT,
+    plan                  TEXT NOT NULL DEFAULT 'manual',
+    access_until          TEXT,
+    delete_after          TEXT,
+    last_login_at         TEXT,
+    approved_at           TEXT,
+    approved_by           INTEGER REFERENCES user(id) ON DELETE SET NULL,
+    created_at            TEXT NOT NULL,
+    updated_at            TEXT NOT NULL,
+    failed_login_count    INTEGER NOT NULL DEFAULT 0,
+    locked_until          TEXT,
+    password_expires_at   TEXT,
+    rerequest_count       INTEGER NOT NULL DEFAULT 0
+)
+"""
+
+
+def _add_admin_role(conn: sqlite3.Connection) -> None:
+    """Allow the role 'admin' and make it impossible to have two superusers.
+
+    SQLite cannot change a CHECK, so the table is rebuilt with the procedure from the SQLite docs
+    (the runner turns foreign keys off for it and verifies them afterwards). Ids are preserved,
+    including the AUTOINCREMENT counter, so sessions, memberships and audit rows keep pointing at the
+    same people. The one-superuser index is skipped (with a warning in the log) on an installation that
+    already has several, so an upgrade never fails; the application still refuses to add another."""
+    seq = conn.execute("SELECT seq FROM sqlite_sequence WHERE name = 'user'").fetchone()
+    conn.execute(_USER_TABLE_WITH_ADMIN_ROLE)
+    conn.execute(f"INSERT INTO user_new ({_USER_COLUMNS}) SELECT {_USER_COLUMNS} FROM user")
+    conn.execute("DROP TABLE user")
+    conn.execute("ALTER TABLE user_new RENAME TO user")
+    if seq is not None:
+        conn.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = 'user'", (seq[0],))
+    conn.execute("CREATE INDEX idx_cuser_role ON user(role)")
+    conn.execute("CREATE INDEX idx_cuser_status ON user(status)")
+    superusers = conn.execute("SELECT COUNT(*) FROM user WHERE role = 'superuser'").fetchone()[0]
+    if superusers <= 1:
+        conn.execute("CREATE UNIQUE INDEX uq_single_superuser ON user(role) WHERE role = 'superuser'")
+    else:
+        logging.getLogger("monetary.migrations").warning(
+            "%d superusers exist; the one-superuser index was not created. Run "
+            "`python -m monetary.cli transfer-superuser` to leave exactly one.", superusers)
+
+
 CONTROL_MIGRATIONS: list[migrations.Migration] = [
     migrations.Migration(1, "baseline control schema", sql=CONTROL_SCHEMA),
     migrations.Migration(2, "login lockout, temporary-password expiry and re-request count", sql="""
@@ -90,6 +155,7 @@ ALTER TABLE user ADD COLUMN locked_until       TEXT;
 ALTER TABLE user ADD COLUMN password_expires_at TEXT;
 ALTER TABLE user ADD COLUMN rerequest_count    INTEGER NOT NULL DEFAULT 0;
 """),
+    migrations.Migration(3, "admin role and a single superuser", fn=_add_admin_role, rebuilds_tables=True),
 ]
 
 

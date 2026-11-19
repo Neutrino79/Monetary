@@ -17,9 +17,12 @@ from typing import Sequence
 
 from monetary.application import admin_service, identity_service, operations, provisioning
 from monetary.config import data_dir_from_environment
+from monetary.domain.enums import OPERATOR_ROLE
 from monetary.domain.exceptions import DomainError
 from monetary.infrastructure import control_db, control_repository as crepo
 from monetary.infrastructure import db, migrations
+
+OPERATOR = {"id": None, "role": OPERATOR_ROLE}  # whoever can run this on the server
 
 
 def _read_password(args: argparse.Namespace) -> str:
@@ -57,9 +60,15 @@ def _cmd_reset_password(control, data_dir, args) -> int:
     if user is None:
         print(f"error: no account with email {args.email}", file=sys.stderr)
         return 1
-    _, temp = admin_service.reset_password(control, {"id": None}, user["id"])
+    _, temp = admin_service.reset_password(control, OPERATOR, user["id"])
     print(f"Temporary password for {user['email']}: {temp}")
     print("It must be changed at the next sign-in. Shown once.")
+    return 0
+
+
+def _cmd_transfer_superuser(control, data_dir, args) -> int:
+    user = identity_service.transfer_superuser(control, to_email=args.to, demote_to=args.demote_to)
+    print(f"{user['email']} is now the superuser. The previous superuser became {args.demote_to}.")
     return 0
 
 
@@ -68,7 +77,7 @@ def _cmd_unlock(control, data_dir, args) -> int:
     if user is None:
         print(f"error: no account with email {args.email}", file=sys.stderr)
         return 1
-    admin_service.unlock(control, {"id": None}, user["id"])
+    admin_service.unlock(control, OPERATOR, user["id"])
     print(f"Unlocked {user['email']}.")
     return 0
 
@@ -141,6 +150,12 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("reset-password", help="issue a temporary password for an account")
     p.add_argument("--email", required=True)
     p.set_defaults(func=_cmd_reset_password)
+
+    p = sub.add_parser("transfer-superuser", help="hand the single superuser role to another active account")
+    p.add_argument("--to", required=True, help="email of the account that becomes the superuser")
+    p.add_argument("--demote-to", choices=("admin", "user"), default="admin",
+                   help="role the previous superuser gets (default: admin)")
+    p.set_defaults(func=_cmd_transfer_superuser)
 
     p = sub.add_parser("unlock", help="lift a sign-in lock (too many wrong passwords) on an account")
     p.add_argument("--email", required=True)

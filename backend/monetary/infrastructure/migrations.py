@@ -8,6 +8,9 @@ Rules for writing a migration:
 - Append to the list; never edit or reorder a released migration.
 - Keep it compatible with the previous release for one release (add first, remove later).
 - Give it a SQL script or a function ``fn(conn)``; do not commit inside it.
+- A migration that rebuilds a table other tables point to (SQLite cannot alter a CHECK) sets
+  ``rebuilds_tables=True``: the runner then turns foreign keys off around the upgrade, as the SQLite
+  documentation prescribes, and verifies ``PRAGMA foreign_key_check`` is clean before committing.
 """
 
 from __future__ import annotations
@@ -23,6 +26,7 @@ class Migration:
     name: str
     sql: str | None = None
     fn: Callable[[sqlite3.Connection], None] | None = None
+    rebuilds_tables: bool = False
 
     def __post_init__(self) -> None:
         if self.version < 1:
@@ -84,20 +88,34 @@ def migrate(conn: sqlite3.Connection, migrations: Sequence[Migration]) -> int:
 
     if conn.in_transaction:
         raise RuntimeError("migrate() must be called on a connection with no open transaction.")
-    conn.execute("BEGIN IMMEDIATE")
+    pending_rebuild = any(m.rebuilds_tables for m in migrations if m.version > version)
+    foreign_keys_were_on = bool(conn.execute("PRAGMA foreign_keys").fetchone()[0])
+    if pending_rebuild and foreign_keys_were_on:
+        conn.execute("PRAGMA foreign_keys = OFF")  # has no effect inside a transaction, so before BEGIN
     try:
-        version = current_version(conn)  # re-read under the write lock
-        for migration in migrations:
-            if migration.version <= version:
-                continue
-            if migration.sql is not None:
-                _run_script(conn, migration.sql)
-            else:
-                migration.fn(conn)
-            version = migration.version
-        conn.execute(f"PRAGMA user_version = {int(version)}")  # int() because PRAGMA cannot be parameterised
-        conn.commit()
-    except BaseException:
-        conn.rollback()
-        raise
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            version = current_version(conn)  # re-read under the write lock
+            rebuilt = False
+            for migration in migrations:
+                if migration.version <= version:
+                    continue
+                if migration.sql is not None:
+                    _run_script(conn, migration.sql)
+                else:
+                    migration.fn(conn)
+                rebuilt = rebuilt or migration.rebuilds_tables
+                version = migration.version
+            if rebuilt:
+                broken = conn.execute("PRAGMA foreign_key_check").fetchall()
+                if broken:
+                    raise RuntimeError(f"Migration left {len(broken)} broken foreign key reference(s).")
+            conn.execute(f"PRAGMA user_version = {int(version)}")  # int() because PRAGMA cannot be parameterised
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
+    finally:
+        if pending_rebuild and foreign_keys_were_on:
+            conn.execute("PRAGMA foreign_keys = ON")
     return version

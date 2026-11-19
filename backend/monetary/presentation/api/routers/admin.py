@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query, Request
 
 from monetary.application import admin_service
 from monetary.config import API_PREFIX, data_dir_from_environment
-from monetary.presentation.api.deps import CONTROL, _client_key, get_superuser
+from monetary.presentation.api.deps import CONTROL, _client_key, get_admin, get_superuser
 from monetary.presentation.api.schemas.admin import (
     AdminCreatedUserOut,
     AdminCreateUserRequest,
@@ -18,7 +18,7 @@ from monetary.presentation.api.schemas.admin import (
 )
 from monetary.presentation.api.schemas.common import MessageOut, Page
 
-router = APIRouter(prefix=f"{API_PREFIX}/admin", tags=["admin"], dependencies=[Depends(get_superuser)])
+router = APIRouter(prefix=f"{API_PREFIX}/admin", tags=["admin"], dependencies=[Depends(get_admin)])
 
 
 @router.get("/stats", response_model=AdminStatsOut)
@@ -38,7 +38,7 @@ def list_users(
 
 @router.post("/users", response_model=AdminCreatedUserOut, status_code=201)
 def create_user(payload: AdminCreateUserRequest, request: Request, control: sqlite3.Connection = CONTROL,
-                actor: dict = Depends(get_superuser)):
+                actor: dict = Depends(get_admin)):
     """Create an active account with a generated temporary password (returned once) and an empty
     ledger. The user must choose a new password at first sign-in."""
     user, temp = admin_service.create_user(
@@ -55,48 +55,48 @@ def get_user(user_id: int, control: sqlite3.Connection = CONTROL):
 
 @router.post("/users/{user_id}/approve", response_model=AdminUserOut)
 def approve(user_id: int, request: Request, control: sqlite3.Connection = CONTROL,
-            actor: dict = Depends(get_superuser)):
+            actor: dict = Depends(get_admin)):
     return AdminUserOut(**admin_service.approve(
         control, data_dir_from_environment(), actor, user_id, ip=_client_key(request)))
 
 
 @router.post("/users/{user_id}/reject", response_model=AdminUserOut)
 def reject(user_id: int, request: Request, payload: ReasonRequest | None = None,
-           control: sqlite3.Connection = CONTROL, actor: dict = Depends(get_superuser)):
+           control: sqlite3.Connection = CONTROL, actor: dict = Depends(get_admin)):
     return AdminUserOut(**admin_service.reject(
         control, actor, user_id, reason=payload.reason if payload else None, ip=_client_key(request)))
 
 
 @router.post("/users/{user_id}/suspend", response_model=AdminUserOut)
 def suspend(user_id: int, request: Request, payload: ReasonRequest | None = None,
-            control: sqlite3.Connection = CONTROL, actor: dict = Depends(get_superuser)):
+            control: sqlite3.Connection = CONTROL, actor: dict = Depends(get_admin)):
     return AdminUserOut(**admin_service.suspend(
         control, actor, user_id, reason=payload.reason if payload else None, ip=_client_key(request)))
 
 
 @router.post("/users/{user_id}/reactivate", response_model=AdminUserOut)
 def reactivate(user_id: int, request: Request, control: sqlite3.Connection = CONTROL,
-               actor: dict = Depends(get_superuser)):
+               actor: dict = Depends(get_admin)):
     return AdminUserOut(**admin_service.reactivate(control, actor, user_id, ip=_client_key(request)))
 
 
 @router.post("/users/{user_id}/unlock", response_model=AdminUserOut)
 def unlock(user_id: int, request: Request, control: sqlite3.Connection = CONTROL,
-           actor: dict = Depends(get_superuser)):
+           actor: dict = Depends(get_admin)):
     """Lift a sign-in lock (too many wrong passwords) immediately."""
     return AdminUserOut(**admin_service.unlock(control, actor, user_id, ip=_client_key(request)))
 
 
 @router.post("/users/{user_id}/reopen", response_model=AdminUserOut)
 def reopen(user_id: int, request: Request, control: sqlite3.Connection = CONTROL,
-           actor: dict = Depends(get_superuser)):
+           actor: dict = Depends(get_admin)):
     """Put a rejected request back to pending, with a fresh allowance of re-requests."""
     return AdminUserOut(**admin_service.reopen(control, actor, user_id, ip=_client_key(request)))
 
 
 @router.post("/users/{user_id}/reset-password", response_model=AdminCreatedUserOut)
 def reset_password(user_id: int, request: Request, control: sqlite3.Connection = CONTROL,
-                   actor: dict = Depends(get_superuser)):
+                   actor: dict = Depends(get_admin)):
     """New temporary password (returned once); the user is signed out everywhere."""
     user, temp = admin_service.reset_password(control, actor, user_id, ip=_client_key(request))
     return AdminCreatedUserOut(user=AdminUserOut(**user), temporary_password=temp)
@@ -104,7 +104,7 @@ def reset_password(user_id: int, request: Request, control: sqlite3.Connection =
 
 @router.post("/users/{user_id}/revoke-sessions", response_model=MessageOut)
 def revoke_sessions(user_id: int, request: Request, control: sqlite3.Connection = CONTROL,
-                    actor: dict = Depends(get_superuser)):
+                    actor: dict = Depends(get_admin)):
     admin_service.revoke_sessions(control, actor, user_id, ip=_client_key(request))
     return MessageOut(detail="All sessions revoked.")
 

@@ -36,6 +36,7 @@ export interface AdminStats {
   byStatus: Record<string, number>;
   pendingApproval: number;
   activeSuperusers: number;
+  activeAdmins: number;
   ledgerCount: number;
   ledgerBytes: number;
 }

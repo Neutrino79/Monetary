@@ -105,12 +105,41 @@ def bootstrap_first_superuser(conn, *, name: str, email: str, password: str, tim
 
 def create_superuser(conn, *, name: str, email: str, password: str, timezone: str | None,
                      home_currency_code: str) -> dict:
-    """Create an additional active superuser (command-line tool)."""
+    """Create the superuser from the command line. There is exactly one superuser per installation:
+    once one exists this is refused (use `transfer_superuser` to hand the role over)."""
+    if crepo.count_superusers(conn) > 0:
+        raise ConflictError("A superuser already exists. There can be only one; use transfer-superuser "
+                            "to hand the role to someone else.")
     return _create_active_superuser(
         conn, name=name, email=email, password=password, timezone=timezone,
         home_currency_code=home_currency_code, security_question_id=None, security_answer=None,
         actor_user_id=None,
     )
+
+
+def transfer_superuser(conn, *, to_email: str, demote_to: str = PlatformRole.ADMIN.value) -> dict:
+    """Hand the single superuser role to another active account (command-line tool, also the way back in
+    when the superuser is lost). The former superuser(s) become `demote_to` ('admin' or 'user'); every
+    session of the people involved ends. Returns the new superuser."""
+    if demote_to not in (PlatformRole.ADMIN.value, PlatformRole.USER.value):
+        raise ValidationError("The former superuser can become 'admin' or 'user'.")
+    target = crepo.get_user_by_email(conn, validate_email(to_email))
+    if target is None:
+        raise NotFoundError(f"No account with email {to_email}.")
+    if target["status"] != UserStatus.ACTIVE.value:
+        raise ConflictError(f"Only an active account can become the superuser (this one is {target['status']}).")
+    if target["role"] == PlatformRole.SUPERUSER.value and crepo.count_superusers(conn) == 1:
+        raise ConflictError(f"{target['email']} is already the superuser.")
+    now = utc_now_iso()
+    previous = crepo.list_superusers(conn)
+    for old in previous:  # demote first: the database allows only one superuser row at a time
+        crepo.update_user(conn, old["id"], now=now, role=demote_to)
+        crepo.delete_sessions_for_user(conn, old["id"])
+    user = crepo.update_user(conn, target["id"], now=now, role=PlatformRole.SUPERUSER.value)
+    crepo.delete_sessions_for_user(conn, target["id"])
+    audit_service.record(conn, actor_user_id=None, action="user.transfer_superuser", target_user_id=target["id"],
+                         detail={"from": [o["email"] for o in previous], "demoted_to": demote_to})
+    return user
 
 
 def _create_active_superuser(conn, *, name, email, password, timezone, home_currency_code,
@@ -192,7 +221,7 @@ def register(conn, *, name: str, email: str, password: str, timezone: str | None
 def _new_session(conn, user: dict) -> str:
     token = generate_session_token()
     now = datetime.now(dt_timezone.utc)
-    hours = SUPERUSER_SESSION_TTL_HOURS if user["role"] == PlatformRole.SUPERUSER.value else SESSION_TTL_HOURS
+    hours = SUPERUSER_SESSION_TTL_HOURS if user["role"] != PlatformRole.USER.value else SESSION_TTL_HOURS
     crepo.create_session(
         conn, user_id=user["id"], token_hash=hash_session_token(token),
         created_at=now.isoformat(), expires_at=(now + timedelta(hours=hours)).isoformat(),

@@ -19,7 +19,7 @@ from monetary.infrastructure import control_repository as crepo
 SECRET = b"service-test-secret"
 REG = dict(name="Asha Rao", email="asha@example.com", password="correct horse", timezone="Asia/Kolkata",  # pragma: allowlist secret
            home_currency_code="INR", security_question_id=1, security_answer="Bruno")  # pragma: allowlist secret
-ADMIN = {"id": None}
+ADMIN = {"id": None, "role": "superuser"}
 
 
 def _active(control, **over):

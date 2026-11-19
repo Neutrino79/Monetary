@@ -66,7 +66,21 @@ class UserStatus(str, Enum):
 
 class PlatformRole(str, Enum):
     USER = "user"
-    SUPERUSER = "superuser"
+    ADMIN = "admin"          # helps manage accounts; limited, never creates admins or deletes accounts
+    SUPERUSER = "superuser"  # the single owner of the installation
+
+
+# Someone with shell access to the server (the command-line tool). Not an account and never stored: it
+# outranks the superuser so the CLI can always unlock or reset them, which is the way back in.
+OPERATOR_ROLE = "operator"
+
+ROLE_RANK = {PlatformRole.USER.value: 0, PlatformRole.ADMIN.value: 1, PlatformRole.SUPERUSER.value: 2,
+             OPERATOR_ROLE: 3}
+
+
+def role_rank(role: str) -> int:
+    """How much authority a role has; an account may only manage accounts of a strictly lower rank."""
+    return ROLE_RANK.get(role, 0)
 
 
 def as_enum(enum_cls, value):

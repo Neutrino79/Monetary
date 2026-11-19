@@ -6,6 +6,7 @@ import { FormField, Input, Select } from "@/components/ui/form";
 import { appConfig } from "@/config/app";
 import { timezoneOptions } from "@/config/timezones";
 import type { AccountRole } from "@/types";
+import { selectIsSuperuser, useAuthStore } from "@/store/authStore";
 import type { IssuedPassword, NewUserInput } from "@/types/admin";
 import { adminService } from "@/lib/api/services/adminService";
 import { useAdminMutation } from "@/hooks/admin";
@@ -19,6 +20,7 @@ export function CreateUserDialog({ open, onOpenChange, onCreated }: {
   const [email, setEmail] = useState("");
   const [currency, setCurrency] = useState(appConfig.currencyCode);
   const [timezone, setTimezone] = useState(appConfig.defaultTimezone);
+  const isSuperuser = useAuthStore(selectIsSuperuser); // admins can only create ordinary users
   const [role, setRole] = useState<AccountRole>("user");
   const [error, setError] = useState("");
 
@@ -79,12 +81,14 @@ export function CreateUserDialog({ open, onOpenChange, onCreated }: {
           </Select>
         </FormField>
       </div>
-      <FormField label="Role" htmlFor="cu-role" hint="Superusers manage accounts but never see anyone's ledger">
-        <Select id="cu-role" value={role} onChange={(e) => setRole(e.target.value as AccountRole)}>
-          <option value="user">User</option>
-          <option value="superuser">Superuser</option>
-        </Select>
-      </FormField>
+      {isSuperuser && (
+        <FormField label="Role" htmlFor="cu-role" hint="Admins help manage accounts but never see anyone's ledger">
+          <Select id="cu-role" value={role} onChange={(e) => setRole(e.target.value as AccountRole)}>
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </Select>
+        </FormField>
+      )}
     </Modal>
   );
 }

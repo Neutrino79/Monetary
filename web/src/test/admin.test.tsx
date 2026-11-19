@@ -28,7 +28,7 @@ const owner = {
   ledgerMode: 'DIRECT', securityQuestionId: 1, createdAt: 'x', updatedAt: 'x',
 }
 
-function signIn(role: 'user' | 'superuser') {
+function signIn(role: 'user' | 'admin' | 'superuser') {
   useAuthStore.setState({
     user: owner as never, isAuthenticated: true, isHydrating: false, hydrateError: null, sessionExpired: false,
     account: { id: 1, email: 'admin@example.com', name: 'Admin', role, status: 'active', mustChangePassword: false, hasLedger: true },
@@ -206,15 +206,12 @@ describe('users', () => {
     expect(JSON.parse(String(bodies['POST /admin/users/5/suspend']))).toEqual({ reason: 'abuse' })
   })
 
-  it('does not offer to suspend or delete yourself', async () => {
+  it('offers no account actions on your own row', async () => {
     handlers['GET /admin/users'] = () => ({ json: page([user({ id: 1, name: 'Admin', email: 'admin@example.com', role: 'superuser' })]) })
-    const ui = userEvent.setup()
     signIn('superuser')
     renderApp('/admin/users')
-    await ui.click(await screen.findByRole('button', { name: 'More actions for Admin' }))
-    expect(await screen.findByRole('menuitem', { name: 'Reset password…' })).toBeInTheDocument()
-    expect(screen.queryByRole('menuitem', { name: 'Suspend…' })).toBeNull()
-    expect(screen.queryByRole('menuitem', { name: 'Delete…' })).toBeNull()
+    await screen.findByText('Admin')
+    expect(screen.queryByRole('button', { name: 'More actions for Admin' })).toBeNull()
   })
 
   it('offers Restore for an account scheduled for deletion', async () => {
@@ -268,5 +265,86 @@ describe('sign-in locks and rejected requests', () => {
     await userEvent.setup().click(await screen.findByRole('button', { name: 'Reopen' }))
     await vi.waitFor(() => expect(calls).toContain('POST /admin/users/5/reopen'))
     expect(await screen.findByText("Ravi Kumar's request is pending again.")).toBeInTheDocument()
+  })
+})
+
+describe('roles', () => {
+  const rows = () => ({
+    json: page([
+      user({ id: 5, name: 'Ravi Kumar' }),
+      user({ id: 6, name: 'Helen Admin', email: 'helen@example.com', role: 'admin' }),
+      user({ id: 1, name: 'The Boss', email: 'boss@example.com', role: 'superuser' }),
+    ]),
+  })
+
+  it('lets the superuser make admins and take it back, but never offers a second superuser', async () => {
+    handlers['GET /admin/users'] = rows
+    handlers['PUT /admin/users/5/role'] = () => ({ json: user({ role: 'admin' }) })
+    const ui = userEvent.setup()
+    signIn('superuser')
+    renderApp('/admin/users')
+    await ui.click(await screen.findByRole('button', { name: 'More actions for Ravi Kumar' }))
+    expect(screen.queryByRole('menuitem', { name: /superuser/i })).toBeNull()
+    await ui.click(await screen.findByRole('menuitem', { name: 'Make admin…' }))
+    await ui.click(await screen.findByRole('button', { name: 'Change role' }))
+    await vi.waitFor(() => expect(calls).toContain('PUT /admin/users/5/role'))
+    expect(JSON.parse(String(bodies['PUT /admin/users/5/role']))).toEqual({ role: 'admin' })
+    await ui.keyboard('{Escape}')
+    await ui.click(await screen.findByRole('button', { name: 'More actions for Helen Admin' }))
+    expect(await screen.findByRole('menuitem', { name: 'Make regular user…' })).toBeInTheDocument()
+  })
+
+  it('gives an admin the everyday actions on users only', async () => {
+    handlers['GET /admin/users'] = rows
+    const ui = userEvent.setup()
+    signIn('admin')
+    renderApp('/admin/users')
+    await ui.click(await screen.findByRole('button', { name: 'More actions for Ravi Kumar' }))
+    expect(await screen.findByRole('menuitem', { name: 'Suspend…' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Reset password…' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Delete…' })).toBeNull()
+    expect(screen.queryByRole('menuitem', { name: /Make /})).toBeNull()
+    await ui.keyboard('{Escape}')
+    // another admin and the superuser are out of reach
+    expect(screen.queryByRole('button', { name: 'More actions for Helen Admin' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'More actions for The Boss' })).toBeNull()
+  })
+
+  it('shows each role next to its account', async () => {
+    handlers['GET /admin/users'] = rows
+    signIn('superuser')
+    renderApp('/admin/users')
+    await screen.findByText('Ravi Kumar')
+    expect(screen.getByTestId('role-6')).toHaveTextContent('Admin')
+    expect(screen.getByTestId('role-1')).toHaveTextContent('Superuser')
+    expect(screen.queryByTestId('role-5')).toBeNull() // ordinary users carry no label
+  })
+
+  it('lets only the superuser choose a role when creating an account', async () => {
+    handlers['GET /admin/users'] = () => ({ json: page([]) })
+    const ui = userEvent.setup()
+    signIn('admin')
+    renderApp('/admin/users')
+    await ui.click(await screen.findByRole('button', { name: /Create user/ }))
+    await screen.findByLabelText('Email')
+    expect(screen.queryByLabelText('Role')).toBeNull()
+  })
+
+  it('shows the superuser a role choice of user or admin', async () => {
+    handlers['GET /admin/users'] = () => ({ json: page([]) })
+    const ui = userEvent.setup()
+    signIn('superuser')
+    renderApp('/admin/users')
+    await ui.click(await screen.findByRole('button', { name: /Create user/ }))
+    await ui.click(await screen.findByLabelText('Role'))
+    expect(await screen.findByText('Admin', { selector: '[role="option"] *, [role="option"]' })).toBeInTheDocument()
+    expect(screen.queryByText('Superuser')).toBeNull()
+  })
+
+  it('opens the Admin area to an admin', async () => {
+    handlers['GET /admin/stats'] = () => ({ json: { totalUsers: 1, byStatus: {}, pendingApproval: 0, activeSuperusers: 1, activeAdmins: 1, ledgerCount: 1, ledgerBytes: 1024 } })
+    signIn('admin')
+    renderApp('/admin')
+    expect(await screen.findByText('Admins')).toBeInTheDocument()
   })
 })

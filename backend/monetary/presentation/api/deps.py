@@ -24,6 +24,7 @@ from monetary.config import (
     legacy_db_path_from_environment,
     login_captcha_after,
 )
+from monetary.domain.enums import PlatformRole
 from monetary.domain.exceptions import PasswordChangeRequired, PermissionDeniedError
 from monetary.infrastructure import control_db, instance_secret
 from monetary.infrastructure.rate_limiter import (
@@ -131,6 +132,16 @@ def get_superuser(account: dict = Depends(get_current_account)) -> dict:
         raise PermissionDeniedError("Administration is disabled in demo mode.")
     if account["role"] != "superuser":
         raise PermissionDeniedError("Superuser access required.")
+    return account
+
+
+def get_admin(account: dict = Depends(get_current_account)) -> dict:
+    """The signed-in account, only if it is an admin or the superuser (read from the control database on
+    every request). Administration is not available in demo mode."""
+    if demo_mode_enabled():
+        raise PermissionDeniedError("Administration is disabled in demo mode.")
+    if account["role"] not in (PlatformRole.ADMIN.value, PlatformRole.SUPERUSER.value):
+        raise PermissionDeniedError("Administrator access required.")
     return account
 
 

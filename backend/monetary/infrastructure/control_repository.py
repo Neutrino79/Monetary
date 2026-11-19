@@ -86,6 +86,19 @@ def count_users_by_status(conn) -> dict[str, int]:
     return {r["status"]: r["n"] for r in rows}
 
 
+def count_superusers(conn) -> int:
+    """Superusers of any status (there is meant to be exactly one)."""
+    return conn.execute("SELECT COUNT(*) FROM user WHERE role = 'superuser'").fetchone()[0]
+
+
+def count_active_admins(conn) -> int:
+    return conn.execute("SELECT COUNT(*) FROM user WHERE role = 'admin' AND status = 'active'").fetchone()[0]
+
+
+def list_superusers(conn) -> list[dict]:
+    return [dict(r) for r in conn.execute("SELECT * FROM user WHERE role = 'superuser' ORDER BY id").fetchall()]
+
+
 def count_active_superusers(conn) -> int:
     return conn.execute("SELECT COUNT(*) FROM user WHERE role = 'superuser' AND status = 'active'").fetchone()[0]
 

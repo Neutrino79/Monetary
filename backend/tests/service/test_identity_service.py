@@ -222,9 +222,13 @@ def test_the_first_superuser_is_active_and_setup_closes_afterwards(control):
 def test_creating_a_superuser_rejects_a_duplicate_email_and_a_half_given_question(control):
     acc.create_superuser(control, name="Root", email="root@example.com", password="correct horse",  # pragma: allowlist secret
                          timezone=None, home_currency_code="INR")
-    with pytest.raises(ConflictError):
-        acc.create_superuser(control, name="Root 2", email="ROOT@example.com", password="correct horse",  # pragma: allowlist secret
+    with pytest.raises(ConflictError, match="only one"):  # a second superuser is never created
+        acc.create_superuser(control, name="Root 2", email="other@example.com", password="correct horse",  # pragma: allowlist secret
                              timezone=None, home_currency_code="INR")
+    with pytest.raises(ConflictError, match="already in use"):
+        acc._create_active_superuser(
+            control, name="Root 2", email="ROOT@example.com", password="correct horse", timezone=None,  # pragma: allowlist secret
+            home_currency_code="INR", security_question_id=None, security_answer=None, actor_user_id=None)
     with pytest.raises(ValidationError):
         acc._create_active_superuser(
             control, name="X", email="x@example.com", password="correct horse", timezone=None,  # pragma: allowlist secret

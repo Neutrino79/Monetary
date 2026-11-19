@@ -5,7 +5,7 @@
 -- Source: backend/monetary/infrastructure/control_db.py (see docs/MULTI_TENANT.md).
 -- ============================================================================
 
--- schema version: PRAGMA user_version = 2 (ledger databases are at their own version)
+-- schema version: PRAGMA user_version = 3 (ledger databases are at their own version)
 
 -- table: audit_log
 CREATE TABLE audit_log (         -- append-only: nothing updates or deletes these rows
@@ -43,7 +43,7 @@ CREATE TABLE user (
     password_hash         TEXT,                                   -- bcrypt; NULL = password login impossible
     security_question_id  INTEGER,                                -- optional for admin-created users
     security_answer_hash  TEXT,
-    role                  TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','superuser')),
+    role                  TEXT NOT NULL DEFAULT 'user' CHECK(role IN ('user','admin','superuser')),
     status                TEXT NOT NULL CHECK(status IN
                               ('pending_approval','active','rejected','suspended','pending_delete')),
     status_reason         TEXT,                                   -- shown to the user when rejected / suspended
@@ -83,6 +83,9 @@ CREATE INDEX idx_csession_user       ON session(user_id);
 
 -- index: idx_cuser_role
 CREATE INDEX idx_cuser_role          ON user(role);
+
+-- index: uq_single_superuser
+CREATE UNIQUE INDEX uq_single_superuser ON user(role) WHERE role = 'superuser';  -- at most one superuser
 
 -- index: idx_cuser_status
 CREATE INDEX idx_cuser_status        ON user(status);

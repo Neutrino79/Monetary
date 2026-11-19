@@ -55,6 +55,7 @@ class AdminStatsOut(ApiModel):
     by_status: dict[str, int]
     pending_approval: int
     active_superusers: int
+    active_admins: int = 0
     ledger_count: int = 0
     ledger_bytes: int = 0
 

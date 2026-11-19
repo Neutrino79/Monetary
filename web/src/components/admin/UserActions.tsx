@@ -6,6 +6,8 @@ import { ConfirmDialog } from "@/components/ui/Dialog";
 import { IconButton } from "@/components/ui/primitives";
 import { useToast } from "@/components/ui/Toast";
 import { adminService } from "@/lib/api/services/adminService";
+import { outranks } from "@/lib/roles";
+import { selectIsSuperuser, useAuthStore } from "@/store/authStore";
 import { useAdminMutation } from "@/hooks/admin";
 import type { AdminUser, IssuedPassword } from "@/types/admin";
 import { ReasonDialog } from "./adminUi";
@@ -38,8 +40,12 @@ export function UserActions({ user, isSelf, onIssued }: { user: AdminUser; isSel
     }
   };
 
+  const actorRole = useAuthStore((st) => st.account?.role);
+  const isSuperuser = useAuthStore(selectIsSuperuser);
   const s = user.status;
-  const nextRole = user.role === "superuser" ? "user" : "superuser";
+  const nextRole = user.role === "admin" ? "user" : "admin";
+  // Only accounts below your own role can be managed; deleting and changing roles is the superuser's alone.
+  if (!outranks(actorRole, user.role)) return null;
 
   return (
     <div className="flex items-center justify-end gap-2">
@@ -58,7 +64,7 @@ export function UserActions({ user, isSelf, onIssued }: { user: AdminUser; isSel
       {s === "suspended" && (
         <Button size="sm" variant="secondary" onClick={() => attempt(() => adminService.reactivate(user.id), `${user.name} reactivated.`)}>Reactivate</Button>
       )}
-      {s === "pending_delete" && (
+      {s === "pending_delete" && isSuperuser && (
         <Button size="sm" variant="secondary" onClick={() => attempt(() => adminService.restore(user.id), `${user.name} restored.`)}>Restore</Button>
       )}
 
@@ -75,12 +81,12 @@ export function UserActions({ user, isSelf, onIssued }: { user: AdminUser; isSel
             {(s === "active" || s === "suspended") && (
               <DropdownMenu.Item className={itemClass} onSelect={() => setPending("revoke")}>Sign out everywhere…</DropdownMenu.Item>
             )}
-            {s === "active" && (
+            {s === "active" && isSuperuser && (
               <DropdownMenu.Item className={itemClass} onSelect={() => setPending("role")}>
-                {nextRole === "superuser" ? "Make superuser…" : "Make regular user…"}
+                {nextRole === "admin" ? "Make admin…" : "Make regular user…"}
               </DropdownMenu.Item>
             )}
-            {s !== "pending_delete" && !isSelf && (
+            {s !== "pending_delete" && !isSelf && isSuperuser && (
               <DropdownMenu.Item className={`${itemClass} text-danger`} onSelect={() => setPending("delete")}>Delete…</DropdownMenu.Item>
             )}
           </DropdownMenu.Content>
@@ -124,9 +130,9 @@ export function UserActions({ user, isSelf, onIssued }: { user: AdminUser; isSel
       />
       <ConfirmDialog
         open={pending === "role"} onOpenChange={(o) => !o && setPending(null)} variant="primary"
-        title={`Make ${user.name} a ${nextRole === "superuser" ? "superuser" : "regular user"}?`}
-        message={nextRole === "superuser" ? "They will be able to approve, suspend and delete accounts. They still cannot see anyone's ledger." : "They lose access to the Admin area and are signed out so the change applies."}
-        confirmLabel="Change role" onConfirm={() => attempt(() => adminService.setRole(user.id, nextRole), `${user.name} is now a ${nextRole}.`)}
+        title={`Make ${user.name} ${nextRole === "admin" ? "an admin" : "a regular user"}?`}
+        message={nextRole === "admin" ? "They will be able to approve requests and suspend, unlock or reset ordinary users. They cannot delete accounts, create admins or see anyone's ledger." : "They lose access to the Admin area and are signed out so the change applies."}
+        confirmLabel="Change role" onConfirm={() => attempt(() => adminService.setRole(user.id, nextRole), `${user.name} is now ${nextRole === "admin" ? "an admin" : "a regular user"}.`)}
       />
     </div>
   );

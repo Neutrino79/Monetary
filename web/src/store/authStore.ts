@@ -38,8 +38,11 @@ function applyUser(user: User) {
   return { user, isAuthenticated: true, hydrateError: null, sessionExpired: false };
 }
 
-/** True when the signed-in account is a superuser (the Admin area is available). */
-export const selectIsAdmin = (s: { account: PlatformAccount | null }) => s.account?.role === "superuser";
+/** True for an admin or the superuser (the Admin area is available). */
+export const selectIsAdmin = (s: { account: PlatformAccount | null }) => s.account?.role === "superuser" || s.account?.role === "admin";
+
+/** True only for the single superuser: deleting accounts, changing roles and creating admins. */
+export const selectIsSuperuser = (s: { account: PlatformAccount | null }) => s.account?.role === "superuser";
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,

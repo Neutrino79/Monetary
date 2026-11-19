@@ -125,6 +125,7 @@ cd backend
 python -m uvicorn monetary.presentation.api.app:app --reload --port 8000
 # first account (or skip this and use the setup page in the web app):
 # python -m monetary.cli create-superuser --email you@example.com --name "Your Name"
+# (there is exactly one superuser; to hand over: python -m monetary.cli transfer-superuser --to other@example.com)
 
 # 2. Web app -> http://localhost:5173   (second terminal, from the repo root)
 cd web

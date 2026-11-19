@@ -34,7 +34,7 @@ export function AdminOverviewPage() {
           ["Active", s.byStatus.active ?? 0],
           ["Pending approval", s.pendingApproval],
           ["Suspended", s.byStatus.suspended ?? 0],
-          ["Superusers", s.activeSuperusers],
+          ["Admins", s.activeAdmins],
           ["Ledger storage", `${s.ledgerCount} · ${(s.ledgerBytes / 1024 / 1024).toFixed(1)} MB`],
         ].map(([label, value]) => (
           <Card key={label} className="p-4">

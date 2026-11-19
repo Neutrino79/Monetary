@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Input, Select } from "@/components/ui/form";
 import { useAdminUsers } from "@/hooks/admin";
 import { useAuthStore } from "@/store/authStore";
+import { ROLE_LABEL } from "@/lib/roles";
 import { CreateUserDialog } from "@/components/admin/CreateUserDialog";
 import { UserActions, isLocked } from "@/components/admin/UserActions";
 import { StatusBadge, TemporaryPasswordDialog, formatWhen } from "@/components/admin/adminUi";
@@ -59,6 +60,7 @@ export function AdminUsersPage() {
                   <div className="flex items-center gap-2">
                     <span className="truncate text-[14px] font-semibold">{u.name}</span>
                     <StatusBadge status={u.status} />
+                    {u.role !== "user" && <span data-testid={`role-${u.id}`} className="ml-2 text-[11.5px] font-semibold text-ink-soft">{ROLE_LABEL[u.role]}</span>}
                     {u.role === "superuser" && <span className="text-[11.5px] font-semibold text-accent">Superuser</span>}
                     {u.mustChangePassword && <span className="text-[11.5px] text-ink-faint">temporary password</span>}
                     {isLocked(u) && <span className="text-[11.5px] font-semibold text-danger">locked</span>}
