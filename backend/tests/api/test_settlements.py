@@ -41,7 +41,7 @@ def test_overpaying_is_409(world, setup, amount):
 def test_settlement_rejections(world):
     world.split()
     base = {"friend_id": world.friend["rahul"], "account_id": world.acct["bank"], "amount": "10"}
-    for patch, code in (({"account_id": world.acct["usd"]}, 422), ({"friend_id": 99999}, 404), ({"friend_id": 1}, 404),
+    for patch, code in (({"account_id": world.acct["usd"]}, 422), ({"friend_id": 99999}, 404),
                         ({"account_id": 99999}, 404), ({"amount": "0"}, 422), ({"amount": "x"}, 422)):
         assert world.api.post("/settlements", json={**base, **patch}).status_code == code, patch
     world.api.post(f"/accounts/{world.acct['wallet']}/deactivate")
@@ -117,9 +117,8 @@ def test_statement_rows_carry_the_owners_local_date(world):
     assert [r["date"] for r in rows] == ["2026-03-05", "2026-03-12"]
 
 
-def test_statement_for_unknown_friend_or_owner_is_404(world):
+def test_statement_for_an_unknown_friend_is_404(world):
     assert world.api.get("/friends/99999/statement").status_code == 404
-    assert world.api.get(f"/friends/{world.api.get('/owner').json()['id']}/statement").status_code == 404
 
 
 def test_a_settlement_without_a_description_is_titled_from_what_it_covers(world):

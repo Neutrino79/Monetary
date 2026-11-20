@@ -27,6 +27,16 @@ def test_sessions_are_listed_with_device_details_and_one_can_be_revoked(client, 
                          headers=team["admin1"]).status_code == 403
 
 
+def test_an_account_email_may_equal_one_of_its_friends_emails(client, boss, team):
+    """Only friend create/edit is checked against the owner's email; an admin change is not (by design)."""
+    ids = team["ids"]
+    made = client.post(f"{API}/friends", headers=team["sam"],
+                       json={"name": "Twin", "email": "twin@example.com"})
+    assert made.status_code == 201
+    moved = client.patch(f"{ADMIN}/users/{ids['sam']}", headers=boss, json={"email": "twin@example.com"})
+    assert moved.status_code == 200 and moved.json()["email"] == "twin@example.com"
+
+
 def test_last_seen_is_refreshed_at_most_once_per_interval(client, boss, team, monkeypatch):
     ids = team["ids"]
     before = client.get(f"{ADMIN}/users/{ids['sam']}/sessions", headers=boss).json()[0]["lastSeenAt"]
@@ -41,11 +51,20 @@ def test_last_seen_is_refreshed_at_most_once_per_interval(client, boss, team, mo
 
 def test_editing_a_profile_validates_audits_and_an_email_change_signs_the_person_out(client, boss, team):
     ids = team["ids"]
-    r = client.patch(f"{ADMIN}/users/{ids['sam']}", headers=team["admin1"],
-                     json={"name": "Samuel", "timezone": "Asia/Kolkata"})
-    assert r.status_code == 200 and r.json()["name"] == "Samuel" and r.json()["timezone"] == "Asia/Kolkata"
+    r = client.patch(f"{ADMIN}/users/{ids['sam']}", headers=team["admin1"], json={"name": "Samuel"})
+    assert r.status_code == 200 and r.json()["name"] == "Samuel"
+    # the ledger owns the time zone once it exists: an administrator cannot change it from outside
+    tz = client.patch(f"{ADMIN}/users/{ids['sam']}", headers=team["admin1"], json={"timezone": "Asia/Kolkata"})
+    assert tz.status_code == 409 and "Settings" in tz.json()["detail"]
     assert client.get(f"{API}/me", headers=team["sam"]).status_code == 200  # name change keeps the session
     assert client.patch(f"{ADMIN}/users/{ids['sam']}", headers=boss, json={"timezone": "Mars/Base"}).status_code == 422
+    # a pending request has no ledger yet, so its time zone can still be corrected
+    client.post(f"{API}/auth/register", json={
+        "name": "Pending P", "email": "pending-p@example.com", "password": "correct horse battery",  # pragma: allowlist secret
+        "timezone": "UTC", "currency": "INR", "securityQuestionId": 1, "securityAnswer": "Bruno"})
+    pending = client.get(f"{ADMIN}/users?status=pending_approval", headers=boss).json()["items"][0]["id"]
+    fixed = client.patch(f"{ADMIN}/users/{pending}", headers=boss, json={"timezone": "Asia/Kolkata"})
+    assert fixed.status_code == 200 and fixed.json()["timezone"] == "Asia/Kolkata"
     assert client.patch(f"{ADMIN}/users/{ids['sam']}", headers=boss, json={"name": "  "}).status_code == 422
     assert client.patch(f"{ADMIN}/users/{ids['sam']}", headers=boss,
                         json={"email": "ravi@example.com"}).status_code == 409
@@ -126,3 +145,11 @@ def test_purge_is_superuser_only_and_counts_what_is_overdue(client, boss, team, 
     assert client.get(f"{ADMIN}/users/{ids['ravi']}", headers=boss).status_code == 404
     actions = [e["action"] for e in client.get(f"{ADMIN}/audit-log", headers=boss).json()["items"]]
     assert "admin.purge" in actions and "user.purge" in actions
+
+
+def test_the_account_holder_changes_the_time_zone_and_the_admin_screens_follow(client, boss, team):
+    ids = team["ids"]
+    r = client.patch(f"{API}/owner", headers=team["sam"], json={"timezone": "Asia/Kolkata"})
+    assert r.status_code == 200 and r.json()["timezone"] == "Asia/Kolkata"
+    assert client.get(f"{API}/owner", headers=team["sam"]).json()["timezone"] == "Asia/Kolkata"  # the ledger's own
+    assert client.get(f"{ADMIN}/users/{ids['sam']}", headers=boss).json()["timezone"] == "Asia/Kolkata"  # the copy

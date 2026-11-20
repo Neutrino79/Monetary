@@ -111,8 +111,8 @@ def backup_all(control, data_dir, destination: str | Path) -> dict:
 
 
 def export_ledger(control, data_dir, user_id: int) -> Path:
-    """A snapshot of one user's own ledger as a SQLite file in a temporary folder, without any
-    credentials in it. The caller deletes the file after sending it."""
+    """A snapshot of one user's own ledger as a SQLite file in a temporary folder. A ledger holds
+    no credentials (those live in the control database). The caller deletes the file after sending it."""
     ledger = provisioning.open_ledger(control, data_dir, user_id)
     if ledger is None:
         raise provisioning.NoLedgerError("This account has no ledger.")
@@ -122,7 +122,6 @@ def export_ledger(control, data_dir, user_id: int) -> Path:
         target = backup.copy_database(ledger, folder / "ledger.db")
     finally:
         ledger.close()
-    backup.scrub_credentials(target)
     return target
 
 

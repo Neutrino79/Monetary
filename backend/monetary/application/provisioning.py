@@ -16,8 +16,7 @@ from monetary.domain.enums import PlatformRole, UserStatus
 from monetary.domain.exceptions import NoLedgerError, NotFoundError
 from monetary.domain.time_utils import utc_now_iso
 from monetary.infrastructure import control_repository as crepo
-from monetary.infrastructure import db, migrations, tenant_store
-from monetary.infrastructure import repositories as repo
+from monetary.infrastructure import db, legacy_ledger, migrations, tenant_store
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +41,11 @@ def provision_ledger(control, data_dir: str | Path, user_id: int, *, seed_defaul
     try:
         ledger = db.connect(temporary)
         try:
-            owner = user_service.create_ledger_owner(
-                ledger, name=account["name"], email=account["email"], timezone=account["timezone"],
-                home_currency_code=account["home_currency_code"] or "INR",
+            settings = user_service.create_ledger_settings(
+                ledger, timezone=account["timezone"], home_currency_code=account["home_currency_code"] or "INR",
             )
             if seed_defaults:
-                seed_service.seed_default_categories(ledger, currency_code=owner["home_currency_code"])
+                seed_service.seed_default_categories(ledger, currency_code=settings["home_currency_code"])
             ledger.commit()
             ledger.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         finally:
@@ -86,11 +84,7 @@ def adopt_legacy_ledger(control, data_dir: str | Path, legacy_path: str | Path) 
     path = Path(legacy_path)
     if not path.is_file():
         return None
-    ledger = db.connect(path)
-    try:
-        owner = repo.get_superuser(ledger)
-    finally:
-        ledger.close()
+    owner = legacy_ledger.read_owner(path)  # before the file is opened: opening upgrades it
     if owner is None or not owner["password_hash"]:
         return None
 
@@ -106,6 +100,8 @@ def adopt_legacy_ledger(control, data_dir: str | Path, legacy_path: str | Path) 
         schema_version=migrations.latest_version(db.TENANT_MIGRATIONS), now=now,
     )
     crepo.add_membership(control, workspace_id=workspace["id"], user_id=account["id"])
+    ledger = db.connect(path)  # upgrade the adopted file now so a failure shows at start-up, not at first use
+    ledger.close()
     audit_service.record(control, actor_user_id=None, action="user.adopt_legacy_ledger",
                          target_user_id=account["id"], detail={"email": account["email"]})
     logger.warning("Adopted the existing ledger %s as the ledger of %s (superuser).", path, account["email"])

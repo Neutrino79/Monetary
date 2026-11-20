@@ -166,12 +166,21 @@ DB = _function_scoped(get_db)
 
 
 def get_current_owner(conn: sqlite3.Connection = DB, account: dict = Depends(get_current_account)) -> dict:
-    """The ledger owner row inside the caller's own ledger, with the platform account's security
-    question id (that lives in the control database)."""
+    """The caller as the ledger sees them: the ledger's own settings (timezone, home currency, ledger
+    mode) plus who they are, which is the platform account's business (name, email, security question)."""
     from monetary.application import user_service
 
-    owner = user_service.require_owner(conn)
-    return {**owner, "security_question_id": account["security_question_id"]}
+    return owner_view(user_service.require_settings(conn), account)
+
+
+def owner_view(settings: dict, account: dict) -> dict:
+    return {
+        "id": account["id"], "name": account["name"], "email": account["email"], "is_superuser": True,
+        "security_question_id": account["security_question_id"],
+        "timezone": settings["timezone"], "home_currency_code": settings["home_currency_code"],
+        "ledger_mode": settings["ledger_mode"],
+        "created_at": account["created_at"], "updated_at": settings["updated_at"],
+    }
 
 
 def _client_key(request: Request) -> str:

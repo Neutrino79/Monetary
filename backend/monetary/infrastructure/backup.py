@@ -38,16 +38,3 @@ def make_control_portable(control_copy: str | Path) -> None:
         conn.commit()
     finally:
         conn.close()
-
-
-def scrub_credentials(ledger_copy: str | Path) -> None:
-    """Remove password hashes, security answers and sessions from an exported ledger copy. A user's
-    own export contains their data, not the material that guards their account."""
-    conn = sqlite3.connect(ledger_copy)
-    try:
-        conn.execute("DELETE FROM session")
-        conn.execute("UPDATE user SET password_hash = NULL, security_question_id = NULL, security_answer_hash = NULL")
-        conn.commit()
-        conn.execute("VACUUM")  # drop the removed values from the file's free pages, too
-    finally:
-        conn.close()

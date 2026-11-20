@@ -21,10 +21,13 @@ function ProfileForm({ user }: { user: AdminUser }) {
   const [name, setName] = useState(user.name);
   const [email, setEmail] = useState(user.email);
   const [timezone, setTimezone] = useState(user.timezone ?? "");
+  // Once the ledger exists it owns the time zone; only the account holder changes it, in Settings.
+  const hasLedger = user.storageBytes !== null;
   const save = useAdminMutation(() => adminService.updateUser(user.id, {
-    name: name.trim(), email: email.trim(), ...(timezone.trim() ? { timezone: timezone.trim() } : {}),
+    name: name.trim(), email: email.trim(), ...(!hasLedger && timezone.trim() ? { timezone: timezone.trim() } : {}),
   }));
-  const changed = name.trim() !== user.name || email.trim().toLowerCase() !== user.email || (timezone.trim() || "") !== (user.timezone ?? "");
+  const changed = name.trim() !== user.name || email.trim().toLowerCase() !== user.email
+    || (!hasLedger && (timezone.trim() || "") !== (user.timezone ?? ""));
   const emailChanging = email.trim().toLowerCase() !== user.email;
   return (
     <Card className="flex flex-col gap-3 p-4">
@@ -34,7 +37,9 @@ function ProfileForm({ user }: { user: AdminUser }) {
         hint={emailChanging ? "Changing the email signs this person out everywhere." : undefined}>
         <Input id="ud-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
       </FormField>
-      <FormField label="Time zone" htmlFor="ud-tz"><Input id="ud-tz" value={timezone} placeholder="e.g. Asia/Kolkata" onChange={(e) => setTimezone(e.target.value)} /></FormField>
+      <FormField label="Time zone" htmlFor="ud-tz" hint={hasLedger ? "Set by the account holder in Settings once their ledger exists." : undefined}>
+        <Input id="ud-tz" value={timezone} placeholder="e.g. Asia/Kolkata" disabled={hasLedger} onChange={(e) => setTimezone(e.target.value)} />
+      </FormField>
       <div>
         <Button size="sm" disabled={!changed || save.isPending} onClick={async () => {
           try { await save.mutateAsync(undefined); toast.show("Profile saved.", { variant: "success" }); }
