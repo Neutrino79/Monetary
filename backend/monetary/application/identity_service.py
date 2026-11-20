@@ -414,7 +414,7 @@ def reset_password(conn, *, email: str, security_answer: str, new_password: str)
 
 
 def update_profile(conn, user_id: int, *, name: str | None = None, timezone: str | None = None) -> dict:
-    """Keep the platform account's display name and timezone in step with the ledger owner row."""
+    """Change the account's display name and (a copy of) its timezone. The ledger owns the timezone; the copy is for the admin screens."""
     changes: dict = {}
     if name is not None:
         changes["name"] = _clean_name(name)

@@ -141,18 +141,13 @@ def test_a_missing_ledger_is_reported_not_crashed(client, api_data_dir):
 def test_an_earlier_single_owner_database_is_adopted_in_place(tmp_path, monkeypatch):
     from fastapi.testclient import TestClient
 
-    from monetary.application import user_service
-    from monetary.infrastructure import db
     from monetary.presentation.api import deps
     from monetary.presentation.api.app import app
+    from tests.support.legacy_ledger import make_legacy_ledger
 
     legacy = tmp_path / "monetary.db"
-    ledger = db.connect(legacy)
-    user_service.bootstrap_owner(
-        ledger, name="Old Owner", email="old@example.com", timezone="UTC", home_currency_code="INR",
-        password="old-password-123", security_question_id=1, security_answer="x")  # pragma: allowlist secret
-    ledger.commit()
-    ledger.close()
+    make_legacy_ledger(legacy, name="Old Owner", email="old@example.com", timezone="UTC", currency="INR",
+                       password_hash=identity_service.hash_password("old-password-123"))  # pragma: allowlist secret
 
     monkeypatch.setenv("MONETARY_DB_PATH", str(legacy))
     deps._prepared_data_dirs.clear()

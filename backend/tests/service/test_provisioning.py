@@ -4,12 +4,13 @@ import sqlite3
 import pytest
 
 from monetary.application import identity_service as acc
-from monetary.application import provisioning, user_service
+from monetary.application import provisioning
 from monetary.domain.exceptions import NoLedgerError, NotFoundError
 from monetary.infrastructure import control_repository as crepo
 from monetary.infrastructure import db, tenant_store
 from monetary.infrastructure import migrations as mig
 from monetary.infrastructure import repositories as repo
+from tests.support.legacy_ledger import make_legacy_ledger
 
 
 def _account(control, email="asha@example.com", name="Asha Rao", **kw):
@@ -26,10 +27,11 @@ def test_provisioning_builds_a_ledger_with_the_owner_the_equity_account_and_defa
     assert crepo.get_workspace_for_user(control, u["id"])["id"] == ws["id"]
 
     ledger = provisioning.open_ledger(control, data_dir, u["id"])
-    owner = repo.get_superuser(ledger)
-    assert (owner["name"], owner["email"], owner["timezone"], owner["home_currency_code"]) == (
-        "Asha Rao", "asha@example.com", "Asia/Kolkata", "INR")
-    assert owner["password_hash"] is None and owner["security_answer_hash"] is None  # credentials stay in control
+    settings = ledger.execute("SELECT * FROM ledger_settings").fetchone()
+    assert (settings["timezone"], settings["home_currency_code"], settings["ledger_mode"]) == (
+        "Asia/Kolkata", "INR", "DIRECT")
+    tables = {r[0] for r in ledger.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    assert not tables & {"user", "session"}  # who signs in is the control database's business
     assert repo.get_system_account(ledger, "EQUITY") is not None
     assert ledger.execute("SELECT COUNT(*) FROM account WHERE account_type = 'EXPENSE'").fetchone()[0] > 0
     ledger.close()
@@ -60,7 +62,7 @@ def test_two_accounts_get_two_separate_ledgers(control, data_dir):
     la.execute("INSERT INTO tag (name) VALUES ('only-in-a')")
     la.commit()
     assert lb.execute("SELECT COUNT(*) FROM tag").fetchone()[0] == 0
-    assert repo.get_superuser(lb)["email"] == "b@example.com"
+    assert lb.execute("SELECT home_currency_code FROM ledger_settings").fetchone()[0] == "INR"
     la.close(), lb.close()
 
 
@@ -89,10 +91,11 @@ def test_unknown_accounts_and_accounts_without_a_ledger_are_reported(control, da
 # ---- adopting an existing single-owner database ---------------------------------------------------
 
 def _legacy_ledger(path):
-    conn = db.connect(path)
-    user_service.bootstrap_owner(conn, name="Old Owner", email="Old@Example.com", timezone="UTC",
-                                 home_currency_code="USD", password="old password", security_question_id=3,  # pragma: allowlist secret
-                                 security_answer="Greenwood")  # pragma: allowlist secret
+    make_legacy_ledger(path, name="Old Owner", email="Old@Example.com", timezone="UTC", currency="USD",
+                       password_hash=acc.hash_password("old password"),  # pragma: allowlist secret
+                       security_question_id=3, security_answer_hash="answer-hash",  # pragma: allowlist secret
+                       friends=[("Rahul", "rahul@example.com")])
+    conn = sqlite3.connect(path)
     conn.execute("INSERT INTO tag (name) VALUES ('kept')")
     conn.commit()
     conn.close()
@@ -135,11 +138,20 @@ def test_there_is_nothing_to_adopt_without_a_file_or_an_owner(control, data_dir,
     assert crepo.count_users(control) == 0
 
 
-def test_a_ledger_owner_row_in_a_new_ledger_is_not_a_login(control, data_dir):
-    u = _account(control)
-    provisioning.provision_ledger(control, data_dir, u["id"])
-    ledger = provisioning.open_ledger(control, data_dir, u["id"])
-    with pytest.raises(sqlite3.IntegrityError):  # the ledger refuses a second owner with the same email
-        ledger.execute("INSERT INTO user (name, email, is_superuser, created_at, updated_at) VALUES ('x', ?, 1, 't', 't')",
-                       (u["email"],))
+def test_an_adopted_ledger_is_upgraded_and_keeps_its_friends_and_settings(control, data_dir, tmp_path):
+    legacy = tmp_path / "monetary.db"
+    _legacy_ledger(legacy)
+    account = provisioning.adopt_legacy_ledger(control, data_dir, legacy)
+    ledger = provisioning.open_ledger(control, data_dir, account["id"])
+    assert dict(ledger.execute("SELECT timezone, home_currency_code, ledger_mode FROM ledger_settings").fetchone()) == {
+        "timezone": "UTC", "home_currency_code": "USD", "ledger_mode": "STRICT"}
+    friend = ledger.execute("SELECT c.name, c.phone FROM contact c JOIN account a ON a.counterparty_id = c.id").fetchone()
+    assert (friend["name"], friend["phone"]) == ("Rahul", "555")
     ledger.close()
+
+
+def test_a_ledger_that_was_already_upgraded_has_no_owner_to_adopt(control, data_dir, tmp_path):
+    legacy = tmp_path / "monetary.db"
+    _legacy_ledger(legacy)
+    db.connect(legacy).close()  # upgrades it: the owner row and its credentials are gone
+    assert provisioning.adopt_legacy_ledger(control, data_dir, legacy) is None

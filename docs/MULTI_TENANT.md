@@ -73,11 +73,17 @@ new code adds:
 
 `DB` first resolves the session in the control database (bearer token -> user -> workspace -> file) and then opens
 that file. Existing routers keep `conn = DB` and `owner = Depends(get_current_owner)` unchanged; `get_current_owner`
-still returns the tenant's owner row.
+still returns the caller as the ledger sees them: the ledger's settings (timezone, currency, ledger mode) plus the
+account's name, email and security question from the control database.
 
-> **Naming note.** Inside a tenant database the owner row has `is_superuser = 1`. That column is a legacy name that
-> means "this is the ledger's owner". The platform **superuser** role lives only in the control database
-> (`user.role`). They are unrelated; the code and docs use "ledger owner" and "superuser" accordingly.
+> **Where settings live.** Timezone, home currency and ledger mode are stored in the ledger's own `ledger_settings`
+> row and nowhere else is authoritative. The control `user` keeps `timezone` and `home_currency_code` only as the
+> sign-up preferences (copied into the ledger when it is created) and, for timezone, a copy refreshed when the
+> account holder changes it in Settings so the Admin screens can show it. An administrator can correct a timezone only
+> while the account has no ledger (a pending request).
+>
+> A ledger holds no sign-in material: no owner row, no password hashes, no sessions. Its `contact` table holds the
+> user's friends; the old `user` and `session` tables were removed by ledger migration 2.
 
 ## 4. Control database schema
 
@@ -270,7 +276,7 @@ password" step.
 
 `tenant_store.provision(user)` is idempotent and crash-safe:
 
-1. Create `tenants/<random hex>.db.tmp`, apply all migrations, insert the ledger-owner row (name, email, timezone,
+1. Create `tenants/<random hex>.db.tmp`, apply all migrations, insert the `ledger_settings` row (timezone,
    currency, `DIRECT` mode), the system Equity account, and the default categories (the existing seed code).
 2. Atomically rename it to `tenants/<random hex>.db`.
 3. In **one control-database transaction**: insert `workspace`, insert `membership`, set the user `active`.
@@ -316,9 +322,12 @@ On startup, if the control database has **no users** and a legacy ledger file ex
 1. Create the control `user` from that owner (email, name, password hash and security answer hash, timezone,
    currency), `role = superuser`, `status = active`.
 2. Create a `workspace` whose `db_path` is the **absolute path of that same file** and a `membership`.
-3. Leave the ledger file untouched (its old `session` table is ignored).
+3. Upgrade the same file in place (ledger migration 2): the owner's timezone, currency and mode become its
+   `ledger_settings`, friends become `contact` rows with the same ids, and the old owner row, credentials and
+   `session` table are removed. The owner's sign-in details are read from the file *before* it is upgraded.
 
-No ledger data is copied or rewritten, and the operation runs only once. The existing owner keeps their ledger and
+No ledger data is copied, and the operation runs only once. A ledger that was already upgraded has no owner row
+left to adopt (use `create-superuser` instead). Back up the file first: an older release cannot open it afterwards. The existing owner keeps their ledger and
 becomes the first superuser.
 
 ## 11. Demo mode

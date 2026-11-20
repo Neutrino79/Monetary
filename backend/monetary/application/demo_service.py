@@ -113,7 +113,7 @@ def ensure_demo_account(control, data_dir: str | Path) -> dict:
     provisioning.provision_ledger(control, data_dir, account["id"], seed_defaults=True)
     ledger = provisioning.open_ledger(control, data_dir, account["id"])
     try:
-        _build(ledger, user_service.require_owner(ledger))
+        _build(ledger, user_service.require_settings(ledger))
         ledger.commit()
     finally:
         ledger.close()

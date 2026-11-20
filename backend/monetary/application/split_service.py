@@ -57,8 +57,8 @@ def _require_expense_category(conn, category_id, *, currency_to_match=None) -> d
 
 
 def _require_friend_due_account(conn, friend_id, *, currency_to_match=None) -> dict:
-    friend = repo.get_user(conn, friend_id)
-    if friend is None or friend["is_superuser"]:
+    friend = repo.get_contact(conn, friend_id)
+    if friend is None:
         raise NotFoundError(f"Friend {friend_id} not found.")
     due = repo.get_due_account_for_friend(conn, friend_id)
     if due is None:
@@ -163,7 +163,7 @@ def split_composition(conn, entry_id) -> dict:
     for leg in legs:
         acc = repo.get_account(conn, leg.account_id)
         if acc["account_type"] == AccountType.DUE.value:
-            friend = repo.get_user(conn, acc["counterparty_user_id"])
+            friend = repo.get_contact(conn, acc["counterparty_id"])
             friends.append({
                 "friend_id": friend["id"] if friend else None,
                 "friend_name": friend["name"] if friend else f"<removed friend, account #{leg.account_id}>",
@@ -197,7 +197,7 @@ def _friends_with_settlement_history(conn, due_account_ids: list[int]) -> list[t
         )
         if settlements:
             due_account = repo.get_account(conn, due_id)
-            friend = repo.get_user(conn, due_account["counterparty_user_id"])
+            friend = repo.get_contact(conn, due_account["counterparty_id"])
             result.append((friend, settlements))
     return result
 

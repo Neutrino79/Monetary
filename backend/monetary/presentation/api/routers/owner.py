@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends
 
 from monetary.application import identity_service, user_service
 from monetary.config import API_PREFIX
-from monetary.presentation.api.deps import CONTROL, DB, get_current_account, get_current_owner
+from monetary.presentation.api.deps import CONTROL, DB, get_current_account, get_current_owner, owner_view
 from monetary.presentation.api.schemas.owner import OwnerOut, OwnerUpdateRequest
 
 router = APIRouter(prefix=f"{API_PREFIX}/owner", tags=["owner"])
@@ -25,13 +25,13 @@ def update_owner(
     owner: dict = Depends(get_current_owner),
     account: dict = Depends(get_current_account),
 ):
-    result = owner
+    settings = user_service.require_settings(conn)
     if payload.name is not None:
-        result = user_service.rename_owner(conn, payload.name)
-        identity_service.update_profile(control, account["id"], name=result["name"])
+        account = identity_service.update_profile(control, account["id"], name=payload.name)
     if payload.timezone is not None:
-        result = user_service.set_owner_timezone(conn, payload.timezone)
-        identity_service.update_profile(control, account["id"], timezone=payload.timezone)
+        settings = user_service.set_timezone(conn, payload.timezone)
+        # The ledger is the source of truth; the account keeps a copy for the admin screens.
+        account = identity_service.update_profile(control, account["id"], timezone=payload.timezone)
     if payload.ledger_mode is not None:
-        result = user_service.set_ledger_mode(conn, payload.ledger_mode)
-    return OwnerOut(**{**result, "security_question_id": owner["security_question_id"]})
+        settings = user_service.set_ledger_mode(conn, payload.ledger_mode)
+    return OwnerOut(**owner_view(settings, account))

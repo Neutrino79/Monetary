@@ -87,7 +87,7 @@ def test_orphan_files_are_removed_only_when_old_enough(control, data_dir):
 def test_backup_restores_as_a_data_directory(control, data_dir, tmp_path):
     user = _user(control, data_dir)
     ledger = provisioning.open_ledger(control, data_dir, user["id"])
-    ledger.execute("UPDATE user SET phone = 'marker' WHERE is_superuser = 1")
+    ledger.execute("INSERT INTO tag (name) VALUES ('marker')")
     ledger.commit()
     ledger.close()
     control.commit()  # a backup copies committed data; the helper refuses to run inside a transaction
@@ -101,32 +101,27 @@ def test_backup_restores_as_a_data_directory(control, data_dir, tmp_path):
     assert restored.execute("SELECT email FROM user").fetchone()["email"] == "ravi@example.com"
     restored.close()
     copy = db.open_connection(tmp_path / "bk" / "tenants" / workspace["db_path"])
-    assert copy.execute("SELECT phone FROM user WHERE is_superuser = 1").fetchone()["phone"] == "marker"
+    assert copy.execute("SELECT name FROM tag").fetchone()["name"] == "marker"
     copy.close()
 
 
-def test_export_is_a_scrubbed_snapshot_of_the_users_own_ledger(control, data_dir):
+def test_export_is_a_snapshot_of_the_users_own_ledger_with_no_credentials_in_it(control, data_dir):
     user = _user(control, data_dir)
     ledger = provisioning.open_ledger(control, data_dir, user["id"])
-    ledger.execute("UPDATE user SET password_hash = 'x', security_question_id = 1, security_answer_hash = 'y' WHERE is_superuser = 1")
-    ledger.execute("INSERT INTO session (owner_id, token_hash, created_at, expires_at) "
-                   "SELECT id, 'h', 'a', 'b' FROM user WHERE is_superuser = 1")
+    ledger.execute("INSERT INTO tag (name) VALUES ('mine')")
     ledger.commit()
     ledger.close()
     path = operations.export_ledger(control, data_dir, user["id"])
     try:
         assert path.read_bytes().startswith(b"SQLite format 3")
         exported = sqlite3.connect(path)
-        assert exported.execute("SELECT password_hash, security_answer_hash FROM user WHERE is_superuser = 1").fetchone() == (None, None)
-        assert exported.execute("SELECT COUNT(*) FROM session").fetchone()[0] == 0
-        assert exported.execute("SELECT email FROM user WHERE is_superuser = 1").fetchone()[0] == "ravi@example.com"
+        tables = {r[0] for r in exported.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+        assert not tables & {"user", "session"}  # sign-in material lives in the control database only
+        assert exported.execute("SELECT name FROM tag").fetchone()[0] == "mine"
+        assert exported.execute("SELECT home_currency_code FROM ledger_settings").fetchone()[0] == "INR"
         exported.close()
-        assert b"'x'" not in path.read_bytes()
     finally:
         path.unlink()
-    live = provisioning.open_ledger(control, data_dir, user["id"])
-    assert live.execute("SELECT password_hash FROM user WHERE is_superuser = 1").fetchone()[0] == "x"  # the live ledger is untouched
-    live.close()
 
 
 def test_export_needs_a_ledger(control, data_dir):

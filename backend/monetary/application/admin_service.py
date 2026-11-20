@@ -295,7 +295,8 @@ def revoke_session(conn, actor: dict, user_id: int, session_id: int, *, ip: str 
 def update_profile(conn, actor: dict, user_id: int, *, name: str | None = None, email: str | None = None,
                    timezone: str | None = None, ip: str | None = None) -> dict:
     """Correct an account's name, email or time zone. Changing the email signs the person out, since the
-    email is what they sign in with."""
+    email is what they sign in with. The time zone can be set only before the account has a ledger (a
+    pending request); afterwards the ledger owns it and only the account holder changes it."""
     user = _target(conn, user_id)
     _authorize(actor, user, action="edit")
     _expect_status(user, UserStatus.PENDING_APPROVAL, UserStatus.ACTIVE, UserStatus.REJECTED,
@@ -318,6 +319,9 @@ def update_profile(conn, actor: dict, user_id: int, *, name: str | None = None, 
     if timezone is not None:
         validate_timezone(timezone)
         if timezone != user["timezone"]:
+            if crepo.get_workspace_for_user(conn, user_id) is not None:
+                raise ConflictError("Time zone belongs to the ledger once it exists; the account holder "
+                                    "changes it in Settings.")
             fields["timezone"] = timezone
     if not fields:
         return public_user(user)

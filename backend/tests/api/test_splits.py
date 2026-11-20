@@ -48,7 +48,6 @@ def test_split_and_fronted_net_against_each_other(world):
     (lambda w, p: p.update(friend_shares=[]), 422),
     (lambda w, p: p.update(friend_shares=p["friend_shares"] * 2), 422),                      # duplicate friend
     (lambda w, p: p["friend_shares"][0].update(friend_id=99999), 404),
-    (lambda w, p: p["friend_shares"][0].update(friend_id=1), 404),                            # id 1 is the owner
     (lambda w, p: p["friend_shares"][0].update(amount="0"), 422),
     (lambda w, p: p.update(owner_share="-1"), 422),
     (lambda w, p: p.update(owner_share="abc"), 422),

@@ -376,6 +376,8 @@ describe('managing one account and many', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save changes' }))
     await vi.waitFor(() => expect(calls).toContain('PATCH /admin/users/5'))
     expect(JSON.parse(String(bodies['PATCH /admin/users/5']))).toMatchObject({ name: 'Ravi K' })
+    expect(JSON.parse(String(bodies['PATCH /admin/users/5']))).not.toHaveProperty('timezone') // the ledger owns it
+    expect(screen.getByLabelText('Time zone')).toBeDisabled()
   })
 
   it('runs a bulk action on the selected accounts and reports the skipped ones', async () => {

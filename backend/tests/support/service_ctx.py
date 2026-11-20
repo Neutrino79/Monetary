@@ -14,10 +14,8 @@ class Ctx:
 
     def __init__(self, conn):
         self.conn = conn
-        self.owner = user_service.bootstrap_owner(
-            conn, name=sd.OWNER["name"], email=sd.OWNER["email"], timezone=sd.OWNER["timezone"],
-            home_currency_code=sd.OWNER["currency"], password=sd.OWNER["password"],
-            security_question_id=1, security_answer="x")
+        self.owner = user_service.create_ledger_settings(
+            conn, timezone=sd.OWNER["timezone"], home_currency_code=sd.OWNER["currency"])
         self.acct = {k: account_service.create_account(
             conn, name=v["name"], account_type=v["type"], currency_code=v["currency"])["id"]
             for k, v in sd.ACCOUNTS.items()}

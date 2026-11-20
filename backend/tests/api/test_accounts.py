@@ -132,12 +132,9 @@ def test_rename_friend_renames_due_account_reflected_in_balances(world):
     assert "Rahul Renamed" in [r["friendName"] for r in world.api.get("/friends/balances").json()]
 
 
-def test_friend_operations_on_missing_or_owner_ids(world):
+def test_friend_operations_on_missing_ids(world):
     assert world.api.patch("/friends/99999", json={"name": "X"}).status_code == 404
     assert world.api.delete("/friends/99999").status_code == 404
-    owner_id = world.api.get("/owner").json()["id"]
-    assert world.api.patch(f"/friends/{owner_id}", json={"name": "X"}).status_code == 409
-    assert world.api.delete(f"/friends/{owner_id}").status_code == 409
 
 
 def test_friend_currency_defaults_and_override(api):

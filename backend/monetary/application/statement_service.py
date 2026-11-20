@@ -43,7 +43,7 @@ def _due_balances(conn) -> list[dict]:
     for acc in due_accounts:
         points = repo.account_balance_points(conn, acc["id"], AccountType.DUE.normal_side.value)
         results.append({
-            "friend_id": acc["counterparty_user_id"], "friend_name": acc["friend_name"],
+            "friend_id": acc["counterparty_id"], "friend_name": acc["friend_name"],
             "due_account_id": acc["id"], "currency": acc["currency_code"], "points": points,
         })
     return results
