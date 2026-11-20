@@ -50,16 +50,25 @@ def set_ledger_mode(conn, mode: str) -> dict:
     return repo.update_settings(conn, now=utc_now_iso(), ledger_mode=resolved.value)
 
 
-def add_friend(conn, *, name: str, email: str, currency_code: str | None = None,
-               phone: str | None = None, own_email: str | None = None) -> dict:
-    """`own_email` is the account holder's email (known to the control database, not to this ledger);
-    a friend cannot be the person themselves."""
+def _ensure_email_free(conn, email: str, own_email: str) -> None:
+    """A friend's email must not be the account holder's, nor another friend's.
+
+    The account holder's email lives in the control database, which this ledger cannot see, so the
+    caller must supply it (`own_email` has no default: forgetting it is an error, not a skipped check).
+    This is a validation on a mutable value, not an invariant: changing the account email later is
+    deliberately not checked against contacts."""
+    if email == own_email.strip().lower() or repo.get_contact_by_email(conn, email) is not None:
+        raise ConflictError(f"Email already in use: {email}")
+
+
+def add_friend(conn, *, name: str, email: str, own_email: str, currency_code: str | None = None,
+               phone: str | None = None) -> dict:
+    """Create a friend and their DUE account. A friend cannot be the account holder (`own_email`)."""
     settings = require_settings(conn)
     if not name or not name.strip():
         raise ValidationError("Name is required.")
     email = _validate_email(email)
-    if email == (own_email or "").lower() or repo.get_contact_by_email(conn, email) is not None:
-        raise ConflictError(f"Email already in use: {email}")
+    _ensure_email_free(conn, email, own_email)
 
     now = utc_now_iso()
     friend = repo.create_contact(conn, name=name.strip(), email=email, phone=_clean_phone(phone), now=now)
@@ -89,7 +98,7 @@ def _clean_phone(phone: str | None) -> str | None:
     return phone or None
 
 
-def update_friend(conn, user_id: int, *, fields: dict, own_email: str | None = None) -> dict:
+def update_friend(conn, user_id: int, *, fields: dict, own_email: str) -> dict:
     """Partial update of name / email / phone. `fields` holds only the keys the
     client sent: an explicit null phone clears it, an absent key is unchanged."""
     friend = get_friend_or_raise(conn, user_id)
@@ -101,8 +110,7 @@ def update_friend(conn, user_id: int, *, fields: dict, own_email: str | None = N
     if "email" in fields:
         new_email = _validate_email(fields["email"])
         if new_email != friend["email"]:
-            if new_email == (own_email or "").lower() or repo.get_contact_by_email(conn, new_email) is not None:
-                raise ConflictError(f"Email already in use: {new_email}")
+            _ensure_email_free(conn, new_email, own_email)
             email = new_email
     if "phone" in fields:
         phone = _clean_phone(fields["phone"])

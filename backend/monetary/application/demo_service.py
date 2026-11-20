@@ -218,7 +218,8 @@ def _build(conn, owner: dict) -> None:
                 description="Credit card payment", date_str=_day(pay_day))
 
     # Shared costs with friends across the year, and some paybacks.
-    alex, sam = (user_service.add_friend(conn, name=n, email=e) for n, e in _FRIENDS)
+    alex, sam = (user_service.add_friend(conn, name=n, email=e, own_email=DEMO_OWNER_EMAIL)
+                 for n, e in _FRIENDS)
     for days_ago, friend, total, share, category, description in (
         (7, (alex, sam), "90.00", "30.00", "Restaurants", "Team dinner (split three ways)"),
         (12, (alex,), "90.00", "45.00", "Groceries", "Shared groceries"),

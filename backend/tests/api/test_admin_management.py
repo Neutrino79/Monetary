@@ -27,6 +27,16 @@ def test_sessions_are_listed_with_device_details_and_one_can_be_revoked(client, 
                          headers=team["admin1"]).status_code == 403
 
 
+def test_an_account_email_may_equal_one_of_its_friends_emails(client, boss, team):
+    """Only friend create/edit is checked against the owner's email; an admin change is not (by design)."""
+    ids = team["ids"]
+    made = client.post(f"{API}/friends", headers=team["sam"],
+                       json={"name": "Twin", "email": "twin@example.com"})
+    assert made.status_code == 201
+    moved = client.patch(f"{ADMIN}/users/{ids['sam']}", headers=boss, json={"email": "twin@example.com"})
+    assert moved.status_code == 200 and moved.json()["email"] == "twin@example.com"
+
+
 def test_last_seen_is_refreshed_at_most_once_per_interval(client, boss, team, monkeypatch):
     ids = team["ids"]
     before = client.get(f"{ADMIN}/users/{ids['sam']}/sessions", headers=boss).json()[0]["lastSeenAt"]

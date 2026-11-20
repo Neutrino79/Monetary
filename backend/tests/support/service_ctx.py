@@ -25,8 +25,9 @@ class Ctx:
                 conn, name=v["name"], category_type=v["type"], currency_code=v["currency"],
                 budget_limit_major=v.get("budget_limit"),
                 parent_id=self.cat[v["parent"]] if "parent" in v else None)["id"]
-        self.friend = {k: user_service.add_friend(conn, name=v["name"], email=v["email"])["id"]
-                       for k, v in sd.FRIENDS.items()}
+        self.friend = {k: user_service.add_friend(
+            conn, name=v["name"], email=v["email"], own_email=sd.OWNER["email"])["id"]
+            for k, v in sd.FRIENDS.items()}
         self.equity = repo.get_system_account(conn, AccountType.EQUITY.value)["id"]
 
     def due(self, friend):

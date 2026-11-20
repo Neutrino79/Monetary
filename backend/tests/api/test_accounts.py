@@ -115,6 +115,13 @@ def test_friend_validation(api, payload):
     assert api.post("/friends", json=payload).status_code in (409, 422)
 
 
+def test_editing_a_friend_to_the_owners_email_conflicts(api):
+    friend = api.post("/friends", json={"name": "A", "email": "a@example.com"}).json()
+    r = api.patch(f"/friends/{friend['id']}", json={"email": "Asha@Example.com"})
+    assert r.status_code == 409
+    assert api.get("/friends").json()[0]["email"] == "a@example.com"
+
+
 def test_duplicate_friend_email_conflicts(api):
     api.post("/friends", json={"name": "A", "email": "a@example.com"})
     assert api.post("/friends", json={"name": "B", "email": "A@example.com"}).status_code == 409

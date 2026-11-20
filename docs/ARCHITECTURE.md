@@ -282,6 +282,14 @@ The friends this ledger shares money with. They are local records only: a contac
 | `linked_user_id` | Platform account this contact is linked to (future); no foreign key, it lives in another database |
 | `created_at`, `updated_at` | ISO timestamps |
 
+**The owner's email.** A friend may not have the account holder's own email. The ledger cannot see that
+email (it lives in `control.db`), so `user_service.add_friend` / `update_friend` take it as a required
+`own_email` argument; the friends router supplies it from the signed-in account. This is a validation on a
+mutable value, not an invariant: it is checked only when a friend is created or edited. Changing the
+account email later (an admin action) is deliberately **not** checked against contacts, because a
+collision is harmless and admin code must not open ledgers. When real-user friends are added, the rule
+"a contact cannot link to its own account" will be enforced by a permanent public id, not by email.
+
 ### 5.3 `account`
 
 This is the chart of accounts. Real accounts, categories, friend due
