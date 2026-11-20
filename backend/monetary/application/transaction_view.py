@@ -54,9 +54,9 @@ def _derive(entry: dict, postings: list[dict], category_type: str | None) -> dic
         out["amount_points"] = _amount(real[0]) if real else headline
         owner_leg = [p for p in postings if p["account_type"] == "EXPENSE"]
         out["your_share_points"] = _amount(owner_leg[0]) if owner_leg else 0
-        out["splits"] = [(p["counterparty_user_id"], _amount(p)) for p in dues]
+        out["splits"] = [(p["counterparty_id"], _amount(p)) for p in dues]
     elif ftype == "fronted":
-        out["friend_id"] = dues[0]["counterparty_user_id"] if dues else None
+        out["friend_id"] = dues[0]["counterparty_id"] if dues else None
     elif ftype == "transfer":
         out["account_id"] = next((p["account_id"] for p in real if p["credit_amount"] > 0), None)
         out["to_account_id"] = next((p["account_id"] for p in real if p["debit_amount"] > 0), None)
@@ -70,7 +70,7 @@ def _derive(entry: dict, postings: list[dict], category_type: str | None) -> dic
         out["category_id"] = None
     elif ftype == "settlement" and real and dues:
         out["account_id"] = real[0]["account_id"]
-        out["friend_id"] = dues[0]["counterparty_user_id"]
+        out["friend_id"] = dues[0]["counterparty_id"]
         out["direction"] = "receive" if real[0]["debit_amount"] > 0 else "pay"
         out["category_id"] = None
     if ftype in ("transfer",):

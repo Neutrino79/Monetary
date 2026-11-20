@@ -17,100 +17,67 @@ def _rows(rs: Iterable[sqlite3.Row]) -> list[dict]:
 
 
 # --------------------------------------------------------------------------- #
-# USER
+# LEDGER SETTINGS (one row: the ledger's own configuration)
 # --------------------------------------------------------------------------- #
 
-def create_user(conn, *, name, email, is_superuser, timezone, home_currency_code,
-                 ledger_mode, password_hash=None, security_question_id=None,
-                 security_answer_hash=None, phone=None, now) -> dict:
+
+def get_settings(conn) -> Optional[dict]:
+    return _row(conn.execute("SELECT * FROM ledger_settings WHERE id = 1").fetchone())
+
+
+def create_settings(conn, *, timezone, home_currency_code, ledger_mode, now) -> dict:
+    conn.execute(
+        "INSERT INTO ledger_settings (id, timezone, home_currency_code, ledger_mode, created_at, updated_at) "
+        "VALUES (1, ?, ?, ?, ?, ?)", (timezone, home_currency_code, ledger_mode, now, now))
+    return get_settings(conn)
+
+
+def update_settings(conn, *, now, **fields) -> dict:
+    allowed = {"timezone", "home_currency_code", "ledger_mode"}
+    unknown = set(fields) - allowed
+    if unknown:
+        raise ValueError(f"Not a ledger setting: {', '.join(sorted(unknown))}")
+    if fields:
+        sets = ", ".join(f"{k} = ?" for k in fields)
+        conn.execute(f"UPDATE ledger_settings SET {sets}, updated_at = ? WHERE id = 1",
+                     (*fields.values(), now))
+    return get_settings(conn)
+
+
+# --------------------------------------------------------------------------- #
+# CONTACT (the people this ledger shares money with; local only for now)
+# --------------------------------------------------------------------------- #
+
+
+def create_contact(conn, *, name, email, phone=None, now) -> dict:
     cur = conn.execute(
-        """INSERT INTO user (name, email, phone, is_superuser, timezone, home_currency_code,
-                              ledger_mode, password_hash, security_question_id,
-                              security_answer_hash, created_at, updated_at)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
-        (name, email, phone, int(is_superuser), timezone, home_currency_code, ledger_mode,
-         password_hash, security_question_id, security_answer_hash, now, now),
-    )
-    return get_user(conn, cur.lastrowid)
+        "INSERT INTO contact (name, email, phone, created_at, updated_at) VALUES (?, ?, ?, ?, ?)",
+        (name, email, phone, now, now))
+    return get_contact(conn, cur.lastrowid)
 
 
-def update_user_password(conn, user_id, password_hash, now) -> dict:
-    conn.execute("UPDATE user SET password_hash = ?, updated_at = ? WHERE id = ?",
-                 (password_hash, now, user_id))
-    return get_user(conn, user_id)
+def get_contact(conn, contact_id) -> Optional[dict]:
+    return _row(conn.execute("SELECT * FROM contact WHERE id = ?", (contact_id,)).fetchone())
 
 
-def get_user(conn, user_id) -> Optional[dict]:
-    return _row(conn.execute("SELECT * FROM user WHERE id = ?", (user_id,)).fetchone())
+def get_contact_by_email(conn, email) -> Optional[dict]:
+    return _row(conn.execute("SELECT * FROM contact WHERE email = ?", (email,)).fetchone())
 
 
-def get_user_by_email(conn, email) -> Optional[dict]:
-    return _row(conn.execute("SELECT * FROM user WHERE email = ?", (email,)).fetchone())
+def list_contacts(conn) -> list[dict]:
+    return _rows(conn.execute("SELECT * FROM contact ORDER BY name").fetchall())
 
 
-# --------------------------------------------------------------------------- #
-# SESSION (login tokens)
-# --------------------------------------------------------------------------- #
-
-def create_session(conn, *, owner_id, token_hash, created_at, expires_at) -> dict:
-    cur = conn.execute(
-        "INSERT INTO session (owner_id, token_hash, created_at, expires_at) VALUES (?, ?, ?, ?)",
-        (owner_id, token_hash, created_at, expires_at),
-    )
-    return _row(conn.execute("SELECT * FROM session WHERE id = ?", (cur.lastrowid,)).fetchone())
-
-
-def get_session_by_token_hash(conn, token_hash) -> Optional[dict]:
-    return _row(conn.execute("SELECT * FROM session WHERE token_hash = ?", (token_hash,)).fetchone())
-
-
-def delete_session(conn, session_id) -> None:
-    conn.execute("DELETE FROM session WHERE id = ?", (session_id,))
-
-
-def delete_all_sessions_for_owner(conn, owner_id) -> None:
-    conn.execute("DELETE FROM session WHERE owner_id = ?", (owner_id,))
-
-
-def delete_expired_sessions(conn, now_iso) -> None:
-    conn.execute("DELETE FROM session WHERE expires_at < ?", (now_iso,))
-
-
-def get_superuser(conn) -> Optional[dict]:
-    return _row(conn.execute("SELECT * FROM user WHERE is_superuser = 1").fetchone())
-
-
-def list_users(conn, friends_only=False) -> list[dict]:
-    if friends_only:
-        return _rows(conn.execute("SELECT * FROM user WHERE is_superuser = 0 ORDER BY name").fetchall())
-    return _rows(conn.execute("SELECT * FROM user ORDER BY is_superuser DESC, name").fetchall())
-
-
-def rename_user(conn, user_id, new_name, now) -> dict:
-    conn.execute("UPDATE user SET name = ?, updated_at = ? WHERE id = ?", (new_name, now, user_id))
-    return get_user(conn, user_id)
-
-
-def update_user_timezone(conn, user_id, tz, now) -> dict:
-    conn.execute("UPDATE user SET timezone = ?, updated_at = ? WHERE id = ?", (tz, now, user_id))
-    return get_user(conn, user_id)
-
-
-def update_user_ledger_mode(conn, user_id, mode, now) -> dict:
-    conn.execute("UPDATE user SET ledger_mode = ?, updated_at = ? WHERE id = ?", (mode, now, user_id))
-    return get_user(conn, user_id)
-
-
-def update_friend_fields(conn, user_id, *, name, email, phone, now) -> dict:
-    """Full-value update of the editable friend columns (callers resolve
+def update_contact_fields(conn, contact_id, *, name, email, phone, now) -> dict:
+    """Full-value update of the editable contact columns (callers resolve
     'unchanged' vs 'cleared' before calling)."""
-    conn.execute("UPDATE user SET name = ?, email = ?, phone = ?, updated_at = ? WHERE id = ?",
-                 (name, email, phone, now, user_id))
-    return get_user(conn, user_id)
+    conn.execute("UPDATE contact SET name = ?, email = ?, phone = ?, updated_at = ? WHERE id = ?",
+                 (name, email, phone, now, contact_id))
+    return get_contact(conn, contact_id)
 
 
-def delete_user(conn, user_id) -> None:
-    conn.execute("DELETE FROM user WHERE id = ?", (user_id,))
+def delete_contact(conn, contact_id) -> None:
+    conn.execute("DELETE FROM contact WHERE id = ?", (contact_id,))
 
 
 # --------------------------------------------------------------------------- #
@@ -118,16 +85,16 @@ def delete_user(conn, user_id) -> None:
 # --------------------------------------------------------------------------- #
 
 def create_account(conn, *, name, account_type, currency_code, parent_account_id=None,
-                    budget_limit=None, counterparty_user_id=None, is_system=False,
+                    budget_limit=None, counterparty_id=None, is_system=False,
                     subtype=None, credit_limit=None, statement_day=None, color=None, now) -> dict:
     cur = conn.execute(
         """INSERT INTO account (name, account_type, currency_code, parent_account_id,
                                  budget_limit, subtype, credit_limit, statement_day, color,
-                                 counterparty_user_id, is_system, is_active,
+                                 counterparty_id, is_system, is_active,
                                  created_at, updated_at)
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)""",
         (name, account_type, currency_code, parent_account_id, budget_limit, subtype,
-         credit_limit, statement_day, color, counterparty_user_id, int(is_system), now, now),
+         credit_limit, statement_day, color, counterparty_id, int(is_system), now, now),
     )
     return get_account(conn, cur.lastrowid)
 
@@ -138,7 +105,7 @@ def get_account(conn, account_id) -> Optional[dict]:
 
 def get_due_account_for_friend(conn, friend_user_id) -> Optional[dict]:
     return _row(conn.execute(
-        "SELECT * FROM account WHERE account_type = 'DUE' AND counterparty_user_id = ?",
+        "SELECT * FROM account WHERE account_type = 'DUE' AND counterparty_id = ?",
         (friend_user_id,),
     ).fetchone())
 
@@ -510,7 +477,7 @@ def friend_open_balance_accounts(conn) -> list[dict]:
     row is meaningful to a UI, e.g. "Rahul: 0.00 (settled up)")."""
     return _rows(conn.execute(
         """SELECT a.*, u.name AS friend_name, u.email AS friend_email
-           FROM account a JOIN user u ON u.id = a.counterparty_user_id
+           FROM account a JOIN contact u ON u.id = a.counterparty_id
            WHERE a.account_type = 'DUE' ORDER BY a.id"""
     ).fetchall())
 
@@ -520,7 +487,7 @@ def posted_fronted_entries(conn) -> list[dict]:
     friend paid on the owner's behalf), oldest first."""
     return _rows(conn.execute(
         """SELECT je.id, je.entry_date, je.category_id, p.account_id AS due_account_id,
-                  a.counterparty_user_id AS friend_id, p.credit_amount AS amount
+                  a.counterparty_id AS friend_id, p.credit_amount AS amount
            FROM journal_entry je
            JOIN posting p ON p.journal_entry_id = je.id AND p.credit_amount > 0
            JOIN account a ON a.id = p.account_id AND a.account_type = 'DUE'

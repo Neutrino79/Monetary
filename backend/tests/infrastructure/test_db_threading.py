@@ -9,7 +9,7 @@ from monetary.infrastructure import db as db_module
 def test_connection_can_be_used_from_a_different_thread(tmp_path):
     conn = db_module.connect(tmp_path / "t.db")
     with ThreadPoolExecutor(max_workers=1) as pool:
-        assert pool.submit(lambda: conn.execute("SELECT COUNT(*) FROM user").fetchone()[0]).result() == 0
+        assert pool.submit(lambda: conn.execute("SELECT COUNT(*) FROM contact").fetchone()[0]).result() == 0
     conn.close()
 
 

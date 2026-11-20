@@ -82,7 +82,7 @@ def _where(*, account_id, category_ids, friend_id, refund_of_id, flat_types, sea
         params.extend(category_ids)
     if friend_id is not None:
         where.append("EXISTS (SELECT 1 FROM posting pf JOIN account af ON af.id = pf.account_id "
-                     "WHERE pf.journal_entry_id = je.id AND af.counterparty_user_id = ?)")
+                     "WHERE pf.journal_entry_id = je.id AND af.counterparty_id = ?)")
         params.append(friend_id)
     if refund_of_id is not None:
         where.append("je.refund_of_id = ?")
@@ -180,7 +180,7 @@ def postings_with_accounts(conn, entry_ids: list[int]) -> dict[int, list[dict]]:
     marks = ",".join("?" for _ in entry_ids)
     rows = conn.execute(
         f"SELECT p.journal_entry_id, p.account_id, p.debit_amount, p.credit_amount, "
-        f"a.account_type, a.counterparty_user_id "
+        f"a.account_type, a.counterparty_id "
         f"FROM posting p JOIN account a ON a.id = p.account_id "
         f"WHERE p.journal_entry_id IN ({marks}) ORDER BY p.id", entry_ids).fetchall()
     out: dict[int, list[dict]] = {}

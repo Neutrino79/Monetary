@@ -115,6 +115,13 @@ def test_friend_validation(api, payload):
     assert api.post("/friends", json=payload).status_code in (409, 422)
 
 
+def test_editing_a_friend_to_the_owners_email_conflicts(api):
+    friend = api.post("/friends", json={"name": "A", "email": "a@example.com"}).json()
+    r = api.patch(f"/friends/{friend['id']}", json={"email": "Asha@Example.com"})
+    assert r.status_code == 409
+    assert api.get("/friends").json()[0]["email"] == "a@example.com"
+
+
 def test_duplicate_friend_email_conflicts(api):
     api.post("/friends", json={"name": "A", "email": "a@example.com"})
     assert api.post("/friends", json={"name": "B", "email": "A@example.com"}).status_code == 409
@@ -132,12 +139,9 @@ def test_rename_friend_renames_due_account_reflected_in_balances(world):
     assert "Rahul Renamed" in [r["friendName"] for r in world.api.get("/friends/balances").json()]
 
 
-def test_friend_operations_on_missing_or_owner_ids(world):
+def test_friend_operations_on_missing_ids(world):
     assert world.api.patch("/friends/99999", json={"name": "X"}).status_code == 404
     assert world.api.delete("/friends/99999").status_code == 404
-    owner_id = world.api.get("/owner").json()["id"]
-    assert world.api.patch(f"/friends/{owner_id}", json={"name": "X"}).status_code == 409
-    assert world.api.delete(f"/friends/{owner_id}").status_code == 409
 
 
 def test_friend_currency_defaults_and_override(api):

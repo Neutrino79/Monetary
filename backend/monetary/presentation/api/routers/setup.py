@@ -6,7 +6,7 @@ from fastapi import APIRouter
 
 from monetary.application import identity_service, provisioning
 from monetary.config import API_PREFIX, data_dir_from_environment
-from monetary.presentation.api.deps import CONTROL
+from monetary.presentation.api.deps import CONTROL, owner_view
 from monetary.presentation.api.schemas.owner import (
     InitRequest,
     InitResponse,
@@ -41,11 +41,11 @@ def init(payload: InitRequest, control: sqlite3.Connection = CONTROL):
     try:
         from monetary.application import user_service
 
-        owner = user_service.require_owner(ledger)
+        settings = user_service.require_settings(ledger)
     finally:
         ledger.close()
     token = identity_service.start_session(control, account)
     return InitResponse(
-        owner=OwnerOut(**{**owner, "security_question_id": account["security_question_id"]}),
+        owner=OwnerOut(**owner_view(settings, account)),
         access_token=token,
     )

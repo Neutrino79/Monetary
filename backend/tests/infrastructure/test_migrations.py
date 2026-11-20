@@ -33,15 +33,17 @@ def test_a_database_made_before_migrations_existed_is_adopted_with_its_data(tmp_
     legacy.close()
 
     conn = db_module.connect(path)
-    assert mig.current_version(conn) == 1
-    assert conn.execute("SELECT email FROM user").fetchone()["email"] == "old@example.com"
+    assert mig.current_version(conn) == mig.latest_version(db_module.TENANT_MIGRATIONS)
+    # the owner's configuration is kept as the ledger's settings (a missing currency falls back to INR)
+    assert dict(conn.execute("SELECT timezone, home_currency_code, ledger_mode FROM ledger_settings").fetchone()) == {
+        "timezone": None, "home_currency_code": "INR", "ledger_mode": "DIRECT"}
     conn.close()
 
 
 def test_opening_twice_is_a_no_op(tmp_path):
     db_module.connect(tmp_path / "b.db").close()
     conn = db_module.connect(tmp_path / "b.db")
-    assert mig.current_version(conn) == 1
+    assert mig.current_version(conn) == mig.latest_version(db_module.TENANT_MIGRATIONS)
     conn.close()
 
 
