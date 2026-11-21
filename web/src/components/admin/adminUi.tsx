@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Check, Copy, TriangleAlert } from "lucide-react";
 import type { AccountStatus } from "@/types";
-import { Badge } from "@/components/ui/primitives";
+import { Avatar, Badge } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Dialog";
 import { Textarea } from "@/components/ui/form";
@@ -96,4 +96,40 @@ export function ReasonDialog({
       </FormField>
     </Modal>
   );
+}
+
+/** "14 min ago", "yesterday", "3 days ago": how long since `iso`. Empty when unknown. */
+export function ago(iso: string | null | undefined, now: number = Date.now()): string {
+  if (!iso) return "never";
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return "—";
+  const mins = Math.max(0, Math.round((now - t) / 60_000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.round(hours / 24);
+  return days === 1 ? "yesterday" : `${days} days ago`;
+}
+
+/** Whole days since `iso` (0 for today). */
+export function daysSince(iso: string, now: number = Date.now()): number {
+  return Math.max(0, Math.floor((now - new Date(iso).getTime()) / 86_400_000));
+}
+
+export const dayLabel = (days: number) => (days === 0 ? "today" : days === 1 ? "1 day" : `${days} days`);
+
+/** The person's initials in the ledger's own avatar. */
+export function Person({ name, size = 32 }: { name: string; size?: number }) {
+  return <Avatar name={name || "?"} color="var(--accent)" size={size} />;
+}
+
+/** One line under the page title in the top bar: what this page is for. */
+export function PageIntro({ children }: { children: ReactNode }) {
+  return <p className="text-[13.5px] text-ink-soft">{children}</p>;
+}
+
+/** A small "Coming soon" tag for features that are planned but not built yet. */
+export function ComingSoon() {
+  return <Badge className="bg-info-soft text-info">Coming soon</Badge>;
 }

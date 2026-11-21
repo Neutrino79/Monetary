@@ -89,7 +89,7 @@ describe('who can open the Admin area', () => {
     // Same shell as the ledger: admin navigation, with a link back and the profile menu.
     expect(screen.getByLabelText('Primary navigation')).toBeInTheDocument()
     expect(within(screen.getByLabelText('Primary navigation')).getByRole('link', { name: /^Requests/ })).toHaveAttribute('href', '/admin/pending')
-    await userEvent.setup().click(screen.getByRole('link', { name: /My ledger/ }))
+    await userEvent.setup().click(within(screen.getByLabelText('Primary navigation')).getByRole('link', { name: /My ledger/ }))
     await vi.waitFor(() => expect(window.location.pathname).toBe('/dashboard'))
   })
 
@@ -178,11 +178,12 @@ describe('pending requests', () => {
     const ui = userEvent.setup()
     signIn('superuser')
     renderApp('/admin/pending')
-    await ui.click(await screen.findByRole('button', { name: 'Reject' }))
-    await ui.type(await screen.findByLabelText(/Reason/), 'Unknown applicant')
-    await ui.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Reject' }))
+    await ui.click(await screen.findByRole('button', { name: 'Reject…' }))
+    await ui.click(await screen.findByRole('button', { name: 'Unknown person' }))
+    await ui.type(screen.getByLabelText(/^Note/), 'Not in our records')
+    await ui.click(screen.getByRole('button', { name: 'Confirm rejection' }))
     await vi.waitFor(() => expect(calls).toContain('POST /admin/users/5/reject'))
-    expect(JSON.parse(String(bodies['POST /admin/users/5/reject']))).toEqual({ reason: 'Unknown applicant' })
+    expect(JSON.parse(String(bodies['POST /admin/users/5/reject']))).toEqual({ reason: 'Unknown person: Not in our records' })
   })
 
   it('shows an empty state when nobody is waiting', async () => {
@@ -276,7 +277,8 @@ describe('audit log', () => {
     handlers['GET /admin/users'] = () => ({ json: page([user({ id: 1, name: 'Admin', email: 'admin@example.com' }), user()]) })
     signIn('superuser')
     renderApp('/admin/audit')
-    expect(await screen.findByText(/Admin \(admin@example.com\) approved an account: Ravi Kumar/)).toBeInTheDocument()
+    expect(await screen.findByText('approved an account')).toBeInTheDocument()
+    expect(screen.getByText('Ravi Kumar')).toBeInTheDocument()
     expect(screen.getByText(/reason: ok/)).toBeInTheDocument()
   })
 })
@@ -364,7 +366,7 @@ describe('roles', () => {
     await screen.findByText('Ravi Kumar')
     expect(screen.getByTestId('role-6')).toHaveTextContent('Admin')
     expect(screen.getByTestId('role-1')).toHaveTextContent('Superuser')
-    expect(screen.queryByTestId('role-5')).toBeNull() // ordinary users carry no label
+    expect(screen.getByTestId('role-5')).toHaveTextContent('User')
   })
 
   it('lets only the superuser choose a role when creating an account', async () => {
@@ -453,5 +455,101 @@ describe('managing one account and many', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Purge now' }))
     await userEvent.click(within(await screen.findByRole('dialog')).getByRole('button', { name: 'Purge now' }))
     await vi.waitFor(() => expect(calls).toContain('POST /admin/purge'))
+  })
+})
+
+describe('the redesigned admin pages', () => {
+  const people = () => page([
+    user({ id: 5, name: 'Ravi Kumar', storageBytes: 5 * 1024 * 1024 }),
+    user({ id: 6, name: 'Helen Admin', email: 'helen@example.com', role: 'admin', storageBytes: 1024 }),
+    user({ id: 7, name: 'Anika Joshi', email: 'anika@example.com', status: 'pending_approval', createdAt: '2026-10-01T10:00:00+00:00', storageBytes: null }),
+  ])
+
+  it('shows the overview with the oldest wait, status counts and the largest ledgers (sizes only)', async () => {
+    handlers['GET /admin/users'] = () => ({ json: people() })
+    signIn('superuser')
+    renderApp('/admin')
+    expect(await screen.findByText('Accounts by status')).toBeInTheDocument()
+    expect(screen.getByText('Largest ledgers')).toBeInTheDocument()
+    expect(await screen.findByText('5.0 MB')).toBeInTheDocument()
+    expect(screen.getByText(/The oldest has waited/)).toBeInTheDocument()
+  })
+
+  it('filters users by role and status chips, and sorts them', async () => {
+    handlers['GET /admin/users'] = () => ({ json: people() })
+    const ui = userEvent.setup()
+    signIn('superuser')
+    renderApp('/admin/users')
+    await screen.findByText('Ravi Kumar')
+    await ui.click(screen.getByLabelText('Filter by role'))
+    await ui.click(await screen.findByRole('option', { name: 'Admins' }))
+    expect(screen.queryByText('Ravi Kumar')).toBeNull()
+    expect(screen.getByText('Helen Admin')).toBeInTheDocument()
+    await ui.click(screen.getByLabelText('Filter by role'))
+    await ui.click(await screen.findByRole('option', { name: 'All roles' }))
+    await ui.click(within(screen.getByRole('group', { name: 'Filter by status' })).getByRole('button', { name: /^Pending(?! deletion)/ }))
+    expect(calls.filter((c) => c === 'GET /admin/users').length).toBeGreaterThan(1)
+    expect(String(urls['GET /admin/users'].searchParams.get('status'))).toBe('pending_approval')
+  })
+
+  it('creates a user from the top bar on any admin page', async () => {
+    signIn('superuser')
+    renderApp('/admin/audit')
+    await userEvent.setup().click(await screen.findByRole('button', { name: /Create user/ }))
+    expect(await screen.findByLabelText('Full name')).toBeInTheDocument()
+  })
+
+  it('approves several requests at once from the Requests page', async () => {
+    handlers['GET /admin/users'] = () => ({ json: page([user({ id: 5, status: 'pending_approval' }), user({ id: 7, name: 'Anika Joshi', status: 'pending_approval' })]) })
+    handlers['POST /admin/users/bulk'] = () => ({ json: { succeeded: 2, failed: 0, results: [] } })
+    const ui = userEvent.setup()
+    signIn('superuser')
+    renderApp('/admin/pending')
+    await ui.click(await screen.findByLabelText(/select all/))
+    await ui.click(screen.getByRole('button', { name: 'Approve selected' }))
+    await vi.waitFor(() => expect(calls).toContain('POST /admin/users/bulk'))
+    expect(JSON.parse(String(bodies['POST /admin/users/bulk']))).toMatchObject({ action: 'approve', userIds: [5, 7] })
+  })
+
+  it('shows the superuser the role and delete cards on an account, and an admin neither', async () => {
+    handlers['GET /admin/users/5'] = () => ({ json: user() })
+    handlers['GET /admin/users/5/sessions'] = () => ({ json: [] })
+    handlers['GET /admin/audit-log'] = () => ({ json: page([]) })
+    signIn('superuser')
+    const view = renderApp('/admin/users/5')
+    expect(await screen.findByRole('button', { name: 'Make admin…' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Delete Ravi Kumar/ })).toBeInTheDocument()
+    view.unmount()
+    queryClient.clear()
+    signIn('admin')
+    renderApp('/admin/users/5')
+    await screen.findByText('Account')
+    expect(screen.queryByRole('button', { name: 'Make admin…' })).toBeNull()
+  })
+
+  it('filters the audit log by type', async () => {
+    handlers['GET /admin/users'] = () => ({ json: page([user({ id: 1, name: 'Admin', email: 'admin@example.com' }), user()]) })
+    handlers['GET /admin/audit-log'] = () => ({ json: page([
+      { id: 1, at: new Date().toISOString(), actorUserId: 1, action: 'user.approve', targetUserId: 5, detail: null, ip: '1.1.1.1' },
+      { id: 2, at: new Date().toISOString(), actorUserId: 1, action: 'user.delete', targetUserId: 5, detail: null, ip: '1.1.1.1' },
+    ]) })
+    const ui = userEvent.setup()
+    signIn('superuser')
+    renderApp('/admin/audit')
+    expect(await screen.findByText('approved an account')).toBeInTheDocument()
+    await ui.click(screen.getByLabelText('Action type'))
+    await ui.click(await screen.findByRole('option', { name: 'Deletion' }))
+    expect(screen.queryByText('approved an account')).toBeNull()
+    expect(screen.getByText('scheduled an account for deletion')).toBeInTheDocument()
+  })
+
+  it('marks backups, export, role transfer and the integrity check as coming soon (disabled)', async () => {
+    handlers['GET /admin/platform'] = () => ({ json: { version: '0.5.0', apiVersion: 'v0.5', environment: 'production', demoMode: false, controlDbBytes: 1024, ledgerCount: 1, ledgerBytes: 1024, settings: [] } })
+    signIn('superuser')
+    renderApp('/admin/platform')
+    expect(await screen.findByText('Backups and exports')).toBeInTheDocument()
+    expect(screen.getAllByText('Coming soon')).toHaveLength(3)
+    expect(screen.getByRole('button', { name: 'Back up all ledgers' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Transfer…' })).toBeDisabled()
   })
 })

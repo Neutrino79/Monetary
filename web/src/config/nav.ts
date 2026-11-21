@@ -91,7 +91,8 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
 
 export const ALL_ADMIN_NAV_ITEMS: NavItem[] = ADMIN_NAV_SECTIONS.flatMap((s) => s.items);
 
-export const ADMIN_MOBILE_TAB_PATHS = ["/admin", "/admin/pending", "/admin/users", "/admin/audit"];
+/** The phone tab bar: the four main admin pages, then a way back to the ledger. */
+export const ADMIN_MOBILE_TAB_PATHS = ["/admin", "/admin/pending", "/admin/users", "/admin/audit", "/dashboard"];
 
 /** True on any /admin page. */
 export const isAdminPath = (pathname: string) => pathname === "/admin" || pathname.startsWith("/admin/");
