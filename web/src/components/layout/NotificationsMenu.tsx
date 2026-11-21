@@ -1,14 +1,54 @@
 import { useState } from "react";
 import { Popover } from "radix-ui";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Bell, AlertTriangle, Info } from "lucide-react";
 import { useAccounts, useDashboard, useFriendBalances } from "@/hooks/queries";
 import { IconButton } from "@/components/ui/primitives";
+import { useAdminStats } from "@/hooks/admin";
+import { isAdminPath } from "@/config/nav";
 import { buildAttention } from "@/lib/utils/attention";
 import { cn } from "@/lib/utils/cn";
 
 /** The bell: a short list of what needs attention (nothing to dismiss; it clears when the numbers do). */
 export function NotificationsMenu() {
+  return isAdminPath(useLocation().pathname) ? <AdminNotifications /> : <LedgerNotifications />;
+}
+
+/** In admin mode the bell lists what an administrator has to act on: account requests waiting for approval. */
+function AdminNotifications() {
+  const navigate = useNavigate();
+  const pending = useAdminStats().data?.pendingApproval ?? 0;
+  return (
+    <Popover.Root>
+      <Popover.Trigger asChild>
+        <IconButton aria-label={pending ? `Notifications, ${pending} need attention` : "Notifications"} className="relative">
+          <Bell size={18} />
+          {pending > 0 && <span aria-hidden className="absolute right-1 top-1 h-2.5 w-2.5 rounded-full border-2 border-paper bg-danger" />}
+        </IconButton>
+      </Popover.Trigger>
+      <Popover.Portal>
+        <Popover.Content align="end" sideOffset={8} collisionPadding={12} className="z-[70] w-[min(22rem,calc(100vw-1.5rem))] rounded-[14px] border border-line-strong bg-paper-raised shadow-xl">
+          <div className="border-b border-line px-4 py-3 text-[14px] font-semibold">Needs your attention</div>
+          {pending === 0 ? (
+            <p className="px-4 py-6 text-center text-[13px] text-ink-soft">All clear. No account requests are waiting.</p>
+          ) : (
+            <Popover.Close asChild>
+              <button type="button" onClick={() => navigate("/admin/pending")} className="flex w-full items-start gap-3 px-4 py-3 text-left hover:bg-paper-sunken">
+                <AlertTriangle size={16} className="mt-0.5 flex-none text-danger" aria-hidden />
+                <span className="min-w-0">
+                  <span className="block text-[13.3px] font-semibold">{pending === 1 ? "1 account request" : `${pending} account requests`}</span>
+                  <span className="block text-[12px] text-ink-faint">Waiting for approval</span>
+                </span>
+              </button>
+            </Popover.Close>
+          )}
+        </Popover.Content>
+      </Popover.Portal>
+    </Popover.Root>
+  );
+}
+
+function LedgerNotifications() {
   const navigate = useNavigate();
   const { data: dashboard } = useDashboard();
   const { data: accounts = [] } = useAccounts();

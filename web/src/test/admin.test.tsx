@@ -86,8 +86,10 @@ describe('who can open the Admin area', () => {
     signIn('superuser')
     renderApp('/admin')
     expect(await screen.findByText('2 account requests waiting for approval')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /My ledger/ })).toBeInTheDocument()
-    await userEvent.setup().click(screen.getByRole('button', { name: /My ledger/ }))
+    // Same shell as the ledger: admin navigation, with a link back and the profile menu.
+    expect(screen.getByLabelText('Primary navigation')).toBeInTheDocument()
+    expect(within(screen.getByLabelText('Primary navigation')).getByRole('link', { name: /^Requests/ })).toHaveAttribute('href', '/admin/pending')
+    await userEvent.setup().click(screen.getByRole('link', { name: /My ledger/ }))
     await vi.waitFor(() => expect(window.location.pathname).toBe('/dashboard'))
   })
 
@@ -98,10 +100,21 @@ describe('who can open the Admin area', () => {
     expect(screen.getByText('3 · 3.0 MB')).toBeInTheDocument()
   })
 
-  it('offers the Admin button in the ledger top bar to superusers only', async () => {
+  it('reaches Administration from the profile menu, and no longer from the top bar', async () => {
     signIn('superuser')
     renderApp('/dashboard')
-    expect(await screen.findByRole('link', { name: /Admin/ })).toHaveAttribute('href', '/admin')
+    const ui = userEvent.setup()
+    await ui.click(await screen.findByRole('button', { name: 'Account menu' }))
+    expect(await screen.findByRole('link', { name: /Administration/ })).toHaveAttribute('href', '/admin')
+    expect(screen.queryByRole('link', { name: /^Admin$/ })).toBeNull()
+  })
+
+  it('offers regular users no Administration entry', async () => {
+    signIn('user')
+    renderApp('/dashboard')
+    await userEvent.setup().click(await screen.findByRole('button', { name: 'Account menu' }))
+    expect(await screen.findByRole('button', { name: /Log out/ })).toBeInTheDocument()
+    expect(screen.queryByRole('link', { name: /Administration/ })).toBeNull()
   })
 
   it('has no Admin area in demo mode', async () => {
@@ -338,7 +351,7 @@ describe('roles', () => {
     await ui.click(await screen.findByRole('button', { name: /Create user/ }))
     await ui.click(await screen.findByLabelText('Role'))
     expect(await screen.findByText('Admin', { selector: '[role="option"] *, [role="option"]' })).toBeInTheDocument()
-    expect(screen.queryByText('Superuser')).toBeNull()
+    expect(screen.queryByRole('option', { name: 'Superuser' })).toBeNull()
   })
 
   it('opens the Admin area to an admin', async () => {
