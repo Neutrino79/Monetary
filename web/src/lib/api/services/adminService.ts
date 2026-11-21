@@ -14,7 +14,7 @@ export const adminService = {
 
   /** The whole audit log as a CSV file, saved through the browser. */
   async exportAuditLog(): Promise<string> {
-    const { blob, filename } = await http.download("/admin/audit-log/export");
+    const { blob, filename } = await http.download("/admin/audit-log/export", "audit-log.csv");
     saveBlob(blob, filename);
     return filename;
   },

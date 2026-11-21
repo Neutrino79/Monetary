@@ -81,7 +81,7 @@ export const authService = {
 
   /** The signed-in user's own ledger as a SQLite file, handed to the browser as a download. */
   async downloadMyData(): Promise<string> {
-    const { blob, filename } = await http.download("/me/export");
+    const { blob, filename } = await http.download("/me/export", `ledger-${new Date().toISOString().slice(0, 10)}.db`);
     saveBlob(blob, filename);
     return filename;
   },
