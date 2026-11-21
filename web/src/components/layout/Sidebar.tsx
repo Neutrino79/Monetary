@@ -1,5 +1,5 @@
-import { Link, NavLink, useLocation } from "react-router-dom";
-import { ArrowLeft, ChevronLeft } from "lucide-react";
+import { NavLink, useLocation } from "react-router-dom";
+import { ChevronLeft } from "lucide-react";
 import { LogoMark } from "@/components/ui/LogoMark";
 import { useBranding } from "@/hooks/queries";
 import { ADMIN_NAV_SECTIONS, NAV_SECTIONS, isAdminPath } from "@/config/nav";
@@ -45,17 +45,6 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
             </div>
           )}
         </div>
-
-        {admin && (
-          <Link
-            to="/dashboard"
-            onClick={onCloseMobile}
-            className="mb-1 flex items-center gap-3 rounded-[10px] border border-line px-3 py-2 text-[13.5px] font-medium text-ink-soft hover:bg-paper-sunken hover:text-ink"
-          >
-            <ArrowLeft size={16} className="flex-none" />
-            {!collapsed && <span>My ledger</span>}
-          </Link>
-        )}
 
         <nav className="flex-1">
           {sections.map((section) => (

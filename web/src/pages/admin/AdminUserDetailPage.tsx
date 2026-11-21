@@ -30,8 +30,8 @@ function ProfileForm({ user }: { user: AdminUser }) {
     || (!hasLedger && (timezone.trim() || "") !== (user.timezone ?? ""));
   const emailChanging = email.trim().toLowerCase() !== user.email;
   return (
-    <Card className="flex flex-col gap-3 p-4">
-      <h2 className="text-[14px] font-semibold">Profile</h2>
+    <Card className="flex flex-col gap-4">
+      <h2 className="text-[15px] font-semibold">Profile</h2>
       <FormField label="Name" htmlFor="ud-name"><Input id="ud-name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} /></FormField>
       <FormField label="Email" htmlFor="ud-email"
         hint={emailChanging ? "Changing the email signs this person out everywhere." : undefined}>
@@ -57,9 +57,9 @@ function Sessions({ user, canAct }: { user: AdminUser; canAct: boolean }) {
   const revokeAll = useAdminMutation(() => adminService.revokeSessions(user.id));
   const [confirmAll, setConfirmAll] = useState(false);
   return (
-    <Card className="p-0">
-      <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
-        <span className="text-[14px] font-semibold">Signed-in devices{q.data ? <span className="ml-1 font-normal text-ink-faint">· {q.data.length}</span> : null}</span>
+    <Card className="overflow-hidden p-0">
+      <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
+        <span className="text-[15px] font-semibold">Signed-in devices{q.data ? <span className="ml-1 font-normal text-ink-faint">· {q.data.length}</span> : null}</span>
         {canAct && (q.data?.length ?? 0) > 0 && (
           <Button size="sm" variant="secondary" onClick={() => setConfirmAll(true)}>Sign out everywhere…</Button>
         )}
@@ -78,7 +78,7 @@ function Sessions({ user, canAct }: { user: AdminUser; canAct: boolean }) {
       ) : (
         <ul>
           {q.data.map((s) => (
-            <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3 last:border-0">
+            <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3 last:border-b-0">
               <div className="min-w-0 text-[13px]">
                 <div className="truncate font-medium">{s.userAgent ?? "Unknown device"}</div>
                 <div className="text-[12px] text-ink-faint">{s.ip ?? "unknown address"} · last seen {formatWhen(s.lastSeenAt ?? s.createdAt)} · signed in {formatWhen(s.createdAt)}</div>
@@ -111,8 +111,8 @@ function RoleAndDelete({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
   };
   return (
     <>
-      <Card className="p-4">
-        <div className="mb-1 flex items-center justify-between"><h2 className="text-[14px] font-semibold">Role</h2><span className="text-[11.5px] text-ink-faint">Superuser only</span></div>
+      <Card>
+        <div className="mb-2 flex items-center justify-between"><h2 className="text-[15px] font-semibold">Role</h2><span className="text-[11.5px] text-ink-faint">Superuser only</span></div>
         <p className="mb-3 text-[12.8px] text-ink-soft">
           {user.role === "admin"
             ? "Admin. Can approve requests and suspend, unlock or reset ordinary users. Can't delete accounts, create admins or see anyone's ledger."
@@ -123,8 +123,8 @@ function RoleAndDelete({ user, isSelf }: { user: AdminUser; isSelf: boolean }) {
         )}
       </Card>
       {user.status !== "pending_delete" && !isSelf && (
-        <Card className="border-danger p-4">
-          <div className="mb-1 flex items-center justify-between"><h2 className="text-[14px] font-semibold text-danger">Delete account</h2><span className="text-[11.5px] text-ink-faint">Superuser only</span></div>
+        <Card className="border-danger">
+          <div className="mb-2 flex items-center justify-between"><h2 className="text-[15px] font-semibold text-danger">Delete account</h2><span className="text-[11.5px] text-ink-faint">Superuser only</span></div>
           <p className="mb-3 text-[12.8px] text-ink-soft">The account is locked now and its data is removed after 30 days. You can restore it until then.</p>
           <Button size="sm" variant="danger" onClick={() => setAsk("delete")}>Delete {user.name}…</Button>
         </Card>
@@ -160,6 +160,7 @@ export function AdminUserDetailPage() {
   const u = q.data;
   const canManage = outranks(actorRole, u.role) || u.id === selfId;
   const canEdit = outranks(actorRole, u.role);
+  const isRequest = u.status === "pending_approval" || u.status === "rejected";
   const history = audit.data?.items ?? [];
   const names = new Map([[u.id, `${u.name} (${u.email})`]]);
   const facts: [string, string][] = [
@@ -173,11 +174,11 @@ export function AdminUserDetailPage() {
   ];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <nav aria-label="Breadcrumb" className="text-[12.8px] text-ink-faint">
-        <Link to="/admin/users" className="text-accent hover:underline">Users</Link> <span aria-hidden>/</span> <span className="text-ink">{u.name}</span>
+        <Link to={isRequest ? "/admin/pending" : "/admin/users"} className="text-accent hover:underline">{isRequest ? "Requests" : "Users"}</Link> <span aria-hidden>/</span> <span className="text-ink">{u.name}</span>
       </nav>
-      <Card className="flex flex-wrap items-center justify-between gap-4 p-4">
+      <Card className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <Person name={u.name} size={46} />
           <div>
@@ -196,20 +197,20 @@ export function AdminUserDetailPage() {
           {u.name.split(" ")[0]} is still using the temporary password{u.passwordExpiresAt ? ` (valid until ${formatWhen(u.passwordExpiresAt)})` : ""}. They are asked to change it at next sign-in.
         </div>
       )}
-      <div className="grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] items-start gap-5 max-[980px]:grid-cols-1">
-        <div className="flex flex-col gap-5">
+      <div className="grid grid-cols-[minmax(0,1.7fr)_minmax(0,1fr)] items-start gap-6 max-[980px]:grid-cols-1">
+        <div className="flex flex-col gap-6">
           {canEdit && <ProfileForm key={u.updatedAt} user={u} />}
           <Sessions user={u} canAct={canManage} />
-          <Card className="p-0">
-            <div className="flex items-center justify-between border-b border-line px-4 py-3">
-              <span className="text-[14px] font-semibold">History</span>
+          <Card className="overflow-hidden p-0">
+            <div className="flex items-center justify-between border-b border-line px-5 py-4">
+              <span className="text-[15px] font-semibold">History</span>
               <Link to="/admin/audit" className="text-[12.8px] text-accent hover:underline">Open in audit log →</Link>
             </div>
-            {history.length === 0 ? <p className="px-4 py-5 text-[13px] text-ink-faint">Nothing recorded yet.</p> : (
+            {history.length === 0 ? <p className="px-5 py-6 text-[13px] text-ink-faint">Nothing recorded yet.</p> : (
               <ul>{history.map((e) => {
                 const p = auditParts(e, names);
                 return (
-                  <li key={e.id} className="flex items-center justify-between gap-3 border-b border-line px-4 py-2.5 text-[13px] last:border-0">
+                  <li key={e.id} className="flex items-center justify-between gap-3 border-b border-line px-5 py-3 text-[13px] last:border-b-0">
                     <span><b className="font-semibold">{p.actor}</b> {p.verb}</span>
                     <span className="flex-none text-[12px] text-ink-faint" title={formatWhen(e.at)}>{ago(e.at)}</span>
                   </li>
@@ -218,9 +219,9 @@ export function AdminUserDetailPage() {
             )}
           </Card>
         </div>
-        <div className="flex flex-col gap-5">
-          <Card className="p-4">
-            <h2 className="mb-3 text-[14px] font-semibold">Account</h2>
+        <div className="flex flex-col gap-6">
+          <Card>
+            <h2 className="mb-4 text-[15px] font-semibold">Account</h2>
             <dl className="flex flex-col gap-2 text-[13px]">
               {facts.map(([k, v]) => (
                 <div key={k} className="flex justify-between gap-3"><dt className="text-ink-faint">{k}</dt><dd className="text-right font-medium">{v}</dd></div>
