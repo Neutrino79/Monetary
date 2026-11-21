@@ -269,7 +269,8 @@ upgraded without losing any (the migration logs a warning and skips the unique i
 Admin mode uses the same shell as the ledger (sidebar, top bar, cards, buttons). An administrator reaches it from the
 profile menu at the foot of the sidebar ("Administration", with the pending count), from the bell (account requests
 waiting) and from ⌘K, which searches users and admin pages there. The sidebar then shows Overview, Requests (with a
-count badge), Users and Audit log, and "My ledger" leads back. Normal users never see these entries, and the admin
+count badge), Users and Audit log (with a CSV export), plus a **Platform** page that only the superuser sees: the
+installation's version, sizes and read-only sign-in settings. "My ledger" leads back. Normal users never see these entries, and the admin
 routes are rejected by the API for them regardless.
 Pages: sign-up, "waiting for approval", "request declined", "account suspended", and a forced "choose a new
 password" step.

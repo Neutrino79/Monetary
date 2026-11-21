@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 
 from monetary.application import admin_service, operations
 from monetary.config import API_PREFIX, data_dir_from_environment
@@ -15,6 +15,7 @@ from monetary.presentation.api.schemas.admin import (
     AuditEntryOut,
     BulkOut,
     BulkRequest,
+    PlatformOut,
     PurgeOut,
     ReasonRequest,
     RoleRequest,
@@ -29,6 +30,12 @@ router = APIRouter(prefix=f"{API_PREFIX}/admin", tags=["admin"], dependencies=[D
 @router.get("/stats", response_model=AdminStatsOut)
 def stats(control: sqlite3.Connection = CONTROL):
     return AdminStatsOut(**admin_service.stats(control, data_dir_from_environment()))
+
+
+@router.get("/platform", response_model=PlatformOut)
+def platform(control: sqlite3.Connection = CONTROL, _: dict = Depends(get_superuser)):
+    """Read-only settings and size of this installation. Superuser only; no keys or secrets."""
+    return PlatformOut(**admin_service.platform(control, data_dir_from_environment()))
 
 
 @router.get("/users", response_model=Page[AdminUserOut])
@@ -172,6 +179,14 @@ def restore_user(user_id: int, request: Request, control: sqlite3.Connection = C
 def set_role(user_id: int, payload: RoleRequest, request: Request, control: sqlite3.Connection = CONTROL,
              actor: dict = Depends(get_superuser)):
     return AdminUserOut(**admin_service.set_role(control, actor, user_id, payload.role, ip=_client_key(request)))
+
+
+@router.get("/audit-log/export")
+def export_audit_log(control: sqlite3.Connection = CONTROL):
+    """The audit log as a CSV download (newest first, capped), for record keeping outside the app."""
+    return Response(
+        content=admin_service.audit_csv(control), media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="audit-log.csv"'})
 
 
 @router.get("/audit-log", response_model=Page[AuditEntryOut])

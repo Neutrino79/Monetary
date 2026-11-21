@@ -63,6 +63,24 @@ class AdminStatsOut(ApiModel):
     ledger_bytes: int = 0
 
 
+class PlatformSettingOut(ApiModel):
+    key: str
+    label: str
+    value: str
+
+
+class PlatformOut(ApiModel):
+    """Read-only facts about the installation (superuser only). Never includes keys or secrets."""
+    version: str
+    api_version: str
+    environment: str
+    demo_mode: bool
+    settings: list[PlatformSettingOut]
+    control_db_bytes: int
+    ledger_count: int
+    ledger_bytes: int
+
+
 class AuditEntryOut(ApiModel):
     id: int
     at: str

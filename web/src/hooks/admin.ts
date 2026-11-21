@@ -20,6 +20,9 @@ export const useAdminSessions = (id: number) =>
 export const useAdminStats = (opts: { enabled?: boolean } = {}) =>
   useQuery({ queryKey: adminKeys.stats, queryFn: adminService.stats, refetchInterval: 60_000, retry: 1, enabled: opts.enabled ?? true });
 
+export const usePlatform = () =>
+  useQuery({ queryKey: [...adminKeys.all, "platform"], queryFn: adminService.platform });
+
 export const useAdminUsers = (f: AdminUserFilters, opts: { enabled?: boolean } = {}) =>
   useQuery({ queryKey: adminKeys.users(f), queryFn: () => adminService.listUsers(f), placeholderData: keepPreviousData, enabled: opts.enabled ?? true });
 

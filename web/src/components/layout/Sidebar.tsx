@@ -5,6 +5,7 @@ import { useBranding } from "@/hooks/queries";
 import { ADMIN_NAV_SECTIONS, NAV_SECTIONS, isAdminPath } from "@/config/nav";
 import { ProfileMenu } from "@/components/layout/ProfileMenu";
 import { useAdminStats } from "@/hooks/admin";
+import { selectIsSuperuser, useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
 import { cn } from "@/lib/utils/cn";
 
@@ -13,7 +14,10 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleCollapsed = useUiStore((s) => s.toggleSidebarCollapsed);
   const admin = isAdminPath(useLocation().pathname);
-  const sections = admin ? ADMIN_NAV_SECTIONS : NAV_SECTIONS;
+  const isSuperuser = useAuthStore(selectIsSuperuser);
+  const sections = (admin ? ADMIN_NAV_SECTIONS : NAV_SECTIONS)
+    .map((sec) => ({ ...sec, items: sec.items.filter((i) => !i.superuserOnly || isSuperuser) }))
+    .filter((sec) => sec.items.length > 0);
   const pending = useAdminStats({ enabled: admin }).data?.pendingApproval ?? 0;
 
   return (

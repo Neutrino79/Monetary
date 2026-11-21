@@ -230,6 +230,11 @@ def list_audit(conn, *, limit=50, offset=0, target_user_id=None) -> list[dict]:
     return [dict(r) for r in rows.fetchall()]
 
 
+def list_audit_for_export(conn, *, limit: int) -> list[dict]:
+    """The newest `limit` audit rows, newest first (the CSV export)."""
+    return [dict(r) for r in conn.execute("SELECT * FROM audit_log ORDER BY id DESC LIMIT ?", (limit,)).fetchall()]
+
+
 def count_audit(conn, *, target_user_id=None) -> int:
     if target_user_id is None:
         return conn.execute("SELECT COUNT(*) FROM audit_log").fetchone()[0]

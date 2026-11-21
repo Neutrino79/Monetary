@@ -17,7 +17,10 @@ Safety rules enforced here, not only in the UI:
 
 from __future__ import annotations
 
+import csv
+import io
 from datetime import datetime, timedelta, timezone as dt_timezone
+from pathlib import Path
 
 from monetary import config
 from monetary.application import audit_service, operations, provisioning
@@ -26,7 +29,7 @@ from monetary.domain.enums import PlatformRole, UserStatus, role_rank
 from monetary.domain.exceptions import ConflictError, NotFoundError, PermissionDeniedError, ValidationError
 from monetary.domain.security import generate_temporary_password, hash_password
 from monetary.domain.time_utils import utc_now_iso, validate_timezone
-from monetary.infrastructure import control_repository as crepo
+from monetary.infrastructure import control_db, control_repository as crepo
 
 DELETE_GRACE_DAYS = 30
 MAX_REASON_LENGTH = 300
@@ -156,6 +159,54 @@ def stats(conn, data_dir=None) -> dict:
 def audit_log(conn, *, limit: int = 50, offset: int = 0, target_user_id: int | None = None) -> tuple[list[dict], int]:
     return (crepo.list_audit(conn, limit=limit, offset=offset, target_user_id=target_user_id),
             crepo.count_audit(conn, target_user_id=target_user_id))
+
+
+AUDIT_EXPORT_LIMIT = 50_000
+AUDIT_CSV_COLUMNS = ("id", "at", "actor_user_id", "actor", "action", "target_user_id", "target", "detail", "ip")
+
+
+def audit_csv(conn) -> str:
+    """The audit log as CSV text, newest first, with people's names and emails next to their ids so the
+    file reads on its own. Capped at AUDIT_EXPORT_LIMIT rows. Spreadsheet formula prefixes are neutralised."""
+    people = {u["id"]: f"{u['name']} <{u['email']}>" for u in crepo.list_users(conn, limit=1_000_000)}
+    out = io.StringIO()
+    writer = csv.writer(out, lineterminator="\r\n")
+    writer.writerow(AUDIT_CSV_COLUMNS)
+    for row in crepo.list_audit_for_export(conn, limit=AUDIT_EXPORT_LIMIT):
+        cells = [row["id"], row["at"], row["actor_user_id"], people.get(row["actor_user_id"], ""), row["action"],
+                 row["target_user_id"], people.get(row["target_user_id"], ""), row["detail"], row["ip"]]
+        writer.writerow([_csv_safe(c) for c in cells])
+    return out.getvalue()
+
+
+def _csv_safe(value) -> str:
+    text = "" if value is None else str(value)
+    return "'" + text if text[:1] in ("=", "+", "-", "@", "\t", "\r") else text
+
+
+def platform(conn, data_dir) -> dict:
+    """Read-only facts about this installation for the superuser: how it is configured and how big it is.
+    Only settings that are safe to show; keys, secrets and the data directory path are never included."""
+    control_file = Path(data_dir) / control_db.CONTROL_DB_FILENAME
+    usage = operations.usage(conn, data_dir)
+    return {
+        "version": config.VERSION,
+        "api_version": config.API_VERSION,
+        "environment": config.environment_name(),
+        "demo_mode": config.demo_mode_enabled(),
+        "settings": [
+            {"key": "MONETARY_LOGIN_MAX_FAILURES", "label": "Failed sign-ins before a lock", "value": str(config.login_max_failures())},
+            {"key": "MONETARY_LOGIN_LOCKOUT_MINUTES", "label": "Lock length (minutes)", "value": str(config.login_lockout_minutes())},
+            {"key": "MONETARY_LOGIN_CAPTCHA_AFTER", "label": "Captcha after failures", "value": str(config.login_captcha_after())},
+            {"key": "MONETARY_CAPTCHA_PROVIDER", "label": "Captcha provider", "value": config.captcha_provider()},
+            {"key": "MONETARY_TEMP_PASSWORD_HOURS", "label": "Temporary password lifetime (hours)", "value": str(config.temp_password_hours())},
+            {"key": "MONETARY_MAX_REREQUESTS", "label": "Re-requests after a decline", "value": str(config.max_rerequests())},
+            {"key": "MONETARY_ADMIN_BULK_LIMIT", "label": "Accounts per bulk action", "value": str(config.bulk_action_limit())},
+        ],
+        "control_db_bytes": control_file.stat().st_size if control_file.exists() else 0,
+        "ledger_count": usage["ledger_count"],
+        "ledger_bytes": usage["ledger_bytes"],
+    }
 
 
 # -- changing accounts ----------------------------------------------------------------------------

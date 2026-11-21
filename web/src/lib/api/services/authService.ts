@@ -1,5 +1,6 @@
 import type { PlatformAccount, SecurityQuestion, User } from "@/types";
 import type { OwnerDto, PasswordResetQuestion, ProfilePatch, RegisterInput, SetupInput } from "@/types/api";
+import { saveBlob } from "@/lib/utils/saveBlob";
 import { http } from "@/lib/api/http";
 import { tokenStorage } from "@/lib/api/tokenStorage";
 import { ApiError } from "@/lib/api/errors";
@@ -81,14 +82,7 @@ export const authService = {
   /** The signed-in user's own ledger as a SQLite file, handed to the browser as a download. */
   async downloadMyData(): Promise<string> {
     const { blob, filename } = await http.download("/me/export");
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    saveBlob(blob, filename);
     return filename;
   },
 

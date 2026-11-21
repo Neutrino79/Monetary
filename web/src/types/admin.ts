@@ -99,3 +99,21 @@ export interface ProfileChanges {
   email?: string;
   timezone?: string;
 }
+
+export interface PlatformSetting {
+  key: string;
+  label: string;
+  value: string;
+}
+
+/** Read-only facts about the installation (superuser only). */
+export interface PlatformInfo {
+  version: string;
+  apiVersion: string;
+  environment: string;
+  demoMode: boolean;
+  settings: PlatformSetting[];
+  controlDbBytes: number;
+  ledgerCount: number;
+  ledgerBytes: number;
+}
