@@ -1,8 +1,10 @@
-import { NavLink } from "react-router-dom";
-import { ChevronLeft } from "lucide-react";
+import { Link, NavLink, useLocation } from "react-router-dom";
+import { ArrowLeft, ChevronLeft } from "lucide-react";
 import { LogoMark } from "@/components/ui/LogoMark";
 import { useBranding } from "@/hooks/queries";
-import { NAV_SECTIONS } from "@/config/nav";
+import { ADMIN_NAV_SECTIONS, NAV_SECTIONS, isAdminPath } from "@/config/nav";
+import { ProfileMenu } from "@/components/layout/ProfileMenu";
+import { useAdminStats } from "@/hooks/admin";
 import { useUiStore } from "@/store/uiStore";
 import { cn } from "@/lib/utils/cn";
 
@@ -10,6 +12,9 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
   const { name, tagline } = useBranding();
   const collapsed = useUiStore((s) => s.sidebarCollapsed);
   const toggleCollapsed = useUiStore((s) => s.toggleSidebarCollapsed);
+  const admin = isAdminPath(useLocation().pathname);
+  const sections = admin ? ADMIN_NAV_SECTIONS : NAV_SECTIONS;
+  const pending = useAdminStats({ enabled: admin }).data?.pendingApproval ?? 0;
 
   return (
     <>
@@ -32,19 +37,31 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
           {!collapsed && (
             <div>
               <div className="text-[15.5px] font-semibold">{name}</div>
-              <div className="text-[11.5px] text-ink-faint">{tagline}</div>
+              <div className="text-[11.5px] text-ink-faint">{admin ? "Administration" : tagline}</div>
             </div>
           )}
         </div>
 
+        {admin && (
+          <Link
+            to="/dashboard"
+            onClick={onCloseMobile}
+            className="mb-1 flex items-center gap-3 rounded-[10px] border border-line px-3 py-2 text-[13.5px] font-medium text-ink-soft hover:bg-paper-sunken hover:text-ink"
+          >
+            <ArrowLeft size={16} className="flex-none" />
+            {!collapsed && <span>My ledger</span>}
+          </Link>
+        )}
+
         <nav className="flex-1">
-          {NAV_SECTIONS.map((section) => (
+          {sections.map((section) => (
             <div key={section.section}>
               {!collapsed && <div className="px-3 pb-1 pt-4 text-[11px] text-ink-faint">{section.section}</div>}
               {section.items.map((item) => (
                 <NavLink
                   key={item.path}
                   to={item.path}
+                  end={item.end}
                   onClick={onCloseMobile}
                   className={({ isActive }) =>
                     cn(
@@ -56,13 +73,19 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
                 >
                   <item.icon size={17} className="flex-none" />
                   {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
+                  {item.pendingBadge && pending > 0 && (
+                    <span aria-label={`${pending} pending`} className="rounded-full bg-danger px-1.5 py-px text-[10.5px] font-bold text-white">
+                      {pending}
+                    </span>
+                  )}
                 </NavLink>
               ))}
             </div>
           ))}
         </nav>
 
-        <div className="pt-4">
+        <div className="space-y-2 pt-4">
+          <ProfileMenu admin={admin} collapsed={collapsed} onNavigate={onCloseMobile} />
           <button
             onClick={toggleCollapsed}
             className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-line py-2 text-ink-faint hover:bg-paper-sunken hover:text-ink max-[980px]:hidden"

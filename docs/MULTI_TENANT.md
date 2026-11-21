@@ -266,9 +266,11 @@ upgraded without losing any (the migration logs a warning and skips the unique i
 
 ### 6.3 Admin mode in the web app
 
-A superuser sees an **Admin** button in the app header. It switches to a separate **Admin mode** with its own
-navigation (Overview, Pending requests with a count badge, Users, Audit log) and a clear banner, and a button back to
-"My ledger". Normal users never see the button, and the admin routes are rejected by the API for them regardless.
+Admin mode uses the same shell as the ledger (sidebar, top bar, cards, buttons). An administrator reaches it from the
+profile menu at the foot of the sidebar ("Administration", with the pending count), from the bell (account requests
+waiting) and from ⌘K, which searches users and admin pages there. The sidebar then shows Overview, Requests (with a
+count badge), Users and Audit log, and "My ledger" leads back. Normal users never see these entries, and the admin
+routes are rejected by the API for them regardless.
 Pages: sign-up, "waiting for approval", "request declined", "account suspended", and a forced "choose a new
 password" step.
 
@@ -371,7 +373,7 @@ Each item is a PR into `feat/multi-tenant`, with tests in the matching layer. Th
 3. **Control database, login, registration, states and legacy adoption**; the `CONTROL` and `DB` dependencies; demo
    mode on the new model.
 4. **Admin API, CLI and audit log**, including last-superuser protection and the cleanup of expired requests.
-5. **Web app**: sign-up and status screens, forced password change, Admin button and dashboard.
+5. **Web app**: sign-up and status screens, forced password change, Admin mode and dashboard.
 6. **Operations** (done): backup, user data export, purge of deleted accounts, usage figures, final documentation sync and
    full test runs (backend, web, integration).
 

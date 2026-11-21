@@ -11,12 +11,19 @@ import {
   Landmark,
   Tag,
   Settings,
+  ShieldCheck,
+  Inbox,
+  ScrollText,
 } from "lucide-react";
 
 export interface NavItem {
   path: string;
   label: string;
   icon: LucideIcon;
+  /** Match the path exactly (an index route such as the admin Overview). */
+  end?: boolean;
+  /** Show the number of pending account requests next to the label. */
+  pendingBadge?: boolean;
 }
 
 export interface NavSection {
@@ -61,3 +68,23 @@ export const NAV_SECTIONS: NavSection[] = [
 export const ALL_NAV_ITEMS: NavItem[] = NAV_SECTIONS.flatMap((s) => s.items);
 
 export const MOBILE_TAB_PATHS = ["/dashboard", "/transactions", "/friends", "/reports", "/settings"];
+
+/** The Admin area reuses the ledger shell; only the navigation, title and top-bar actions differ. */
+export const ADMIN_NAV_SECTIONS: NavSection[] = [
+  {
+    section: "Administration",
+    items: [
+      { path: "/admin", label: "Overview", icon: ShieldCheck, end: true },
+      { path: "/admin/pending", label: "Requests", icon: Inbox, pendingBadge: true },
+      { path: "/admin/users", label: "Users", icon: Users },
+      { path: "/admin/audit", label: "Audit log", icon: ScrollText },
+    ],
+  },
+];
+
+export const ALL_ADMIN_NAV_ITEMS: NavItem[] = ADMIN_NAV_SECTIONS.flatMap((s) => s.items);
+
+export const ADMIN_MOBILE_TAB_PATHS = ["/admin", "/admin/pending", "/admin/users", "/admin/audit"];
+
+/** True on any /admin page. */
+export const isAdminPath = (pathname: string) => pathname === "/admin" || pathname.startsWith("/admin/");

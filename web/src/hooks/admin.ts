@@ -17,11 +17,11 @@ export const useAdminSessions = (id: number) =>
   useQuery({ queryKey: [...adminKeys.all, "sessions", id], queryFn: () => adminService.sessions(id) });
 
 /** The pending count drives the badge in the Admin header, so keep it fresh without a reload. */
-export const useAdminStats = () =>
-  useQuery({ queryKey: adminKeys.stats, queryFn: adminService.stats, refetchInterval: 60_000, retry: 1 });
+export const useAdminStats = (opts: { enabled?: boolean } = {}) =>
+  useQuery({ queryKey: adminKeys.stats, queryFn: adminService.stats, refetchInterval: 60_000, retry: 1, enabled: opts.enabled ?? true });
 
-export const useAdminUsers = (f: AdminUserFilters) =>
-  useQuery({ queryKey: adminKeys.users(f), queryFn: () => adminService.listUsers(f), placeholderData: keepPreviousData });
+export const useAdminUsers = (f: AdminUserFilters, opts: { enabled?: boolean } = {}) =>
+  useQuery({ queryKey: adminKeys.users(f), queryFn: () => adminService.listUsers(f), placeholderData: keepPreviousData, enabled: opts.enabled ?? true });
 
 export const useAuditLog = (offset = 0, limit = 25) =>
   useQuery({ queryKey: adminKeys.audit(offset, limit), queryFn: () => adminService.auditLog({ offset, limit }), placeholderData: keepPreviousData });
