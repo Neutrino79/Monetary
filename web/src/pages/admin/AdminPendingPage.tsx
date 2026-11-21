@@ -2,6 +2,7 @@ import { useState } from "react";
 import { UserCheck } from "lucide-react";
 import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Textarea } from "@/components/ui/form";
 import { useToast } from "@/components/ui/Toast";
 import { adminService } from "@/lib/api/services/adminService";
@@ -24,9 +25,9 @@ function RequestRow({
   const [note, setNote] = useState("");
   const waited = daysSince(u.createdAt);
   return (
-    <li className="border-b border-line px-4 py-3 last:border-0">
-      <div className="flex flex-wrap items-center gap-3">
-        <input type="checkbox" aria-label={`Select ${u.name}`} checked={picked} onChange={onPick} />
+    <li className="border-b border-line px-5 py-4 last:border-b-0 hover:bg-paper-sunken">
+      <div className="flex flex-wrap items-center gap-4">
+        <Checkbox aria-label={`Select ${u.name}`} checked={picked} onChange={onPick} />
         <Person name={u.name} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -44,7 +45,7 @@ function RequestRow({
         </div>
       </div>
       {rejecting && (
-        <div className="mt-3 rounded-[12px] border border-line bg-paper-sunken p-3">
+        <div className="mt-4 ml-8 rounded-[12px] border border-line bg-paper p-4 max-[640px]:ml-0">
           <div className="mb-2 text-[13px] font-medium">Why are you rejecting this request?</div>
           <div className="mb-3 flex flex-wrap gap-2">
             {REJECT_REASONS.map((r) => (
@@ -105,17 +106,17 @@ export function AdminPendingPage() {
   if (q.isError) return <p role="alert" className="text-danger">Couldn&apos;t load the requests.</p>;
 
   return (
-    <div className="flex flex-col gap-5">
+    <div className="flex flex-col gap-6">
       <PageIntro>People who signed up and are waiting for a decision, oldest first. They can&apos;t sign in until you approve them.</PageIntro>
 
       {items.length === 0 ? (
-        <Card><EmptyState icon={UserCheck} title="No pending requests" description="New sign-ups appear here for you to approve or reject." /></Card>
+        <Card className="p-0"><EmptyState icon={UserCheck} title="No pending requests" description="New sign-ups appear here for you to approve or reject." /></Card>
       ) : (
-        <Card className="p-0">
-          <div className="flex flex-wrap items-center gap-3 border-b border-line px-4 py-2.5 text-[13px]">
+        <Card className="overflow-hidden p-0">
+          <div className="flex flex-wrap items-center gap-4 border-b border-line bg-paper-sunken px-5 py-3 text-[13px]">
             <span className="rounded-full bg-warn-soft px-2.5 py-0.5 text-[12px] font-semibold text-warn">{items.length} waiting</span>
             <label className="flex items-center gap-2 text-ink-soft">
-              <input type="checkbox" checked={allPicked} onChange={() => setPicked(allPicked ? new Set() : new Set(items.map((u) => u.id)))} />
+              <Checkbox checked={allPicked} onChange={() => setPicked(allPicked ? new Set() : new Set(items.map((u) => u.id)))} />
               select all
             </label>
             <span className="flex-1" />
@@ -138,20 +139,20 @@ export function AdminPendingPage() {
 
       <div className="grid grid-cols-2 gap-5 max-[980px]:grid-cols-1">
         <Card>
-          <h2 className="mb-3 text-[14px] font-semibold">What each choice does</h2>
+          <h2 className="mb-4 text-[15px] font-semibold">What each choice does</h2>
           <dl className="flex flex-col gap-3 text-[13px]">
             <div><dt className="font-semibold">Approve</dt><dd className="text-ink-soft">The account becomes active and they can sign in. Their own ledger is created on first sign-in.</dd></div>
             <div><dt className="font-semibold">Reject</dt><dd className="text-ink-soft">They can&apos;t sign in. You can reopen the request later from here.</dd></div>
           </dl>
         </Card>
         <Card className="p-0">
-          <div className="border-b border-line px-4 py-3 text-[14px] font-semibold">Recently rejected</div>
+          <div className="border-b border-line px-5 py-4 text-[15px] font-semibold">Recently rejected</div>
           {(rejected.data?.items.length ?? 0) === 0 ? (
-            <p className="px-4 py-5 text-[13px] text-ink-faint">No rejected requests.</p>
+            <p className="px-5 py-6 text-[13px] text-ink-faint">No rejected requests.</p>
           ) : (
             <ul>
               {rejected.data!.items.map((u) => (
-                <li key={u.id} className="flex items-center gap-3 border-b border-line px-4 py-2.5 text-[13px] last:border-0">
+                <li key={u.id} className="flex items-center gap-3 border-b border-line px-5 py-3 text-[13px] last:border-b-0">
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-medium">{u.name}</span>
                     <span className="block truncate text-[12px] text-ink-faint">{u.email}{u.statusReason ? ` · ${u.statusReason}` : ""}</span>

@@ -1,10 +1,14 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Users } from "lucide-react";
-import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { EmptyState, Skeleton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
+import { Checkbox } from "@/components/ui/Checkbox";
 import { Select } from "@/components/ui/form";
+import { Tabs } from "@/components/ui/Tabs";
+import { ControlStrip, FilterField, StripFilters, StripSearch } from "@/components/list/ControlStrip";
 import { useAdminMutation, useAdminStats, useAdminUsers } from "@/hooks/admin";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useToast } from "@/components/ui/Toast";
 import { adminService } from "@/lib/api/services/adminService";
 import { formatBytes } from "@/lib/format/bytes";
@@ -12,13 +16,14 @@ import { useAuthStore } from "@/store/authStore";
 import { ROLE_LABEL } from "@/lib/roles";
 import { UserActions, isLocked } from "@/components/admin/UserActions";
 import { PageIntro, Person, StatusBadge, TemporaryPasswordDialog, ago } from "@/components/admin/adminUi";
-import { cn } from "@/lib/utils/cn";
-import type { AccountStatus } from "@/types";
+import { Pager, Table, TableCard, Th, tdClass, trClass } from "@/components/admin/adminTable";
 import type { AdminUser, BulkAction, IssuedPassword } from "@/types/admin";
 
-const PAGE = 9;
+const PAGE = 10;
 type Sort = "activity" | "name" | "size" | "newest";
 type RoleFilter = "" | "admins" | "users";
+/** Sign-up requests (waiting or rejected) are decided on the Requests page; this list is for existing accounts. */
+const REQUEST_STATUSES = ["pending_approval", "rejected"];
 
 const SORTS: Record<Sort, (a: AdminUser, b: AdminUser) => number> = {
   activity: (a, b) => (b.lastActivityAt ?? "").localeCompare(a.lastActivityAt ?? ""),
@@ -27,22 +32,19 @@ const SORTS: Record<Sort, (a: AdminUser, b: AdminUser) => number> = {
   newest: (a, b) => b.createdAt.localeCompare(a.createdAt),
 };
 
-const CHIPS: { status: AccountStatus | ""; label: string }[] = [
-  { status: "", label: "All" },
-  { status: "active", label: "Active" },
-  { status: "pending_approval", label: "Pending" },
-  { status: "suspended", label: "Suspended" },
-  { status: "rejected", label: "Rejected" },
-  { status: "pending_delete", label: "Pending deletion" },
+const TABS: { value: string; label: string; statuses: string[] }[] = [
+  { value: "all", label: "All", statuses: ["active", "suspended", "pending_delete"] },
+  { value: "active", label: "Active", statuses: ["active"] },
+  { value: "suspended", label: "Suspended", statuses: ["suspended"] },
+  { value: "pending_delete", label: "Pending deletion", statuses: ["pending_delete"] },
 ];
 
-const GRID = "min-[981px]:grid min-[981px]:grid-cols-[24px_minmax(0,2.2fr)_9rem_6.5rem_7.5rem_6rem_11rem] min-[981px]:items-center";
-
-/** Every account, filterable and sortable. Up to 200 accounts are loaded and filtered here, so the list stays instant. */
+/** Existing accounts, filterable and sortable. Up to 200 are loaded and filtered here, so the list stays instant. */
 export function AdminUsersPage() {
   const selfId = useAuthStore((s) => s.account?.id);
+  const isPhone = useMediaQuery("(max-width: 640px)");
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<AccountStatus | "">("");
+  const [tab, setTab] = useState("all");
   const [role, setRole] = useState<RoleFilter>("");
   const [sort, setSort] = useState<Sort>("activity");
   const [page, setPage] = useState(0);
@@ -51,128 +53,149 @@ export function AdminUsersPage() {
   const toast = useToast();
   const stats = useAdminStats();
   const bulk = useAdminMutation((vars: { action: BulkAction; ids: number[] }) => adminService.bulk(vars.action, vars.ids));
-  const q = useAdminUsers({ q: search, status, limit: 200 });
+  const q = useAdminUsers({ q: search, limit: 200 });
 
+  const accounts = useMemo(() => (q.data?.items ?? []).filter((u) => !REQUEST_STATUSES.includes(u.status)), [q.data]);
+  const statuses = TABS.find((t) => t.value === tab)!.statuses;
   const rows = useMemo(() => {
-    const all = q.data?.items ?? [];
-    const byRole = role === "admins" ? all.filter((u) => u.role !== "user") : role === "users" ? all.filter((u) => u.role === "user") : all;
+    const inTab = accounts.filter((u) => statuses.includes(u.status));
+    const byRole = role === "admins" ? inTab.filter((u) => u.role !== "user") : role === "users" ? inTab.filter((u) => u.role === "user") : inTab;
     return [...byRole].sort(SORTS[sort]);
-  }, [q.data, role, sort]);
+  }, [accounts, statuses, role, sort]);
   const shown = rows.slice(page * PAGE, page * PAGE + PAGE);
-  const counts = stats.data?.byStatus ?? {};
+  const by = stats.data?.byStatus ?? {};
+  const countOf = (sts: string[]) => sts.reduce((n, s) => n + (by[s] ?? 0), 0);
+  const filterCount = (role ? 1 : 0) + (sort !== "activity" ? 1 : 0);
   const toggle = (id: number) => setPicked((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
-  const reset = () => setPage(0);
+  const allShown = shown.length > 0 && shown.every((u) => picked.has(u.id));
 
   async function runBulk(action: BulkAction) {
     try {
       const r = await bulk.mutateAsync({ action, ids: [...picked] });
       const firstError = r.results.find((x) => !x.ok)?.error;
-      toast.show(`${r.succeeded} done${r.failed ? `, ${r.failed} skipped${firstError ? ` (${firstError})` : ""}` : ""}.`,
-        { variant: r.failed ? "error" : "success" });
+      toast.show(`${r.succeeded} done${r.failed ? `, ${r.failed} skipped${firstError ? ` (${firstError})` : ""}` : ""}.`, { variant: r.failed ? "error" : "success" });
       setPicked(new Set());
     } catch (e) {
       toast.show(e instanceof Error ? e.message : "Something went wrong.", { variant: "error" });
     }
   }
 
+  const userCell = (u: AdminUser) => (
+    <div className="flex min-w-0 items-center gap-3">
+      <Person name={u.name} />
+      <div className="min-w-0">
+        <Link to={`/admin/users/${u.id}`} className="block truncate text-[14px] font-semibold hover:underline">{u.name}</Link>
+        <div className="truncate text-[12px] text-ink-soft">{u.email}</div>
+        {(u.mustChangePassword || isLocked(u)) && (
+          <div className="mt-0.5 flex gap-2 text-[11.5px]">
+            {u.mustChangePassword && <span className="text-ink-faint">Temporary password</span>}
+            {isLocked(u) && <span className="font-semibold text-danger">Locked</span>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+  const action = (u: AdminUser) => (u.id === selfId ? <span className="text-[12px] text-ink-faint">You</span> : <UserActions user={u} isSelf={false} onIssued={setIssued} />);
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-5">
       <PageIntro>
-        {stats.data ? `${stats.data.totalUsers} accounts. ` : ""}Open one to see devices, history and every action you can take.
+        {stats.data ? `${countOf(TABS[0].statuses)} accounts. ` : ""}Open one to see devices, history and every action you can take. Sign-up requests are on the Requests page.
       </PageIntro>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <input
-          aria-label="Search users" placeholder="Search name or email"
-          className="h-9 min-w-52 flex-1 rounded-[10px] border border-line bg-paper-raised px-3 text-[13.5px] outline-none focus:border-line-strong"
-          value={search} onChange={(e) => { setSearch(e.target.value); reset(); }}
-        />
-        <Select aria-label="Filter by role" value={role} className="w-40" onChange={(e) => { setRole(e.target.value as RoleFilter); reset(); }}>
-          <option value="">All roles</option>
-          <option value="admins">Admins</option>
-          <option value="users">Regular users</option>
-        </Select>
-        <Select aria-label="Sort by" value={sort} className="w-52" onChange={(e) => setSort(e.target.value as Sort)}>
-          <option value="activity">Sort: last activity</option>
-          <option value="name">Sort: name</option>
-          <option value="size">Sort: ledger size</option>
-          <option value="newest">Sort: newest</option>
-        </Select>
-      </div>
-
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by status">
-        {CHIPS.map((c) => {
-          const n = c.status === "" ? stats.data?.totalUsers : counts[c.status];
-          const active = status === c.status;
-          return (
-            <button key={c.label} type="button" aria-pressed={active} onClick={() => { setStatus(c.status); reset(); }}
-              className={cn("inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 text-[12.5px] font-medium",
-                active ? "border-ink bg-ink text-paper" : "bg-paper-raised text-ink-soft hover:bg-paper-sunken")}>
-              {c.label}{n !== undefined && <span className="opacity-70">{n}</span>}
-            </button>
-          );
-        })}
-      </div>
-
-      {picked.size > 0 && (
-        <Card className="flex flex-wrap items-center gap-2 p-3" role="toolbar" aria-label="Bulk actions">
-          <span className="mr-2 text-[13px] font-medium">{picked.size} selected</span>
-          <Button size="sm" disabled={bulk.isPending} onClick={() => runBulk("approve")}>Approve</Button>
-          <Button size="sm" variant="secondary" disabled={bulk.isPending} onClick={() => runBulk("reject")}>Reject</Button>
-          <Button size="sm" variant="secondary" disabled={bulk.isPending} onClick={() => runBulk("suspend")}>Suspend</Button>
-          <Button size="sm" variant="secondary" disabled={bulk.isPending} onClick={() => runBulk("reactivate")}>Reactivate</Button>
-          <Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>Clear</Button>
-          <span className="text-[12px] text-ink-faint">Accounts an action doesn&apos;t apply to are skipped. Up to 50 at once.</span>
-        </Card>
-      )}
-
-      {q.isLoading ? (
-        <Skeleton className="h-48 w-full" />
-      ) : q.isError ? (
-        <p role="alert" className="text-danger">Couldn&apos;t load users.</p>
-      ) : rows.length === 0 ? (
-        <Card><EmptyState icon={Users} title="No users found" description="Try a different search or status." /></Card>
-      ) : (
-        <Card className="p-0">
-          <div className={cn("hidden border-b border-line px-4 py-2.5 text-[11.5px] font-semibold uppercase tracking-wide text-ink-faint", GRID)} aria-hidden>
-            <span /><span>User</span><span>Status</span><span>Role</span><span>Last activity</span><span>Ledger</span><span className="text-right">Action</span>
+      <Tabs
+        tabs={TABS.map((t) => ({ value: t.value, label: stats.data ? `${t.label} ${countOf(t.statuses)}` : t.label }))}
+        value={tab}
+        onValueChange={(v) => { setTab(v); setPage(0); setPicked(new Set()); }}
+      >
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-3">
+            <ControlStrip className="w-full sm:w-auto">
+              <StripSearch alwaysOpen value={search} onChange={(v) => { setSearch(v); setPage(0); }} placeholder="Search name or email" />
+              <StripFilters count={filterCount} resultCount={rows.length} onReset={() => { setRole(""); setSort("activity"); setPage(0); }}>
+                <FilterField label="Role">
+                  <Select aria-label="Role" className="w-full" value={role} onChange={(e) => { setRole(e.target.value as RoleFilter); setPage(0); }}>
+                    <option value="">All roles</option>
+                    <option value="admins">Admins</option>
+                    <option value="users">Regular users</option>
+                  </Select>
+                </FilterField>
+                <FilterField label="Sort by">
+                  <Select aria-label="Sort by" className="w-full" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
+                    <option value="activity">Last activity</option>
+                    <option value="name">Name</option>
+                    <option value="size">Ledger size</option>
+                    <option value="newest">Newest</option>
+                  </Select>
+                </FilterField>
+              </StripFilters>
+            </ControlStrip>
+            {picked.size > 0 && (
+              <div role="toolbar" aria-label="Bulk actions" className="flex flex-wrap items-center gap-2">
+                <span className="text-[13px] font-medium">{picked.size} selected</span>
+                <Button size="sm" variant="secondary" disabled={bulk.isPending} onClick={() => runBulk("suspend")}>Suspend</Button>
+                <Button size="sm" variant="secondary" disabled={bulk.isPending} onClick={() => runBulk("reactivate")}>Reactivate</Button>
+                <Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>Clear</Button>
+              </div>
+            )}
           </div>
-          <ul>
-            {shown.map((u) => (
-              <li key={u.id} className={cn("max-[980px]:flex max-[980px]:flex-wrap max-[980px]:items-center max-[980px]:gap-x-3 max-[980px]:gap-y-2 border-b border-line px-4 py-3 last:border-0", GRID)}>
-                <input type="checkbox" aria-label={`Select ${u.name}`} checked={picked.has(u.id)} onChange={() => toggle(u.id)} />
-                <div className="flex min-w-0 items-center gap-3 max-[980px]:w-[calc(100%-2.25rem)] min-[981px]:flex-1">
-                  <Person name={u.name} />
-                  <div className="min-w-0">
-                    <Link to={`/admin/users/${u.id}`} className="block truncate text-[14px] font-semibold hover:underline">{u.name}</Link>
-                    <div className="truncate text-[12.5px] text-ink-faint">{u.email}</div>
-                    {(u.mustChangePassword || isLocked(u)) && (
-                      <div className="text-[11.5px]">
-                        {u.mustChangePassword && <span className="text-ink-faint">Temporary password</span>}
-                        {isLocked(u) && <span className="ml-2 font-semibold text-danger">locked</span>}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <span><StatusBadge status={u.status} /></span>
-                <span data-testid={`role-${u.id}`} className="text-[12.5px] text-ink-soft">{ROLE_LABEL[u.role]}</span>
-                <span className="text-[12.5px] text-ink-soft">{ago(u.lastActivityAt)}</span>
-                <span className="text-[12.5px] text-ink-soft">{u.storageBytes === null ? "—" : formatBytes(u.storageBytes)}</span>
-                <span className="ml-auto flex justify-end">
-                  {u.id === selfId ? <span className="text-[12px] text-ink-faint">You</span> : <UserActions user={u} isSelf={false} onIssued={setIssued} />}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <div className="flex items-center justify-between border-t border-line px-4 py-2.5 text-[12.5px] text-ink-faint">
-            <span>{page * PAGE + 1}–{Math.min(page * PAGE + PAGE, rows.length)} of {rows.length}</span>
-            <span className="flex gap-2">
-              <Button size="sm" variant="ghost" disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</Button>
-              <Button size="sm" variant="ghost" disabled={(page + 1) * PAGE >= rows.length} onClick={() => setPage(page + 1)}>Next</Button>
-            </span>
-          </div>
-        </Card>
-      )}
+
+          <TableCard>
+            {q.isLoading ? (
+              <div className="flex flex-col gap-2 p-5">{[1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-11 rounded-[10px]" />)}</div>
+            ) : q.isError ? (
+              <p role="alert" className="p-5 text-danger">Couldn&apos;t load users.</p>
+            ) : rows.length === 0 ? (
+              <div className="p-5"><EmptyState icon={Users} title="No users found" description="Try a different search or filter." /></div>
+            ) : (
+              <>
+                {isPhone ? (
+                  <ul aria-label="Users" className="px-4">
+                    {shown.map((u) => (
+                      <li key={u.id} className="flex flex-col gap-3 border-b border-line py-4 last:border-b-0">
+                        <div className="flex items-start gap-3">
+                          <Checkbox aria-label={`Select ${u.name}`} className="mt-2.5" checked={picked.has(u.id)} onChange={() => toggle(u.id)} />
+                          <div className="min-w-0 flex-1">{userCell(u)}</div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pl-7 text-[12.5px] text-ink-soft">
+                          <StatusBadge status={u.status} />
+                          <span data-testid={`role-${u.id}`}>{ROLE_LABEL[u.role]}</span>
+                          <span>{ago(u.lastActivityAt)}</span>
+                          <span>{u.storageBytes === null ? "—" : formatBytes(u.storageBytes)}</span>
+                          <span className="ml-auto">{action(u)}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <Table
+                    label="Users"
+                    head={
+                      <>
+                        <Th className="w-12"><Checkbox aria-label="Select all on this page" checked={allShown} onChange={() => setPicked(allShown ? new Set() : new Set(shown.map((u) => u.id)))} /></Th>
+                        <Th>User</Th><Th>Status</Th><Th>Role</Th><Th>Last activity</Th><Th>Ledger</Th><Th align="right">Action</Th>
+                      </>
+                    }
+                  >
+                    {shown.map((u) => (
+                      <tr key={u.id} className={trClass}>
+                        <td className={tdClass}><Checkbox aria-label={`Select ${u.name}`} checked={picked.has(u.id)} onChange={() => toggle(u.id)} /></td>
+                        <td className={tdClass}>{userCell(u)}</td>
+                        <td className={tdClass}><StatusBadge status={u.status} /></td>
+                        <td className={`${tdClass} text-ink-soft`} data-testid={`role-${u.id}`}>{ROLE_LABEL[u.role]}</td>
+                        <td className={`${tdClass} whitespace-nowrap text-ink-soft`}>{ago(u.lastActivityAt)}</td>
+                        <td className={`${tdClass} whitespace-nowrap text-ink-soft`}>{u.storageBytes === null ? "—" : formatBytes(u.storageBytes)}</td>
+                        <td className={`${tdClass} text-right`}><div className="flex justify-end">{action(u)}</div></td>
+                      </tr>
+                    ))}
+                  </Table>
+                )}
+                <Pager total={rows.length} page={page} pageSize={PAGE} noun="account" onPage={setPage} />
+              </>
+            )}
+          </TableCard>
+        </div>
+      </Tabs>
 
       <TemporaryPasswordDialog email={issued?.user.email ?? ""} password={issued?.temporaryPassword ?? null} onClose={() => setIssued(null)} />
     </div>

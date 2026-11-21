@@ -1,20 +1,20 @@
 import { useMemo, useState } from "react";
 import { Download, ScrollText } from "lucide-react";
-import { Card, EmptyState, Skeleton } from "@/components/ui/primitives";
+import { EmptyState, Skeleton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/form";
 import { useToast } from "@/components/ui/Toast";
+import { ControlStrip, FilterField, StripFilters } from "@/components/list/ControlStrip";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { adminService } from "@/lib/api/services/adminService";
 import { useAuditLog, useUserNames } from "@/hooks/admin";
-import { PageIntro } from "@/components/admin/adminUi";
-import { cn } from "@/lib/utils/cn";
+import { PageIntro, Person } from "@/components/admin/adminUi";
+import { Pager, Table, TableCard, Th, tdClass, trClass } from "@/components/admin/adminTable";
 import { AUDIT_CATEGORIES, auditParts, categoryOf, type AuditCategory } from "./auditText";
 
-const PAGE = 9;
+const PAGE = 10;
 const LOADED = 200;
 type Range = "7" | "30" | "";
-
-const GRID = "min-[981px]:grid min-[981px]:grid-cols-[8.5rem_minmax(0,1.1fr)_minmax(0,1.4fr)_minmax(0,1.1fr)_minmax(0,1.4fr)_7rem] min-[981px]:items-center min-[981px]:gap-3";
 
 const when = (iso: string) => {
   const d = new Date(iso);
@@ -25,6 +25,7 @@ const when = (iso: string) => {
 
 /** Everything an administrator did, newest first. There are never passwords in it. */
 export function AdminAuditPage() {
+  const isPhone = useMediaQuery("(max-width: 640px)");
   const [page, setPage] = useState(0);
   const [who, setWho] = useState("");
   const [category, setCategory] = useState<AuditCategory | "">("");
@@ -56,69 +57,88 @@ export function AdminAuditPage() {
       && (!since || new Date(e.at).getTime() >= since));
   }, [all, who, category, range]);
   const shown = rows.slice(page * PAGE, page * PAGE + PAGE);
-  const filtered = who !== "" || category !== "" || range !== "";
+  const filterCount = (who ? 1 : 0) + (category ? 1 : 0) + (range ? 1 : 0);
+  const reset = () => { setWho(""); setCategory(""); setRange(""); setPage(0); };
 
   if (q.isLoading) return <Skeleton className="h-48 w-full" />;
   if (q.isError) return <p role="alert" className="text-danger">Couldn&apos;t load the audit log.</p>;
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <PageIntro>Everything an administrator did, newest first. Passwords are never recorded.</PageIntro>
-        <Button size="sm" variant="secondary" onClick={exportCsv}><Download size={14} /> Export CSV</Button>
+    <div className="flex flex-col gap-5">
+      <PageIntro>Everything an administrator did, newest first. Passwords are never recorded.</PageIntro>
+
+      <div className="flex flex-wrap items-center gap-3">
+        <ControlStrip>
+          <StripFilters count={filterCount} resultCount={rows.length} onReset={reset}>
+            <FilterField label="Administrator">
+              <Select aria-label="Administrator" className="w-full" value={who} onChange={(e) => { setWho(e.target.value); setPage(0); }}>
+                <option value="">All administrators</option>
+                {actors.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+              </Select>
+            </FilterField>
+            <FilterField label="Action type">
+              <Select aria-label="Action type" className="w-full" value={category} onChange={(e) => { setCategory(e.target.value as AuditCategory | ""); setPage(0); }}>
+                <option value="">All actions</option>
+                {AUDIT_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </Select>
+            </FilterField>
+            <FilterField label="Time range">
+              <Select aria-label="Time range" className="w-full" value={range} onChange={(e) => { setRange(e.target.value as Range); setPage(0); }}>
+                <option value="">All time</option>
+                <option value="7">Last 7 days</option>
+                <option value="30">Last 30 days</option>
+              </Select>
+            </FilterField>
+          </StripFilters>
+        </ControlStrip>
+        <Button size="sm" variant="secondary" className="ml-auto" onClick={exportCsv}><Download size={14} /> Export CSV</Button>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Select aria-label="Administrator" value={who} className="w-52" onChange={(e) => { setWho(e.target.value); setPage(0); }}>
-          <option value="">All administrators</option>
-          {actors.map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-        </Select>
-        <Select aria-label="Action type" value={category} className="w-44" onChange={(e) => { setCategory(e.target.value as AuditCategory | ""); setPage(0); }}>
-          <option value="">All actions</option>
-          {AUDIT_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
-        </Select>
-        <Select aria-label="Time range" value={range} className="w-40" onChange={(e) => { setRange(e.target.value as Range); setPage(0); }}>
-          <option value="7">Last 7 days</option>
-          <option value="30">Last 30 days</option>
-          <option value="">All time</option>
-        </Select>
-      </div>
-
-      {rows.length === 0 ? (
-        <Card><EmptyState icon={ScrollText} title={filtered ? "Nothing matches" : "Nothing logged yet"} description={filtered ? "Try a wider time range or another filter." : "Account actions appear here."} /></Card>
-      ) : (
-        <Card className="p-0">
-          <div className={cn("hidden border-b border-line px-4 py-2.5 text-[11.5px] font-semibold uppercase tracking-wide text-ink-faint", GRID)} aria-hidden>
-            <span>When</span><span>Administrator</span><span>Action</span><span>Account</span><span>Details</span><span>Address</span>
-          </div>
-          <ul>
-            {shown.map((e) => {
-              const p = auditParts(e, names);
-              const w = when(e.at);
-              return (
-                <li key={e.id} className={cn("max-[980px]:flex max-[980px]:flex-col max-[980px]:gap-0.5 border-b border-line px-4 py-3 text-[13px] last:border-0", GRID)}>
-                  <span className="text-ink-faint"><span className="font-medium text-ink">{w.day}</span> {w.time}</span>
-                  <span className="font-medium">{p.actor}</span>
-                  <span>{p.verb}</span>
-                  <span>{p.target || "—"}</span>
-                  <span className="truncate text-[12.5px] text-ink-faint" title={p.extra}>{p.extra || "—"}</span>
-                  <span className="text-[12px] text-ink-faint">{e.ip ?? "—"}</span>
-                </li>
-              );
-            })}
-          </ul>
-          <div className="flex items-center justify-between border-t border-line px-4 py-2.5 text-[12.5px] text-ink-faint">
-            <span>
-              {page * PAGE + 1}–{Math.min(page * PAGE + PAGE, rows.length)} of {filtered ? rows.length : total}
-              {total > LOADED && " · filters apply to the latest 200; export has everything"}
-            </span>
-            <span className="flex gap-2">
-              <Button size="sm" variant="ghost" disabled={page === 0} onClick={() => setPage(page - 1)}>Newer</Button>
-              <Button size="sm" variant="ghost" disabled={(page + 1) * PAGE >= rows.length} onClick={() => setPage(page + 1)}>Older</Button>
-            </span>
-          </div>
-        </Card>
-      )}
+      <TableCard>
+        {rows.length === 0 ? (
+          <div className="p-5"><EmptyState icon={ScrollText} title={filterCount ? "Nothing matches" : "Nothing logged yet"} description={filterCount ? "Try a wider time range or another filter." : "Account actions appear here."} /></div>
+        ) : (
+          <>
+            {isPhone ? (
+              <ul aria-label="Audit log" className="px-4">
+                {shown.map((e) => {
+                  const p = auditParts(e, names);
+                  const w = when(e.at);
+                  return (
+                    <li key={e.id} className="flex items-start gap-3 border-b border-line py-3 last:border-b-0">
+                      <Person name={p.actor} size={30} />
+                      <div className="min-w-0 flex-1 text-[13px]">
+                        <div><b className="font-semibold">{p.actor}</b> {p.verb}{p.target && <>: <b className="font-semibold">{p.target}</b></>}</div>
+                        {p.extra && <div className="truncate text-[12px] text-ink-faint">{p.extra}</div>}
+                        <div className="text-[12px] text-ink-faint">{w.day} {w.time}{e.ip ? ` · ${e.ip}` : ""}</div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <Table label="Audit log" head={<><Th>When</Th><Th>Administrator</Th><Th>Action</Th><Th>Account</Th><Th>Details</Th><Th>Address</Th></>}>
+                {shown.map((e) => {
+                  const p = auditParts(e, names);
+                  const w = when(e.at);
+                  return (
+                    <tr key={e.id} className={trClass}>
+                      <td className={`${tdClass} whitespace-nowrap`}><span className="font-medium">{w.day}</span> <span className="text-ink-soft">{w.time}</span></td>
+                      <td className={tdClass}><span className="flex items-center gap-2.5"><Person name={p.actor} size={26} /><span className="font-medium">{p.actor}</span></span></td>
+                      <td className={tdClass}>{p.verb}</td>
+                      <td className={tdClass}>{p.target || <span className="text-ink-faint">—</span>}</td>
+                      <td className={`${tdClass} max-w-64 truncate text-ink-soft`} title={p.extra}>{p.extra || "—"}</td>
+                      <td className={`${tdClass} whitespace-nowrap text-ink-soft`}>{e.ip ?? "—"}</td>
+                    </tr>
+                  );
+                })}
+              </Table>
+            )}
+            <Pager total={rows.length} page={page} pageSize={PAGE} noun="entry" plural="entries" onPage={setPage} />
+          </>
+        )}
+      </TableCard>
+      {total > LOADED && <p className="text-[12.5px] text-ink-faint">Filters apply to the latest {LOADED} of {total} entries. The CSV export has everything.</p>}
     </div>
   );
 }
