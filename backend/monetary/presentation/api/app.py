@@ -107,6 +107,9 @@ app.add_middleware(
     allow_credentials=_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Without this a browser hides Content-Disposition from the web app (it is on another origin), so
+    # downloads would lose the server's file name and extension.
+    expose_headers=["Content-Disposition"],
 )
 
 

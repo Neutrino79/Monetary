@@ -18,7 +18,9 @@ from monetary.presentation.api.app import app
 c = TestClient(app)
 def pre(origin):
     r = c.options("/api/v0.5/owner", headers={"Origin": origin, "Access-Control-Request-Method": "GET"})
-    return {"origin": r.headers.get("access-control-allow-origin"), "creds": r.headers.get("access-control-allow-credentials")}
+    got = c.get("/health", headers={"Origin": origin})
+    return {"origin": r.headers.get("access-control-allow-origin"), "creds": r.headers.get("access-control-allow-credentials"),
+            "exposed": got.headers.get("access-control-expose-headers")}
 print(json.dumps({
   "docs": c.get("/docs").status_code, "redoc": c.get("/redoc").status_code, "openapi": c.get("/openapi.json").status_code,
   "root_docs": c.get("/").json()["docs"],
@@ -56,8 +58,14 @@ def test_docs_flag_overrides_environment():
 
 def test_explicit_cors_list_allows_only_listed_origins_with_credentials():
     r = probe(MONETARY_CORS_ORIGINS="http://localhost:3000, http://localhost:8501")
-    assert r["good"] == {"origin": "http://localhost:3000", "creds": "true"}
+    assert (r["good"]["origin"], r["good"]["creds"]) == ("http://localhost:3000", "true")
     assert r["evil"]["origin"] is None
+
+
+def test_listed_origins_may_read_the_download_file_name():
+    # the web app is on another origin; it can only see the server's file name if the header is exposed
+    r = probe(MONETARY_CORS_ORIGINS="http://localhost:3000")
+    assert "Content-Disposition" in (r["good"]["exposed"] or "")
 
 
 def test_wildcard_cors_never_combines_with_credentials():
