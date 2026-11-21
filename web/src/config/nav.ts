@@ -14,6 +14,7 @@ import {
   ShieldCheck,
   Inbox,
   ScrollText,
+  Server,
 } from "lucide-react";
 
 export interface NavItem {
@@ -24,6 +25,8 @@ export interface NavItem {
   end?: boolean;
   /** Show the number of pending account requests next to the label. */
   pendingBadge?: boolean;
+  /** Only the superuser sees this entry. */
+  superuserOnly?: boolean;
 }
 
 export interface NavSection {
@@ -79,6 +82,10 @@ export const ADMIN_NAV_SECTIONS: NavSection[] = [
       { path: "/admin/users", label: "Users", icon: Users },
       { path: "/admin/audit", label: "Audit log", icon: ScrollText },
     ],
+  },
+  {
+    section: "System",
+    items: [{ path: "/admin/platform", label: "Platform", icon: Server, superuserOnly: true }],
   },
 ];
 

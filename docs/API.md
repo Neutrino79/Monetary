@@ -322,6 +322,12 @@ mode. Superusers manage *accounts*; they never see ledger contents. Every action
 - `POST /admin/purge` (superuser) -- permanently remove accounts whose 30-day grace ended; `{purged}`.
   `stats.overdueForPurge` counts them. User rows also carry `lastActivityAt` and `storageBytes`.
 - `GET /admin/audit-log?user_id=&limit=&offset=` -- newest first.
+- `GET /admin/audit-log/export` -- the whole audit log as a CSV download (`audit-log.csv`, newest first, at most
+  50,000 rows) with names and emails beside the ids. Admins and the superuser. Cells that start with `=`, `+`,
+  `-` or `@` are prefixed with `'` so a spreadsheet never runs them.
+- `GET /admin/platform` (superuser only) -- `{version, apiVersion, environment, demoMode, settings: [{key, label,
+  value}], controlDbBytes, ledgerCount, ledgerBytes}`. Read-only; shows sign-in and access settings only, never
+  keys, secrets or the data directory path.
 - Rules: a wrong state change is `409`; acting on an equal or higher role is `403`; `POST /admin/users` with
   `role: admin` needs the superuser and `role: superuser` is `409`.
 

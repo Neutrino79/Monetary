@@ -125,6 +125,40 @@ describe('who can open the Admin area', () => {
   })
 })
 
+describe('the Platform page and the audit export', () => {
+  const platform = {
+    version: '0.5.0', apiVersion: 'v0.5', environment: 'production', demoMode: false, controlDbBytes: 2097152, ledgerCount: 3, ledgerBytes: 3145728,
+    settings: [{ key: 'MONETARY_LOGIN_MAX_FAILURES', label: 'Failed sign-ins before a lock', value: '5' }],
+  }
+
+  it('shows the superuser the installation and its read-only settings', async () => {
+    handlers['GET /admin/platform'] = () => ({ json: platform })
+    signIn('superuser')
+    renderApp('/admin/platform')
+    expect(await screen.findByText('Failed sign-ins before a lock')).toBeInTheDocument()
+    expect(screen.getByText('production')).toBeInTheDocument()
+    expect(within(screen.getByLabelText('Primary navigation')).getByRole('link', { name: /Platform/ })).toBeInTheDocument()
+  })
+
+  it('keeps Platform away from an admin: no menu entry, and its address leads to the Overview', async () => {
+    signIn('admin')
+    renderApp('/admin/platform')
+    await vi.waitFor(() => expect(window.location.pathname).toBe('/admin'))
+    expect(within(screen.getByLabelText('Primary navigation')).queryByRole('link', { name: /Platform/ })).toBeNull()
+    expect(calls).not.toContain('GET /admin/platform')
+  })
+
+  it('exports the audit log as a CSV file', async () => {
+    handlers['GET /admin/audit-log/export'] = () => ({ json: {} })
+    URL.createObjectURL = vi.fn(() => 'blob:x')
+    URL.revokeObjectURL = vi.fn()
+    signIn('admin')
+    renderApp('/admin/audit')
+    await userEvent.setup().click(await screen.findByRole('button', { name: /Export CSV/ }))
+    await vi.waitFor(() => expect(calls).toContain('GET /admin/audit-log/export'))
+  })
+})
+
 describe('pending requests', () => {
   beforeEach(() => {
     handlers['GET /admin/users'] = () => ({ json: page([user({ status: 'pending_approval' })]) })

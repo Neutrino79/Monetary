@@ -1,5 +1,6 @@
 import { http } from "@/lib/api/http";
-import type { AdminPage, AdminSession, AdminStats, BulkAction, BulkResult, ProfileChanges, AdminUser, AdminUserFilters, AuditEntry, IssuedPassword, NewUserInput } from "@/types/admin";
+import type { AdminPage, AdminSession, AdminStats, BulkAction, BulkResult, ProfileChanges, AdminUser, AdminUserFilters, AuditEntry, IssuedPassword, NewUserInput, PlatformInfo } from "@/types/admin";
+import { saveBlob } from "@/lib/utils/saveBlob";
 import type { AccountRole } from "@/types";
 
 const user = (id: number, action: string) => `/admin/users/${id}/${action}`;
@@ -7,6 +8,16 @@ const user = (id: number, action: string) => `/admin/users/${id}/${action}`;
 /** Superuser-only account administration. The server enforces every rule; the UI only offers what it allows. */
 export const adminService = {
   stats: () => http.get<AdminStats>("/admin/stats"),
+
+  /** Superuser only: how the installation is configured and how big it is. */
+  platform: () => http.get<PlatformInfo>("/admin/platform"),
+
+  /** The whole audit log as a CSV file, saved through the browser. */
+  async exportAuditLog(): Promise<string> {
+    const { blob, filename } = await http.download("/admin/audit-log/export");
+    saveBlob(blob, filename);
+    return filename;
+  },
 
   listUsers: (f: AdminUserFilters = {}) =>
     http.get<AdminPage<AdminUser>>("/admin/users", { status: f.status || undefined, q: f.q?.trim() || undefined, limit: f.limit ?? 50, offset: f.offset ?? 0 }),

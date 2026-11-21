@@ -1,5 +1,5 @@
 import { Navigate, Outlet } from "react-router-dom";
-import { selectIsAdmin, useAuthStore } from "@/store/authStore";
+import { selectIsAdmin, selectIsSuperuser, useAuthStore } from "@/store/authStore";
 import { useBranding, useDemoMode } from "@/hooks/queries";
 import { Button } from "@/components/ui/Button";
 import { PasswordChangeRequiredPage } from "@/pages/auth/PasswordChangeRequiredPage";
@@ -52,5 +52,12 @@ export function AdminRoute() {
   const isAdmin = useAuthStore(selectIsAdmin);
   const { isDemo } = useDemoMode();
   if (!isAdmin || isDemo) return <Navigate to="/dashboard" replace />;
+  return <Outlet />;
+}
+
+/** The Platform page is for the superuser alone; an admin who opens its address lands on the Overview. */
+export function SuperuserRoute() {
+  const isSuperuser = useAuthStore(selectIsSuperuser);
+  if (!isSuperuser) return <Navigate to="/admin" replace />;
   return <Outlet />;
 }
