@@ -5,6 +5,7 @@ import { useBranding } from "@/hooks/queries";
 import { useUiStore } from "@/store/uiStore";
 import { IconButton } from "@/components/ui/primitives";
 import { Button } from "@/components/ui/Button";
+import { CreateUserButton } from "@/components/admin/CreateUserButton";
 import { NotificationsMenu } from "@/components/layout/NotificationsMenu";
 
 export function Topbar({
@@ -49,6 +50,7 @@ export function Topbar({
           {theme === "dark" ? <Sun size={17} /> : <Moon size={17} />}
         </IconButton>
         <NotificationsMenu />
+        {admin && <CreateUserButton />}
         {!admin && (
           <Button size="sm" onClick={onOpenQuickAdd} className="max-[980px]:hidden">
             <Plus size={14} /> Add

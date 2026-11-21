@@ -26,6 +26,10 @@ export const usePlatform = () =>
 export const useAdminUsers = (f: AdminUserFilters, opts: { enabled?: boolean } = {}) =>
   useQuery({ queryKey: adminKeys.users(f), queryFn: () => adminService.listUsers(f), placeholderData: keepPreviousData, enabled: opts.enabled ?? true });
 
+/** What was done to one account, newest first. */
+export const useUserHistory = (id: number, limit = 8) =>
+  useQuery({ queryKey: [...adminKeys.all, "history", id, limit], queryFn: () => adminService.auditLog({ userId: id, limit }) });
+
 export const useAuditLog = (offset = 0, limit = 25) =>
   useQuery({ queryKey: adminKeys.audit(offset, limit), queryFn: () => adminService.auditLog({ offset, limit }), placeholderData: keepPreviousData });
 
