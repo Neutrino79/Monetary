@@ -125,5 +125,9 @@ class BulkOut(ApiModel):
     results: list[BulkItemOut]
 
 
+class PurgeSelectedRequest(ApiModel):
+    user_ids: list[int] = Field(min_length=1, max_length=1000)  # the real cap is a setting
+
+
 class PurgeOut(ApiModel):
     purged: int

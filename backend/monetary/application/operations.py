@@ -31,6 +31,27 @@ class PurgeResult:
     kept_files: list[Path] = field(default_factory=list)  # adopted files outside the tenants directory
 
 
+def _purge_user(control, data_dir, user: dict, result: PurgeResult, *, actor_id: int | None,
+                forced: bool = False, ip: str | None = None) -> None:
+    """Forget one account: workspace and sessions leave the control database, ledger files are queued."""
+    tenants = tenant_store.tenants_dir(data_dir).resolve()
+    workspace = crepo.get_workspace_for_user(control, user["id"])
+    if workspace is not None:
+        path = tenant_store.resolve_db_path(data_dir, workspace["db_path"])
+        if path.resolve().parent == tenants:
+            result.files_to_delete.extend(Path(str(path) + s) for s in _SIDECARS)
+        else:
+            result.kept_files.append(path)
+        crepo.delete_workspace(control, workspace["id"])
+    crepo.delete_user(control, user["id"])
+    detail = {"email": user["email"], "user_id": user["id"]}
+    if forced:
+        detail["forced"] = True
+    audit_service.record(control, actor_user_id=actor_id, action="user.purge", target_user_id=None,
+                         detail=detail, ip=ip)
+    result.purged_emails.append(user["email"])
+
+
 def purge_due_accounts(control, data_dir, *, now: str | None = None) -> PurgeResult:
     """Forget every account whose deletion grace period has ended.
 
@@ -38,20 +59,22 @@ def purge_due_accounts(control, data_dir, *, now: str | None = None) -> PurgeRes
     that keeps the email (the user row is gone afterwards). The caller commits, then calls
     `delete_files(result.files_to_delete)`."""
     result = PurgeResult()
-    tenants = tenant_store.tenants_dir(data_dir).resolve()
     for user in crepo.list_due_for_deletion(control, now or utc_now_iso()):
-        workspace = crepo.get_workspace_for_user(control, user["id"])
-        if workspace is not None:
-            path = tenant_store.resolve_db_path(data_dir, workspace["db_path"])
-            if path.resolve().parent == tenants:
-                result.files_to_delete.extend(Path(str(path) + s) for s in _SIDECARS)
-            else:
-                result.kept_files.append(path)
-            crepo.delete_workspace(control, workspace["id"])
-        crepo.delete_user(control, user["id"])
-        audit_service.record(control, actor_user_id=None, action="user.purge", target_user_id=None,
-                             detail={"email": user["email"], "user_id": user["id"]}, ip=None)
-        result.purged_emails.append(user["email"])
+        _purge_user(control, data_dir, user, result, actor_id=None)
+    return result
+
+
+def purge_accounts(control, data_dir, user_ids, *, actor_id: int, ip: str | None = None) -> PurgeResult:
+    """Forget the chosen accounts right now, skipping the grace period.
+
+    Only accounts that are already `pending_delete` are touched; any other id is ignored, so this can
+    never remove a live account. Same commit-then-delete contract as `purge_due_accounts`."""
+    result = PurgeResult()
+    for user_id in dict.fromkeys(user_ids):
+        user = crepo.get_user(control, user_id)
+        if user is None or user["status"] != "pending_delete":
+            continue
+        _purge_user(control, data_dir, user, result, actor_id=actor_id, forced=True, ip=ip)
     return result
 
 
