@@ -25,7 +25,10 @@ export function currencySymbol(): string {
 
 export function formatCurrency(amount: number | null | undefined, precise = false): string {
   if (amount == null || Number.isNaN(amount)) return "—";
-  return (precise ? formatters.precise : formatters.whole).format(amount);
+  // The exact amount: two decimals when there are paise/cents (₹187.82 is never shown as ₹188, which would
+  // look like a mismatch), none when the amount is whole (₹188 stays ₹188). `precise` forces two decimals.
+  const hasCents = Math.round(Math.abs(amount) * 100) % 100 !== 0;
+  return (precise || hasCents ? formatters.precise : formatters.whole).format(amount);
 }
 
 /** "₹62k" / "₹1.2L" / "₹3Cr": for chart axes, where the full figure would not fit. */
