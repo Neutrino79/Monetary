@@ -472,6 +472,17 @@ The per-request database connection (`presentation/api/deps.py::get_db`)
 rolls back automatically whenever a domain, money, value, or SQLite
 constraint error is raised while handling a request.
 
+### Connection state (web)
+
+The web app tracks whether it can reach the server (`web/src/lib/api/connection.ts`). The HTTP client reports
+every outcome: any answer means "online" (even a 4xx), a failed or timed-out request means "unreachable" (or
+"offline" when the device has no network), and a gateway 502/503/504 means "server unavailable". While the
+connection is down, `useConnectionMonitor` re-checks `GET /meta` with a doubling delay
+(`VITE_CONNECTION_RETRY_BASE_SECONDS` to `VITE_CONNECTION_RETRY_MAX_SECONDS`), straight away when the device
+comes back online or the tab becomes visible, and refetches the data once the server answers. `ConnectionBanner`
+shows the state to the person. Writes are never queued or replayed: with no connection they fail at once so the
+person knows they were not saved; reads are retried for temporary failures only (no connection, 5xx).
+
 ## 9. API authentication
 
 The owner is bootstrapped through `POST /api/v0.5/setup/init`. Subsequent API
