@@ -491,12 +491,12 @@ describe('managing one account and many', () => {
   it('shows the detail page with its sessions, and signs one device out', async () => {
     signIn('admin')
     handlers['GET /admin/users/5'] = () => ({ json: user() })
-    handlers['GET /admin/users/5/sessions'] = () => ({ json: [{ id: 9, createdAt: '2026-11-03T10:00:00+00:00', expiresAt: '2026-12-03T10:00:00+00:00', lastSeenAt: null, ip: '9.9.9.9', userAgent: 'TestBrowser/1.0' }] })
+    handlers['GET /admin/users/5/sessions'] = () => ({ json: [{ id: 9, createdAt: '2026-11-03T10:00:00+00:00', expiresAt: '2026-12-03T10:00:00+00:00', lastSeenAt: null, ip: '9.9.9.9', userAgent: 'Mozilla/5.0 (X11; Linux x86_64) Gecko/20100101 Firefox/120.0' }] })
     handlers['DELETE /admin/users/5/sessions/9'] = () => ({ json: { detail: 'Session revoked.' } })
     renderApp('/admin/users/5')
-    expect(await screen.findByText('TestBrowser/1.0')).toBeInTheDocument()
+    expect(await screen.findByText('Firefox on Linux')).toBeInTheDocument()
     expect(screen.getByText('2 KB')).toBeInTheDocument()
-    await userEvent.click(screen.getByRole('button', { name: /Sign out TestBrowser/ }))
+    await userEvent.click(screen.getByRole('button', { name: /Sign out Firefox on Linux/ }))
     await vi.waitFor(() => expect(calls).toContain('DELETE /admin/users/5/sessions/9'))
   })
 

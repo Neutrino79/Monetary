@@ -1,16 +1,15 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Monitor } from "lucide-react";
-import { Card, Badge } from "@/components/ui/primitives";
+import { Card } from "@/components/ui/primitives";
+import { DeviceListCard } from "@/components/settings/DeviceList";
 import { Button } from "@/components/ui/Button";
 import { ConfirmDialog } from "@/components/ui/Dialog";
 import { Input, Select, FormField } from "@/components/ui/form";
 import { useToast } from "@/components/ui/Toast";
-import { ago, formatWhen } from "@/components/admin/adminUi";
+import { formatWhen } from "@/components/admin/adminUi";
 import { useSecurityQuestions } from "@/hooks/queries";
 import { authService } from "@/lib/api/services/authService";
 import { formatBytes } from "@/lib/format/bytes";
-import { describeDevice } from "@/lib/utils/userAgent";
 import { useFormError } from "@/lib/hooks/useFormErrors";
 import { selectIsSuperuser, useAuthStore } from "@/store/authStore";
 
@@ -27,8 +26,7 @@ export function SignedInDevicesCard() {
   const signOut = useMutation({ mutationFn: (id: number) => authService.revokeMySession(id), onSuccess: refresh });
   const signOutOthers = useMutation({ mutationFn: authService.revokeOtherSessions, onSuccess: refresh });
   const [confirmOthers, setConfirmOthers] = useState(false);
-  const list = [...(sessions.data ?? [])].sort((a, b) => Number(b.current) - Number(a.current));
-  const others = list.filter((s) => !s.current).length;
+  const others = (sessions.data ?? []).filter((s) => !s.current).length;
 
   async function one(id: number, label: string) {
     try {
@@ -48,52 +46,21 @@ export function SignedInDevicesCard() {
   }
 
   return (
-    <Card>
-      <div className="mb-1 flex items-center gap-3">
-        <div className="text-[14.5px] font-semibold">Signed-in devices</div>
-        {others > 0 && (
-          <Button size="sm" variant="secondary" className="ml-auto" disabled={signOutOthers.isPending} onClick={() => setConfirmOthers(true)}>
-            Sign out other devices
-          </Button>
-        )}
-      </div>
-      <p className="mb-4 text-[12.8px] text-ink-faint">Browsers where your account is signed in. Sign out any you don&apos;t recognise.</p>
-      {sessions.isLoading ? (
-        <p className="text-[13px] text-ink-faint">Loading…</p>
-      ) : sessions.isError ? (
-        <p role="alert" className="text-[13px] text-danger">Couldn&apos;t load your devices.</p>
-      ) : (
-        <ul aria-label="Signed-in devices" className="divide-y divide-line">
-          {list.map((s) => {
-            const label = describeDevice(s.userAgent);
-            return (
-              <li key={s.id} className="flex items-center gap-3 py-3">
-                <span className="flex h-9 w-9 flex-none items-center justify-center rounded-[10px] bg-paper-sunken text-ink-soft"><Monitor size={17} /></span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2 text-[13.5px] font-medium">
-                    {label}
-                    {s.current && <Badge className="bg-accent/15 text-accent">This device</Badge>}
-                  </div>
-                  <div className="truncate text-[12px] text-ink-faint">
-                    {s.ip ?? "Unknown address"} · signed in {formatWhen(s.createdAt)} · active {ago(s.lastSeenAt ?? s.createdAt)}
-                  </div>
-                </div>
-                {!s.current && (
-                  <Button size="sm" variant="secondary" aria-label={`Sign out ${label} ${s.id}`} disabled={signOut.isPending} onClick={() => one(s.id, label)}>
-                    Sign out
-                  </Button>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+    <>
+      <DeviceListCard
+        rows={sessions.data} loading={sessions.isLoading} error={sessions.isError} busy={signOut.isPending}
+        description="Browsers where your account is signed in. Sign out any you don't recognise."
+        action={others > 0 ? (
+          <Button size="sm" variant="secondary" disabled={signOutOthers.isPending} onClick={() => setConfirmOthers(true)}>Sign out other devices</Button>
+        ) : undefined}
+        onSignOut={(row, label) => one(row.id, label)}
+      />
       <ConfirmDialog
         open={confirmOthers} onOpenChange={setConfirmOthers} variant="primary"
         title="Sign out other devices?" message="Every device except this one is signed out. Changing your password does the same, and signs this one out too."
         confirmLabel="Sign out others" onConfirm={everywhereElse}
       />
-    </Card>
+    </>
   );
 }
 

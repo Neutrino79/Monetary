@@ -66,7 +66,7 @@ export function SettingsPage() {
         <p className="mt-1 text-[13.5px] text-ink-soft">Your profile, ledger behavior, and how {appName} is configured.</p>
       </div>
 
-      <div className="grid grid-cols-[1.3fr_1fr] gap-5 max-[900px]:grid-cols-1">
+      <div className="grid grid-cols-2 items-start gap-5 max-[900px]:grid-cols-1">
         <div className="flex flex-col gap-5">
           <Card>
             <div className="mb-4 text-[14.5px] font-semibold">Profile</div>
@@ -98,11 +98,7 @@ export function SettingsPage() {
           </Card>
 
           <ChangePasswordCard />
-          {!isDemo && <SignedInDevicesCard />}
           {!isDemo && <SecurityQuestionCard />}
-          <ExportCard />
-          {!isDemo && <AccountCard />}
-          {!isDemo && <DeleteAccountCard />}
 
           <Card>
             <div className="mb-1 text-[14.5px] font-semibold">Ledger mode</div>
@@ -139,7 +135,11 @@ export function SettingsPage() {
           </Card>
         </div>
 
-        <Card className="self-start">
+        <div className="flex flex-col gap-5">
+        {!isDemo && <AccountCard />}
+        {!isDemo && <SignedInDevicesCard />}
+        <ExportCard />
+        <Card>
           <div className="mb-4 text-[14.5px] font-semibold">About this instance</div>
           <div className="flex items-center gap-3 border-b border-dashed border-line py-3">
             <LogoMark size={32} />
@@ -161,6 +161,8 @@ export function SettingsPage() {
             Questions? Reach out at <span className="font-medium text-ink-soft">{appConfig.supportEmail}</span>
           </div>
         </Card>
+        {!isDemo && <DeleteAccountCard />}
+        </div>
       </div>
     </div>
   );
@@ -198,7 +200,7 @@ function ChangePasswordCard() {
     <Card>
       <div className="mb-1 text-[14.5px] font-semibold">Password</div>
       <p className="mb-4 text-[12.8px] text-ink-faint">Changing your password signs you out of any other devices.</p>
-      <div className="grid grid-cols-3 gap-4 max-[640px]:grid-cols-1">
+      <div className="grid grid-cols-1 gap-4">
         <FormField label="Current password" error={error && !next ? error : undefined}>
           <Input type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
         </FormField>
