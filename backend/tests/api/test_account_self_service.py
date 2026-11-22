@@ -7,6 +7,7 @@ from tests.support.sample_data import API
 
 boss = test_roles.boss
 team = test_roles.team
+WRONG_PASSWORD = "not-the-password-1"  # pragma: allowlist secret
 
 
 def _second_device(client, email="sam@example.com"):
@@ -51,7 +52,7 @@ def test_account_card_facts(client, boss, team):
 
 def test_change_security_question_needs_the_password(client, boss, team):
     bad = client.put(f"{API}/me/security-question", headers=team["sam"], json={
-        "current_password": "nope-nope-nope", "security_question_id": 1, "security_answer": "blue"})
+        "current_password": WRONG_PASSWORD, "security_question_id": 1, "security_answer": "blue"})
     assert bad.status_code == 422 or bad.status_code == 400
     ok = client.put(f"{API}/me/security-question", headers=team["sam"], json={
         "current_password": NEW_PASSWORD, "security_question_id": 1, "security_answer": "blue"})
@@ -64,7 +65,7 @@ def test_change_security_question_needs_the_password(client, boss, team):
 
 def test_deleting_my_account_locks_it_and_the_superuser_can_restore_it(client, boss, team):
     ids = team["ids"]
-    wrong = client.post(f"{API}/me/delete", headers=team["sam"], json={"password": "wrong-password-1"})
+    wrong = client.post(f"{API}/me/delete", headers=team["sam"], json={"password": WRONG_PASSWORD})
     assert wrong.status_code in (400, 422)
     assert client.post(f"{API}/me/delete", headers=team["sam"], json={"password": NEW_PASSWORD}).status_code == 200
     assert client.get(f"{API}/me", headers=team["sam"]).status_code == 401
