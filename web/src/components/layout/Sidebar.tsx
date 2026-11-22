@@ -3,7 +3,6 @@ import { ChevronLeft } from "lucide-react";
 import { LogoMark } from "@/components/ui/LogoMark";
 import { useBranding } from "@/hooks/queries";
 import { ADMIN_NAV_SECTIONS, NAV_SECTIONS, isAdminPath } from "@/config/nav";
-import { ProfileMenu } from "@/components/layout/ProfileMenu";
 import { useAdminStats } from "@/hooks/admin";
 import { selectIsSuperuser, useAuthStore } from "@/store/authStore";
 import { useUiStore } from "@/store/uiStore";
@@ -58,7 +57,8 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
                   onClick={onCloseMobile}
                   className={({ isActive }) =>
                     cn(
-                      "mb-0.5 flex items-center gap-3 rounded-[10px] px-3 py-2 text-[13.7px] font-medium text-ink-soft transition-colors",
+                      "relative mb-0.5 flex items-center rounded-[10px] py-2 text-[13.7px] font-medium text-ink-soft transition-colors",
+                      collapsed ? "justify-center px-0" : "gap-3 px-3",
                       "hover:bg-paper-sunken hover:text-ink",
                       isActive && "bg-accent-soft font-semibold text-accent hover:bg-accent-soft hover:text-accent",
                     )
@@ -67,7 +67,7 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
                   <item.icon size={17} className="flex-none" />
                   {!collapsed && <span className="flex-1 truncate">{item.label}</span>}
                   {item.pendingBadge && pending > 0 && (
-                    <span aria-label={`${pending} pending`} className="rounded-full bg-danger px-1.5 py-px text-[10.5px] font-bold text-white">
+                    <span aria-label={`${pending} pending`} className={cn("rounded-full bg-danger px-1.5 py-px text-[10.5px] font-bold text-white", collapsed && "absolute right-1 top-0.5")}>
                       {pending}
                     </span>
                   )}
@@ -78,7 +78,6 @@ export function Sidebar({ mobileOpen, onCloseMobile }: { mobileOpen: boolean; on
         </nav>
 
         <div className="space-y-2 pt-4">
-          <ProfileMenu admin={admin} collapsed={collapsed} onNavigate={onCloseMobile} />
           <button
             onClick={toggleCollapsed}
             className="flex w-full items-center justify-center gap-2 rounded-[10px] border border-line py-2 text-ink-faint hover:bg-paper-sunken hover:text-ink max-[980px]:hidden"

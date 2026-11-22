@@ -90,6 +90,17 @@ except `GET /me`, `POST /auth/change-password` and `POST /auth/logout` answers 4
 `GET /me/export` downloads the signed-in user's own ledger as a SQLite file (a consistent snapshot, without
 password hashes, security answers or sessions); it is disabled in demo mode.
 
+Self-service for the signed-in user (all but the reads are disabled in demo mode):
+
+- `GET /me/sessions` -- where the account is signed in: `[{id, createdAt, expiresAt, lastSeenAt, ip, userAgent, current}]`;
+  `current` is true for the session making the request.
+- `DELETE /me/sessions/{id}` -- sign out one device (404 if it is not yours).
+- `POST /me/sessions/revoke-others` -- sign out every device except this one; `{ended}`.
+- `GET /me/account` -- `{memberSince, lastLoginAt, ledgerBytes, securityQuestionId, deleteGraceDays}`.
+- `PUT /me/security-question` -- `{currentPassword, securityQuestionId, securityAnswer}`; needs the current password.
+- `POST /me/delete` -- `{password}`: puts the account in `pending_delete` (locked, all sessions ended). The
+  superuser can restore it, or purge it after `deleteGraceDays`. The superuser account cannot delete itself (409).
+
 **Is the instance set up?** `GET /api/v0.5/setup/status` (public) returns `{"initialized": true|false}`.
 A client can use it to choose between a first-run screen and a sign-in screen; `POST /setup/init` still
 re-checks atomically and answers `409` once any account exists. It creates the first superuser and their ledger.
@@ -320,6 +331,9 @@ mode. Superusers manage *accounts*; they never see ledger contents. Every action
   `MONETARY_ADMIN_BULK_LIMIT` (50) ids; each account is attempted on its own and reported:
   `{action, succeeded, failed, results: [{userId, ok, error}]}`. There is no bulk delete.
 - `POST /admin/purge` (superuser) -- permanently remove accounts whose 30-day grace ended; `{purged}`.
+- `POST /admin/purge-selected` (superuser) -- `{userIds}`: permanently remove those accounts **now**, skipping the
+  grace period. Only accounts already in `pending_delete` are touched; others are ignored. Audited as `user.purge`
+  with `forced: true`.
   `stats.overdueForPurge` counts them. User rows also carry `lastActivityAt` and `storageBytes`.
 - `GET /admin/audit-log?user_id=&limit=&offset=` -- newest first.
 - `GET /admin/audit-log/export` -- the whole audit log as a CSV download (`audit-log.csv`, newest first, at most

@@ -1,21 +1,19 @@
 import { useLocation } from "react-router-dom";
-import { Menu, Search, Sun, Moon, Plus } from "lucide-react";
+import { Menu, Search, Sun, Moon } from "lucide-react";
 import { ALL_ADMIN_NAV_ITEMS, ALL_NAV_ITEMS, isAdminPath } from "@/config/nav";
 import { useBranding } from "@/hooks/queries";
 import { useUiStore } from "@/store/uiStore";
 import { IconButton } from "@/components/ui/primitives";
-import { Button } from "@/components/ui/Button";
 import { CreateUserButton } from "@/components/admin/CreateUserButton";
 import { NotificationsMenu } from "@/components/layout/NotificationsMenu";
+import { ProfileMenu } from "@/components/layout/ProfileMenu";
 
 export function Topbar({
   onOpenMobileNav,
   onOpenCommandPalette,
-  onOpenQuickAdd,
 }: {
   onOpenMobileNav: () => void;
   onOpenCommandPalette: () => void;
-  onOpenQuickAdd: () => void;
 }) {
   const { name } = useBranding();
   const location = useLocation();
@@ -51,12 +49,8 @@ export function Topbar({
         </IconButton>
         <NotificationsMenu />
         {admin && <CreateUserButton />}
-        {!admin && (
-          <Button size="sm" onClick={onOpenQuickAdd} className="max-[980px]:hidden">
-            <Plus size={14} /> Add
-          </Button>
-        )}
       </div>
+      <ProfileMenu />
     </header>
   );
 }

@@ -17,6 +17,7 @@ from monetary.presentation.api.schemas.admin import (
     BulkRequest,
     PlatformOut,
     PurgeOut,
+    PurgeSelectedRequest,
     ReasonRequest,
     RoleRequest,
     SessionOut,
@@ -101,6 +102,17 @@ def bulk(payload: BulkRequest, request: Request, control: sqlite3.Connection = C
 def purge(request: Request, control: sqlite3.Connection = CONTROL, actor: dict = Depends(get_superuser)):
     """Permanently remove accounts whose 30-day deletion grace period has ended."""
     result = admin_service.purge_now(control, data_dir_from_environment(), actor, ip=_client_key(request))
+    control.commit()  # forget the accounts first; only then delete their files
+    operations.delete_files(result.files_to_delete)
+    return PurgeOut(purged=len(result.purged_emails))
+
+
+@router.post("/purge-selected", response_model=PurgeOut)
+def purge_selected(request: Request, payload: PurgeSelectedRequest, control: sqlite3.Connection = CONTROL,
+                   actor: dict = Depends(get_superuser)):
+    """Permanently remove the chosen accounts that are pending deletion, without waiting for the grace period."""
+    result = admin_service.purge_selected(
+        control, data_dir_from_environment(), actor, payload.user_ids, ip=_client_key(request))
     control.commit()  # forget the accounts first; only then delete their files
     operations.delete_files(result.files_to_delete)
     return PurgeOut(purged=len(result.purged_emails))

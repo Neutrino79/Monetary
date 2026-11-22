@@ -46,6 +46,7 @@ export const adminService = {
   bulk: (action: BulkAction, userIds: number[], reason?: string) =>
     http.post<BulkResult>("/admin/users/bulk", { action, userIds, reason: reason?.trim() || null }),
   purge: () => http.post<{ purged: number }>("/admin/purge"),
+  purgeSelected: (userIds: number[]) => http.post<{ purged: number }>("/admin/purge-selected", { userIds }),
 
   auditLog: (opts: { limit?: number; offset?: number; userId?: number } = {}) =>
     http.get<AdminPage<AuditEntry>>("/admin/audit-log", { limit: opts.limit ?? 50, offset: opts.offset ?? 0, user_id: opts.userId }),

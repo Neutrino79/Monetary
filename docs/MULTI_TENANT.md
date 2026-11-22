@@ -267,11 +267,20 @@ upgraded without losing any (the migration logs a warning and skips the unique i
 ### 6.3 Admin mode in the web app
 
 Admin mode uses the same shell as the ledger (sidebar, top bar, cards, buttons). An administrator reaches it from the
-profile menu at the foot of the sidebar ("Administration", with the pending count), from the bell (account requests
+profile avatar in the top-right corner of the top bar ("Administration", with the pending count), from the bell (account requests
 waiting) and from ⌘K, which searches users and admin pages there. The sidebar then shows Overview, Requests (with a
 count badge), Users and Audit log (with a CSV export), plus a **Platform** page that only the superuser sees: the
 installation's version, sizes and read-only sign-in settings. "My ledger" leads back. Normal users never see these entries, and the admin
 routes are rejected by the API for them regardless.
+
+An account that is pending deletion shows only **Restore** (no three-dot menu). On the Users page's "Pending deletion"
+tab the superuser sees how long each account has left, a **Purge overdue** button (the same as the CLI purge command) and
+**Delete selected now…**, which erases the ticked accounts immediately.
+
+Every user's **Settings** page also has: signed-in devices (this device marked; sign out one or all others),
+a security-question change, an account card (member since, last sign-in, ledger size) and "Delete my account"
+(password-confirmed; restorable by the superuser until the grace period ends). The sidebar has no profile box; the
+avatar in the top bar opens the account menu, and collapsed-sidebar icons are centred.
 Pages: sign-up, "waiting for approval", "request declined", "account suspended", and a forced "choose a new
 password" step.
 

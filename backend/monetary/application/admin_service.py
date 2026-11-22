@@ -435,6 +435,23 @@ def purge_now(conn, data_dir, actor: dict, *, ip: str | None = None) -> operatio
     return result
 
 
+def purge_selected(conn, data_dir, actor: dict, user_ids: list[int], *,
+                   ip: str | None = None) -> operations.PurgeResult:
+    """Purge the chosen pending-deletion accounts immediately (superuser only), skipping the grace period.
+    Accounts that are not pending deletion are left alone. The caller commits, then removes the files."""
+    _require_superuser(actor, action="purge accounts")
+    ids = list(dict.fromkeys(user_ids))
+    if not ids:
+        raise ValidationError("Choose at least one account.")
+    limit = config.bulk_action_limit()
+    if len(ids) > limit:
+        raise ValidationError(f"At most {limit} accounts at a time.")
+    result = operations.purge_accounts(conn, data_dir, ids, actor_id=actor["id"], ip=ip)
+    audit_service.record(conn, actor_user_id=actor["id"], action="admin.purge", target_user_id=None,
+                         detail={"accounts": len(result.purged_emails), "forced": True}, ip=ip)
+    return result
+
+
 def delete(conn, actor: dict, user_id: int, *, ip: str | None = None) -> dict:
     """Start deletion: the account is locked and its data is purged after DELETE_GRACE_DAYS.
     `restore` undoes it within that time."""

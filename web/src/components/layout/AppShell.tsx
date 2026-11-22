@@ -31,7 +31,6 @@ export function AppShell() {
           <Topbar
             onOpenMobileNav={() => setMobileNavOpen(true)}
             onOpenCommandPalette={() => setPaletteOpen(true)}
-            onOpenQuickAdd={() => setQuickAddOpen(true)}
           />
           <main className="mx-auto w-full max-w-330 min-w-0 flex-1 p-6 max-[980px]:p-4 max-[980px]:pb-24">
             <Outlet />

@@ -422,3 +422,65 @@ def update_profile(conn, user_id: int, *, name: str | None = None, timezone: str
         validate_timezone(timezone)
         changes["timezone"] = timezone
     return crepo.update_user(conn, user_id, now=utc_now_iso(), **changes)
+
+
+# --- self-service: devices, security question, account deletion -------------------------------------
+
+
+def _current_session_id(conn, token: str) -> int | None:
+    session = crepo.get_session_by_token_hash(conn, hash_session_token(token)) if token else None
+    return session["id"] if session is not None else None
+
+
+def list_my_sessions(conn, user: dict, token: str) -> list[dict]:
+    """Where this account is signed in, most recently used first; the caller's own session is marked."""
+    current = _current_session_id(conn, token)
+    now = datetime.now(dt_timezone.utc).isoformat()
+    return [{**s, "current": s["id"] == current} for s in crepo.list_sessions_for_user(conn, user["id"], now)]
+
+
+def revoke_my_session(conn, user: dict, session_id: int) -> None:
+    if not crepo.delete_session_of_user(conn, user["id"], session_id):
+        raise NotFoundError(f"Session {session_id} not found.")
+    audit_service.record(conn, actor_user_id=user["id"], action="self.revoke_session",
+                         target_user_id=user["id"], detail={"session_id": session_id})
+
+
+def revoke_other_sessions(conn, user: dict, token: str) -> int:
+    """Sign out every device except the one making the request; returns how many were ended."""
+    current = _current_session_id(conn, token)
+    now = datetime.now(dt_timezone.utc).isoformat()
+    ended = 0
+    for session in crepo.list_sessions_for_user(conn, user["id"], now):
+        if session["id"] != current and crepo.delete_session_of_user(conn, user["id"], session["id"]):
+            ended += 1
+    audit_service.record(conn, actor_user_id=user["id"], action="self.revoke_other_sessions",
+                         target_user_id=user["id"], detail={"ended": ended})
+    return ended
+
+
+def change_security_question(conn, user: dict, *, current_password: str, question_id: int, answer: str) -> None:
+    """Replace the "forgot password" question and answer. Needs the current password."""
+    if user["password_hash"] is None or not verify_password(current_password, user["password_hash"]):
+        raise ValidationError("Current password is incorrect.")
+    validate_security_question(question_id, answer)
+    crepo.update_user(conn, user["id"], now=utc_now_iso(), security_question_id=question_id,
+                      security_answer_hash=hash_security_answer(answer))
+    audit_service.record(conn, actor_user_id=user["id"], action="self.change_security_question",
+                         target_user_id=user["id"])
+
+
+def delete_my_account(conn, user: dict, *, password: str, grace_days: int) -> dict:
+    """Start deleting your own account: it is locked and every session ends, and it stays restorable
+    by the superuser until the grace period is over. The superuser account cannot be deleted this way."""
+    if user["role"] == PlatformRole.SUPERUSER.value:
+        raise ConflictError("The superuser account cannot be deleted; transfer the role first.")
+    if user["password_hash"] is None or not verify_password(password, user["password_hash"]):
+        raise ValidationError("Password is incorrect.")
+    after = (datetime.now(dt_timezone.utc) + timedelta(days=grace_days)).isoformat(timespec="seconds")
+    updated = crepo.update_user(conn, user["id"], now=utc_now_iso(), status=UserStatus.PENDING_DELETE.value,
+                                delete_after=after)
+    crepo.delete_sessions_for_user(conn, user["id"])
+    audit_service.record(conn, actor_user_id=user["id"], action="user.delete", target_user_id=user["id"],
+                         detail={"delete_after": after, "self": True})
+    return updated

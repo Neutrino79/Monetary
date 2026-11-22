@@ -12,7 +12,8 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useToast } from "@/components/ui/Toast";
 import { adminService } from "@/lib/api/services/adminService";
 import { formatBytes } from "@/lib/format/bytes";
-import { useAuthStore } from "@/store/authStore";
+import { ConfirmDialog } from "@/components/ui/Dialog";
+import { selectIsSuperuser, useAuthStore } from "@/store/authStore";
 import { ROLE_LABEL } from "@/lib/roles";
 import { UserActions, isLocked } from "@/components/admin/UserActions";
 import { PageIntro, Person, StatusBadge, TemporaryPasswordDialog, ago } from "@/components/admin/adminUi";
@@ -20,6 +21,13 @@ import { Pager, Table, TableCard, Th, tdClass, trClass } from "@/components/admi
 import type { AdminUser, BulkAction, IssuedPassword } from "@/types/admin";
 
 const PAGE = 10;
+
+/** "Deletes in 12 days" / "Overdue" for an account that is pending deletion. */
+function deletionNote(u: AdminUser): string | null {
+  if (u.status !== "pending_delete" || !u.deleteAfter) return null;
+  const days = Math.ceil((new Date(u.deleteAfter).getTime() - Date.now()) / 86_400_000);
+  return days <= 0 ? "Overdue for purge" : `Deletes in ${days} day${days === 1 ? "" : "s"}`;
+}
 type Sort = "activity" | "name" | "size" | "newest";
 type RoleFilter = "" | "admins" | "users";
 /** Sign-up requests (waiting or rejected) are decided on the Requests page; this list is for existing accounts. */
@@ -50,8 +58,11 @@ export function AdminUsersPage() {
   const [page, setPage] = useState(0);
   const [issued, setIssued] = useState<IssuedPassword | null>(null);
   const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [confirmPurge, setConfirmPurge] = useState(false);
+  const isSuperuser = useAuthStore(selectIsSuperuser);
   const toast = useToast();
   const stats = useAdminStats();
+  const purge = useAdminMutation((vars: { ids: number[] | null }) => (vars.ids ? adminService.purgeSelected(vars.ids) : adminService.purge()));
   const bulk = useAdminMutation((vars: { action: BulkAction; ids: number[] }) => adminService.bulk(vars.action, vars.ids));
   const q = useAdminUsers({ q: search, limit: 200 });
 
@@ -79,6 +90,18 @@ export function AdminUsersPage() {
       toast.show(e instanceof Error ? e.message : "Something went wrong.", { variant: "error" });
     }
   }
+
+  async function runPurge(ids: number[] | null) {
+    try {
+      const r = await purge.mutateAsync({ ids });
+      toast.show(r.purged ? `${r.purged} account${r.purged === 1 ? "" : "s"} permanently deleted.` : "Nothing to delete yet.", { variant: "success" });
+      setPicked(new Set());
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : "Something went wrong.", { variant: "error" });
+    }
+  }
+  const onPendingTab = tab === "pending_delete";
+  const overdue = stats.data?.overdueForPurge ?? 0;
 
   const userCell = (u: AdminUser) => (
     <div className="flex min-w-0 items-center gap-3">
@@ -130,7 +153,21 @@ export function AdminUsersPage() {
                 </FilterField>
               </StripFilters>
             </ControlStrip>
-            {picked.size > 0 && (
+            {onPendingTab && isSuperuser && (
+              <div role="toolbar" aria-label="Purge actions" className="flex flex-wrap items-center gap-2">
+                <Button size="sm" variant="secondary" disabled={purge.isPending || overdue === 0} onClick={() => runPurge(null)}>
+                  Purge overdue ({overdue})
+                </Button>
+                {picked.size > 0 && (
+                  <>
+                    <span className="text-[13px] font-medium">{picked.size} selected</span>
+                    <Button size="sm" variant="danger" disabled={purge.isPending} onClick={() => setConfirmPurge(true)}>Delete selected now…</Button>
+                    <Button size="sm" variant="ghost" onClick={() => setPicked(new Set())}>Clear</Button>
+                  </>
+                )}
+              </div>
+            )}
+            {!onPendingTab && picked.size > 0 && (
               <div role="toolbar" aria-label="Bulk actions" className="flex flex-wrap items-center gap-2">
                 <span className="text-[13px] font-medium">{picked.size} selected</span>
                 <Button size="sm" variant="secondary" disabled={bulk.isPending} onClick={() => runBulk("suspend")}>Suspend</Button>
@@ -159,6 +196,7 @@ export function AdminUsersPage() {
                         </div>
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-2 pl-7 text-[12.5px] text-ink-soft">
                           <StatusBadge status={u.status} />
+                          {deletionNote(u) && <span className="text-ink-faint">{deletionNote(u)}</span>}
                           <span data-testid={`role-${u.id}`}>{ROLE_LABEL[u.role]}</span>
                           <span>{ago(u.lastActivityAt)}</span>
                           <span>{u.storageBytes === null ? "—" : formatBytes(u.storageBytes)}</span>
@@ -181,7 +219,10 @@ export function AdminUsersPage() {
                       <tr key={u.id} className={trClass}>
                         <td className={tdClass}><Checkbox aria-label={`Select ${u.name}`} checked={picked.has(u.id)} onChange={() => toggle(u.id)} /></td>
                         <td className={tdClass}>{userCell(u)}</td>
-                        <td className={tdClass}><StatusBadge status={u.status} /></td>
+                        <td className={tdClass}>
+                          <StatusBadge status={u.status} />
+                          {deletionNote(u) && <div className="mt-1 text-[11.5px] text-ink-faint">{deletionNote(u)}</div>}
+                        </td>
                         <td className={`${tdClass} text-ink-soft`} data-testid={`role-${u.id}`}>{ROLE_LABEL[u.role]}</td>
                         <td className={`${tdClass} whitespace-nowrap text-ink-soft`}>{ago(u.lastActivityAt)}</td>
                         <td className={`${tdClass} whitespace-nowrap text-ink-soft`}>{u.storageBytes === null ? "—" : formatBytes(u.storageBytes)}</td>
@@ -197,6 +238,12 @@ export function AdminUsersPage() {
         </div>
       </Tabs>
 
+      <ConfirmDialog
+        open={confirmPurge} onOpenChange={setConfirmPurge}
+        title={`Permanently delete ${picked.size} account${picked.size === 1 ? "" : "s"}?`}
+        message="Their ledgers are erased now, without waiting for the 30 days. This cannot be undone."
+        confirmLabel="Delete now" onConfirm={() => runPurge([...picked])}
+      />
       <TemporaryPasswordDialog email={issued?.user.email ?? ""} password={issued?.temporaryPassword ?? null} onClose={() => setIssued(null)} />
     </div>
   );
