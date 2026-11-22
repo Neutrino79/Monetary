@@ -1,4 +1,4 @@
-import type { PlatformAccount, SecurityQuestion, User } from "@/types";
+import type { MyAccountInfo, MySession, PlatformAccount, SecurityQuestion, User } from "@/types";
 import type { OwnerDto, PasswordResetQuestion, ProfilePatch, RegisterInput, SetupInput } from "@/types/api";
 import { saveBlob } from "@/lib/utils/saveBlob";
 import { http } from "@/lib/api/http";
@@ -140,6 +140,14 @@ export const authService = {
   async resetPassword(email: string, answer: string, newPassword: string): Promise<void> {
     await http.post("/auth/reset-password", { email, securityAnswer: answer, newPassword }, { headers: await captchaHeaders() });
   },
+
+  mySessions: () => http.get<MySession[]>("/me/sessions"),
+  revokeMySession: (id: number) => http.delete<{ detail: string }>(`/me/sessions/${id}`),
+  revokeOtherSessions: () => http.post<{ ended: number }>("/me/sessions/revoke-others"),
+  myAccount: () => http.get<MyAccountInfo>("/me/account"),
+  changeSecurityQuestion: (currentPassword: string, securityQuestionId: number, securityAnswer: string) =>
+    http.put<{ detail: string }>("/me/security-question", { currentPassword, securityQuestionId, securityAnswer }),
+  deleteMyAccount: (password: string) => http.post<{ detail: string }>("/me/delete", { password }),
 
   async changePassword(currentPassword: string, newPassword: string): Promise<void> {
     await http.post("/auth/change-password", { currentPassword, newPassword });

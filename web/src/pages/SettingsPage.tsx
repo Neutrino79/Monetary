@@ -14,6 +14,7 @@ import { authService } from "@/lib/api/services/authService";
 import { currencySymbol } from "@/lib/utils/format";
 import type { LedgerMode } from "@/types";
 import { useFormError } from "@/lib/hooks/useFormErrors";
+import { AccountCard, DeleteAccountCard, SecurityQuestionCard, SignedInDevicesCard } from "@/components/settings/AccountCards";
 
 export function SettingsPage() {
   const user = useAuthStore((s) => s.user);
@@ -22,6 +23,7 @@ export function SettingsPage() {
   const toggleTheme = useUiStore((s) => s.toggleTheme);
   const toast = useToast();
   const { name: appName, tagline } = useBranding();
+  const { isDemo } = useDemoMode();
 
   const [name, setName] = useState(user?.name ?? "");
   const [timezone, setTimezone] = useState(user?.timezone ?? appConfig.defaultTimezone);
@@ -96,7 +98,11 @@ export function SettingsPage() {
           </Card>
 
           <ChangePasswordCard />
+          {!isDemo && <SignedInDevicesCard />}
+          {!isDemo && <SecurityQuestionCard />}
           <ExportCard />
+          {!isDemo && <AccountCard />}
+          {!isDemo && <DeleteAccountCard />}
 
           <Card>
             <div className="mb-1 text-[14.5px] font-semibold">Ledger mode</div>

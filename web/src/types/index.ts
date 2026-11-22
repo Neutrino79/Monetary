@@ -262,3 +262,24 @@ export interface DateRange {
   to: string;
 }
 export * from "./reports";
+
+/** One place the signed-in person is signed in (`GET /me/sessions`). */
+export interface MySession {
+  id: number;
+  createdAt: string;
+  expiresAt: string;
+  lastSeenAt: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  /** The session making this request. */
+  current: boolean;
+}
+
+/** Facts for the Settings account card (`GET /me/account`). */
+export interface MyAccountInfo {
+  memberSince: string;
+  lastLoginAt: string | null;
+  ledgerBytes: number | null;
+  securityQuestionId: number | null;
+  deleteGraceDays: number;
+}

@@ -46,6 +46,12 @@ export function UserActions({ user, isSelf, onIssued }: { user: AdminUser; isSel
   const nextRole = user.role === "admin" ? "user" : "admin";
   // Only accounts below your own role can be managed; deleting and changing roles is the superuser's alone.
   if (!outranks(actorRole, user.role)) return null;
+  const canSuspend = s === "active" && !isSelf;
+  const canReset = s === "active" || s === "suspended";
+  const canChangeRole = s === "active" && isSuperuser;
+  const canDelete = s !== "pending_delete" && !isSelf && isSuperuser;
+  // An account pending deletion has nothing but "Restore", so it gets no (empty) menu.
+  const hasMenu = canSuspend || canReset || canChangeRole || canDelete;
 
   return (
     <div className="flex items-center justify-end gap-2">
@@ -68,30 +74,30 @@ export function UserActions({ user, isSelf, onIssued }: { user: AdminUser; isSel
         <Button size="sm" variant="secondary" onClick={() => attempt(() => adminService.restore(user.id), `${user.name} restored.`)}>Restore</Button>
       )}
 
-      <DropdownMenu.Root>
+      {hasMenu && <DropdownMenu.Root>
         <DropdownMenu.Trigger asChild>
           <IconButton aria-label={`More actions for ${user.name}`}><MoreHorizontal size={17} /></IconButton>
         </DropdownMenu.Trigger>
         <DropdownMenu.Portal>
           <DropdownMenu.Content align="end" className="z-[90] min-w-48 rounded-[12px] border border-line bg-paper-raised p-1 shadow-xl">
-            {s === "active" && !isSelf && <DropdownMenu.Item className={itemClass} onSelect={() => setPending("suspend")}>Suspend…</DropdownMenu.Item>}
-            {(s === "active" || s === "suspended") && (
+            {canSuspend && <DropdownMenu.Item className={itemClass} onSelect={() => setPending("suspend")}>Suspend…</DropdownMenu.Item>}
+            {canReset && (
               <DropdownMenu.Item className={itemClass} onSelect={() => setPending("reset")}>Reset password…</DropdownMenu.Item>
             )}
-            {(s === "active" || s === "suspended") && (
+            {canReset && (
               <DropdownMenu.Item className={itemClass} onSelect={() => setPending("revoke")}>Sign out everywhere…</DropdownMenu.Item>
             )}
-            {s === "active" && isSuperuser && (
+            {canChangeRole && (
               <DropdownMenu.Item className={itemClass} onSelect={() => setPending("role")}>
                 {nextRole === "admin" ? "Make admin…" : "Make regular user…"}
               </DropdownMenu.Item>
             )}
-            {s !== "pending_delete" && !isSelf && isSuperuser && (
+            {canDelete && (
               <DropdownMenu.Item className={`${itemClass} text-danger`} onSelect={() => setPending("delete")}>Delete…</DropdownMenu.Item>
             )}
           </DropdownMenu.Content>
         </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+      </DropdownMenu.Root>}
 
       <ReasonDialog
         open={pending === "reject"} title="Reject request" subtitle={user.email} confirmLabel="Reject"
