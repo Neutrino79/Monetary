@@ -8,6 +8,7 @@ import { AdminUserDetailPage } from "@/pages/admin/AdminUserDetailPage";
 import { AdminAuditPage } from "@/pages/admin/AdminAuditPage";
 import { AdminPlatformPage } from "@/pages/admin/AdminPlatformPage";
 import { AppShell } from "@/components/layout/AppShell";
+import { ConnectionBanner } from "@/components/layout/ConnectionBanner";
 import { useBranding } from "@/hooks/queries";
 
 const LoginPage = lazy(() => import("@/pages/auth/LoginPage").then((m) => ({ default: m.LoginPage })));
@@ -47,6 +48,7 @@ export default function App() {
   useDocumentBranding();
   return (
     <BrowserRouter>
+      <ConnectionBanner />
       <Suspense fallback={<RouteFallback />}>
         <Routes>
           <Route element={<GuestOnlyRoute />}>

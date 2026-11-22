@@ -6,6 +6,7 @@
 import { appConfig } from "@/config/app";
 import { tokenStorage } from "./tokenStorage";
 import { ApiError, apiErrorFromBody } from "./errors";
+import { reportProblem, reportReachable } from "./connection";
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 type QueryValue = string | number | boolean | null | undefined | (string | number)[];
@@ -68,6 +69,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       signal: options.signal ?? controller.signal,
     });
 
+    // Any answer proves the server is reachable, except a gateway saying the app behind it is down.
+    if (res.status === 502 || res.status === 503 || res.status === 504) reportProblem("server");
+    else reportReachable();
+
     if (!res.ok) {
       let parsed: unknown;
       try {
@@ -86,8 +91,10 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   } catch (err) {
     if (ApiError.isApiError(err)) throw err;
     if (err instanceof DOMException && err.name === "AbortError") {
+      if (controller.signal.aborted) reportProblem("network"); // our own timeout, not a caller cancelling
       throw new ApiError("The request timed out. Check your connection and try again.", 0, "TIMEOUT");
     }
+    if (err instanceof TypeError) reportProblem("network"); // fetch itself failed: no route to the server
     throw new ApiError("Can't reach the server. Check your connection and try again.", 0, "NETWORK");
   } finally {
     clearTimeout(timeout);

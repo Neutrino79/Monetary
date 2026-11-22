@@ -30,6 +30,10 @@ export const appConfig = {
   apiBaseUrl: env("VITE_API_BASE_URL", "http://localhost:8000/api/v0.5").replace(/\/+$/, ""),
   /** Request timeout (ms) for the HTTP client. */
   apiTimeoutMs: Number(env("VITE_API_TIMEOUT_MS", "15000")) || 15000,
+  /** First wait (seconds) before re-checking a lost connection; it doubles on every failed check. */
+  connectionRetryBaseSeconds: Number(env("VITE_CONNECTION_RETRY_BASE_SECONDS", "3")) || 3,
+  /** The longest wait (seconds) between connection checks. */
+  connectionRetryMaxSeconds: Number(env("VITE_CONNECTION_RETRY_MAX_SECONDS", "30")) || 30,
 } as const;
 
 export type AppConfig = typeof appConfig;
