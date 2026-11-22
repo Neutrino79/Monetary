@@ -1,23 +1,21 @@
 import { Link } from "react-router-dom";
-import { Fragment, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import type { Transaction } from "@/types";
-import { Drawer, ConfirmDialog, Modal } from "@/components/ui/Dialog";
+import { Drawer, ConfirmDialog } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
-import { AmountInput, FormField, Textarea } from "@/components/ui/form";
-import { DatePicker } from "@/components/ui/DatePicker";
-import { Avatar } from "@/components/ui/primitives";
+import { Avatar, ProgressBar } from "@/components/ui/primitives";
 import { AccountChip, CategoryChip, IncomeSourceChip, TxnBadge, TxnAmount, TxnIconChip } from "./chips";
 import { useAccounts, useCategories, useFriendBalances, useFriends, useIncomeSources, useTransaction, useTransactions } from "@/hooks/queries";
 import { ApiError } from "@/lib/api/errors";
-import { useDeleteTransaction, useCreateTransaction } from "@/hooks/mutations";
+import { useDeleteTransaction } from "@/hooks/mutations";
 import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/components/ui/Toast";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
-import { today } from "@/lib/utils/clock";
 import { TransactionForm } from "./TransactionForm";
 import { SettleForm } from "./SettleForm";
-import { Trash2 } from "lucide-react";
-import { useFormError } from "@/lib/hooks/useFormErrors";
+import { ArrowLeft, ChevronRight, Trash2 } from "lucide-react";
+import { RefundEditForm, RefundForm } from "./RefundForms";
+import { summariseRefunds } from "@/lib/utils/refunds";
 
 interface ReceiptRow {
   label: string;
@@ -56,13 +54,35 @@ function Perforation() {
     </div>
   );
 }
-export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction | null; open: boolean; onOpenChange: (open: boolean) => void }) {
+/** One row of "go to that transaction": a refund's purchase, a purchase's refund, a correction. */
+function LinkedTxnRow({ t, hint, onOpen }: { t: Transaction; hint?: string; onOpen: (t: Transaction) => void }) {
+  return (
+    <button type="button" onClick={() => onOpen(t)} className="flex w-full items-center gap-3 rounded-[10px] px-2 py-2.5 text-left transition-colors hover:bg-paper-sunken focus-visible:bg-paper-sunken">
+      <TxnIconChip txn={t} size={32} />
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-[13.3px] font-semibold">{t.description}</div>
+        <div className="text-[12px] text-ink-faint">{formatDate(t.date)}{hint ? ` · ${hint}` : ""}</div>
+      </div>
+      <TxnAmount txn={t} />
+      <ChevronRight size={16} className="flex-none text-ink-faint" aria-hidden="true" />
+    </button>
+  );
+}
+
+export function TxnDetailDrawer({ txn: base, open, onOpenChange }: { txn: Transaction | null; open: boolean; onOpenChange: (open: boolean) => void }) {
+  // Following a link (a refund's purchase, a purchase's refund) stacks transactions on top of the one first opened.
+  const [trail, setTrail] = useState<Transaction[]>([]);
+  useEffect(() => setTrail([]), [base?.id, open]);
+  const txn = trail.length ? trail[trail.length - 1]! : base;
+  const previous = trail.length > 1 ? trail[trail.length - 2]! : base;
   const { data: accounts = [] } = useAccounts();
   const { data: categories = [] } = useCategories();
   const { data: friends = [] } = useFriends();
   const { data: incomeSources = [] } = useIncomeSources();
   const { data: balances = [] } = useFriendBalances();
-  const refundsQuery = useTransactions({ type: ["refund"], refundOfId: txn?.type === "expense" ? txn.id : undefined, limit: 50 }, txn?.type === "expense");
+  // The purchase a refund belongs to, and every refund recorded against a purchase (seen from either side).
+  const purchaseId = txn?.type === "expense" ? txn.id : txn?.type === "refund" ? txn.refundOfId : undefined;
+  const refundsQuery = useTransactions({ type: ["refund"], refundOfId: purchaseId, limit: 200 }, purchaseId != null);
   const refundOf = useTransaction(txn?.refundOfId);
   const correctionOf = useTransaction(txn?.correctionOf);
   const replacedBy = useTransaction(txn?.replacedBy);
@@ -73,6 +93,8 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [refundOpen, setRefundOpen] = useState(false);
+  const [refundEditOpen, setRefundEditOpen] = useState(false);
+  const [refundsBlockDelete, setRefundsBlockDelete] = useState(false);
   const [payBackOpen, setPayBackOpen] = useState(false);
   /** Deleting a split friends have settled against needs an explicit OK. */
   const [forceDelete, setForceDelete] = useState<string | null>(null);
@@ -84,12 +106,25 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
   const category = [...categories, ...incomeSources].find((c) => c.id === txn.categoryId);
   const friend = friends.find((f) => f.id === txn.friendId);
   // Linked transactions, fetched by id / by link rather than filtered out of a full in-browser list.
-  const related = [...(refundsQuery.data?.items ?? []), refundOf.data, correctionOf.data, replacedBy.data].filter((t): t is Transaction => !!t && t.id !== txn.id);
+  const refunds = refundsQuery.data?.items ?? [];
+  const purchase = txn.type === "expense" ? txn : refundOf.data;
+  const summary = purchase ? summariseRefunds(purchase.amount, refunds) : null;
+  const otherRefunds = refunds.filter((r) => r.id !== txn.id);
+  const corrections = [correctionOf.data, replacedBy.data].filter((t): t is Transaction => !!t && t.id !== txn.id);
+  // Opening something already on the path goes back to it instead of stacking a loop (purchase -> refund -> purchase ...).
+  const openLinked = (t: Transaction) =>
+    setTrail((prev) => {
+      if (base && t.id === base.id) return [];
+      const at = prev.findIndex((x) => x.id === t.id);
+      return at >= 0 ? prev.slice(0, at + 1) : [...prev, t];
+    });
+  const backLabel = previous ? (previous.type === "refund" ? "Back to refund" : previous.type === "expense" ? "Back to purchase" : `Back to ${previous.description}`) : "";
 
   const editable = ["income", "expense", "transfer", "split", "fronted"].includes(txn.type) && txn.status === "posted";
+  const isRefund = txn.type === "refund" && txn.status === "posted";
 
   // settlements are delete-only: undoing one makes the friend owe (or you owe) that amount again
-  const deletable = editable || (txn.type === "settlement" && txn.status === "posted");
+  const deletable = editable || isRefund || (txn.type === "settlement" && txn.status === "posted");
 
   async function handleDelete(force = false) {
     if (!txn) return;
@@ -128,7 +163,17 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
     rows.push({ label: "Account", value: account?.name ?? "—" }, { label: "Direction", value: txn.direction === "receive" ? "Received from friend" : "Paid to friend" });
   } else if (txn.type === "refund") {
     rows.push({ label: "Refunded to", value: account?.name ?? "—" }, { label: "Category", value: category?.name ?? "—" });
-    if (refundOf.data) rows.push({ label: "Original expense", value: `${refundOf.data.description} (${formatCurrency(refundOf.data.amount)})` });
+    if (refundOf.data) {
+      rows.push({
+        label: "Refund of",
+        value: (
+          <button type="button" onClick={() => openLinked(refundOf.data!)} className="inline-flex max-w-full items-center gap-1 font-medium text-accent hover:underline">
+            <span className="truncate">{refundOf.data.description} ({formatCurrency(refundOf.data.amount)})</span>
+            <ChevronRight size={14} className="flex-none" aria-hidden="true" />
+          </button>
+        ),
+      });
+    }
   } else if (txn.type === "adjustment") {
     rows.push(
       { label: "Account", value: account?.name ?? "—" },
@@ -142,6 +187,7 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
   const srcRow = incomeSources.find((c) => c.id === txn.categoryId);
   const flowCategory = catRow ? { name: catRow.name, chip: <CategoryChip category={catRow} size={44} /> } : srcRow ? { name: srcRow.name, chip: <IncomeSourceChip source={srcRow} size={44} /> } : null;
   const canRefund = txn.type === "expense" && txn.status === "posted";
+  const fullyRefunded = canRefund && !!summary && summary.complete && summary.count > 0;
   return (
     <>
       <Drawer
@@ -151,16 +197,16 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
         hideTitle
         eyebrow="Transaction"
         footer={
-          editable || canRefund || deletable ? (
+          editable || isRefund || canRefund || deletable ? (
             <>
-              {editable && <Button onClick={() => setEditOpen(true)}>Edit</Button>}
+              {(editable || isRefund) && <Button onClick={() => (isRefund ? setRefundEditOpen(true) : setEditOpen(true))}>{isRefund ? "Edit refund" : "Edit"}</Button>}
               {canRefund && (
-                <Button variant="secondary" onClick={() => setRefundOpen(true)}>
-                  Record refund
+                <Button variant="secondary" disabled={fullyRefunded} onClick={() => setRefundOpen(true)}>
+                  {fullyRefunded ? "Fully refunded" : "Record refund"}
                 </Button>
               )}
               {deletable && (
-                <Button variant="secondary" aria-label="Delete" title="Delete" className="flex-none! w-11 px-0 text-danger" onClick={() => setConfirmDelete(true)}>
+                <Button variant="secondary" aria-label="Delete" title="Delete" className="flex-none! w-11 px-0 text-danger" onClick={() => (txn.type === "expense" && refunds.length > 0 ? setRefundsBlockDelete(true) : setConfirmDelete(true))}>
                   <Trash2 size={17} />
                 </Button>
               )}
@@ -168,6 +214,11 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
           ) : undefined
         }
       >
+        {trail.length > 0 && previous && (
+          <button type="button" onClick={() => setTrail((prev) => prev.slice(0, -1))} className="mb-3 inline-flex items-center gap-1.5 text-[12.8px] font-medium text-accent hover:underline">
+            <ArrowLeft size={14} aria-hidden="true" /> {backLabel}
+          </button>
+        )}
         <div className="mb-5 overflow-hidden rounded-2xl border border-line bg-paper-sunken">
           <div className="flex flex-col items-center px-5 pb-6 pt-6 text-center">
             <TxnIconChip txn={txn} size={52} />
@@ -283,18 +334,31 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
           </DetailSection>
         )}
 
-        {related.length > 0 && (
-          <DetailSection title="Related transactions">
-            {related.map((r) => (
-              <div key={r.id} className="flex items-center gap-3 py-3">
-                <TxnIconChip txn={r} size={32} />
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13.3px] font-semibold">{r.description}</div>
-                  <div className="text-[12px] text-ink-faint">{formatDate(r.date)}</div>
-                </div>
-                <TxnAmount txn={r} />
+        {summary && summary.count > 0 && (
+          <DetailSection title="Refunds">
+            <div className="mb-2 rounded-[10px] border border-line bg-paper-sunken p-4">
+              <div className="mb-2 flex items-baseline justify-between gap-3 text-[13.3px]">
+                <span className="font-semibold">{formatCurrency(summary.refunded, true)} of {formatCurrency(summary.original, true)} refunded</span>
+                <span className="text-ink-faint">{summary.count} refund{summary.count === 1 ? "" : "s"}</span>
               </div>
-            ))}
+              <ProgressBar pct={summary.pct} />
+              <div className="mt-2 text-[12px] text-ink-soft">
+                {summary.complete ? "Nothing left to refund." : `${formatCurrency(summary.remaining, true)} can still be refunded.`} Net cost {formatCurrency(summary.net, true)}.
+              </div>
+            </div>
+            {txn.type === "expense" && refunds.map((r) => <LinkedTxnRow key={r.id} t={r} onOpen={openLinked} />)}
+            {txn.type === "refund" && otherRefunds.length > 0 && (
+              <>
+                <div className="mb-1 mt-3 text-[12px] text-ink-faint">Other refunds on this purchase</div>
+                {otherRefunds.map((r) => <LinkedTxnRow key={r.id} t={r} onOpen={openLinked} />)}
+              </>
+            )}
+          </DetailSection>
+        )}
+
+        {corrections.length > 0 && (
+          <DetailSection title="Related transactions">
+            {corrections.map((r) => <LinkedTxnRow key={r.id} t={r} hint={r.id === txn.correctionOf ? "Replaced by this" : "Replaced this"} onOpen={openLinked} />)}
           </DetailSection>
         )}
 
@@ -323,9 +387,11 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
       <ConfirmDialog
         open={confirmDelete}
         onOpenChange={setConfirmDelete}
-        title={txn.type === "settlement" ? "Delete this settlement?" : "Delete this transaction?"}
+        title={txn.type === "settlement" ? "Delete this settlement?" : txn.type === "refund" ? "Delete this refund?" : "Delete this transaction?"}
         message={
-          txn.type === "settlement"
+          txn.type === "refund"
+            ? `The ${formatCurrency(txn.amount, true)} refund is removed: ${account?.name ?? "the account"} is reduced by that amount and it can be refunded again on the purchase. ${ledgerMode === "STRICT" ? "A reversal stays in history." : "It is removed permanently."}`
+            : txn.type === "settlement"
             ? `${friend?.name ?? "This friend"}'s balance goes back to what it was before this ${txn.direction === "receive" ? "payment" : "repayment"}, and ${account?.name ?? "the account"} is ${txn.direction === "receive" ? "reduced" : "increased"} by ${formatCurrency(txn.amount, true)}. ${ledgerMode === "STRICT" ? "A reversal stays in history." : "It is removed permanently."}`
             : ledgerMode === "STRICT"
             ? "In STRICT mode this posts a reversal — the original stays in history but no longer affects balances."
@@ -349,78 +415,19 @@ export function TxnDetailDrawer({ txn, open, onOpenChange }: { txn: Transaction 
       {editable && <TransactionForm open={editOpen} onOpenChange={setEditOpen} editingTxn={txn} onSaved={() => onOpenChange(false)} />}
 
       {txn.type === "fronted" && friend && <SettleForm friend={friend} open={payBackOpen} onOpenChange={setPayBackOpen} defaultAmount={txn.unpaid} />}
-      {txn.type === "expense" && <RefundForm original={txn} open={refundOpen} onOpenChange={setRefundOpen} onDone={() => onOpenChange(false)} />}
+      <ConfirmDialog
+        open={refundsBlockDelete}
+        onOpenChange={setRefundsBlockDelete}
+        variant="primary"
+        title="This purchase has refunds"
+        message={`${summary?.count ?? 0} refund${summary?.count === 1 ? "" : "s"} totalling ${formatCurrency(summary?.refunded ?? 0, true)} ${summary?.count === 1 ? "is" : "are"} linked to it. Delete the refund${summary?.count === 1 ? "" : "s"} first (open one from the Refunds list), then delete the purchase.`}
+        confirmLabel="Got it"
+        onConfirm={() => undefined}
+      />
+
+      {txn.type === "expense" && summary && <RefundForm original={txn} summary={summary} open={refundOpen} onOpenChange={setRefundOpen} />}
+      {isRefund && purchase && summary && <RefundEditForm refund={txn} original={purchase} summary={summary} open={refundEditOpen} onOpenChange={setRefundEditOpen} onSaved={() => onOpenChange(false)} />}
     </>
   );
 }
 
-
-function RefundForm({ original, open, onOpenChange, onDone }: { original: Transaction; open: boolean; onOpenChange: (o: boolean) => void; onDone: () => void }) {
-  const createTxn = useCreateTransaction();
-  const toast = useToast();
-  const [amount, setAmount] = useState(String(original.amount));
-  const [date, setDate] = useState(today());
-  const [memo, setMemo] = useState("");
-  const [error, setError] = useFormError([amount, date]);
-
-  async function submit() {
-    const amt = Number(amount);
-    if (!/^\d+(\.\d{1,2})?$/.test(amount.trim()) || !(amt > 0)) {
-      setError("Enter an amount above 0 with at most 2 decimals.");
-      return;
-    }
-    setError("");
-    try {
-      await createTxn.mutateAsync({
-        type: "refund",
-        description: `Refund — ${original.description}`,
-        memo: memo.trim() || null,
-        date,
-        accountId: original.accountId,
-        categoryId: original.categoryId,
-        amount: amt,
-        refundOfId: original.id,
-      });
-      toast.show("Refund recorded.", { variant: "success" });
-      onOpenChange(false);
-      onDone();
-    } catch (e) {
-      // the server knows what's already been refunded and says how much is left
-      const message = e instanceof Error ? e.message : "Something went wrong.";
-      if (ApiError.isApiError(e) && e.status < 500 && e.status !== 0) setError(message);
-      toast.show(message, { variant: "error" });
-    }
-  }
-
-  return (
-    <Modal
-      open={open}
-      onOpenChange={onOpenChange}
-      title="Record a refund"
-      subtitle={`Linked to "${original.description}"`}
-      size="sm"
-      footer={
-        <>
-          <Button variant="ghost" onClick={() => onOpenChange(false)}>
-            Cancel
-          </Button>
-          <Button onClick={submit}>Record refund</Button>
-        </>
-      }
-    >
-      <FormField label="Refund amount" hint={`Up to the original ${formatCurrency(original.amount, true)}, minus anything already refunded.`} error={error}>
-        <AmountInput value={amount} max={original.amount} onChange={(e) => setAmount(e.target.value)} />
-      </FormField>
-      <div className="mt-3">
-        <FormField label="Date">
-          <DatePicker max={today()} value={date} onChange={setDate} />
-        </FormField>
-      </div>
-      <div className="mt-3">
-        <FormField label="Memo">
-          <Textarea rows={2} value={memo} onChange={(e) => setMemo(e.target.value)} placeholder="Why was this refunded?" />
-        </FormField>
-      </div>
-    </Modal>
-  );
-}
