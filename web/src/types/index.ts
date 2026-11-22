@@ -124,6 +124,20 @@ export interface User {
   updatedAt: string;
 }
 
+/** The signed-in platform account (GET /me): who they are on the service, as opposed to `User`, the owner row of their own ledger. */
+export type AccountRole = "user" | "admin" | "superuser";
+export type AccountStatus = "pending_approval" | "active" | "rejected" | "suspended" | "pending_delete";
+
+export interface PlatformAccount {
+  id: Id;
+  email: string;
+  name: string;
+  role: AccountRole;
+  status: AccountStatus;
+  mustChangePassword: boolean;
+  hasLedger: boolean;
+}
+
 export interface SecurityQuestion {
   id: number;
   text: string;
@@ -248,3 +262,24 @@ export interface DateRange {
   to: string;
 }
 export * from "./reports";
+
+/** One place the signed-in person is signed in (`GET /me/sessions`). */
+export interface MySession {
+  id: number;
+  createdAt: string;
+  expiresAt: string;
+  lastSeenAt: string | null;
+  ip: string | null;
+  userAgent: string | null;
+  /** The session making this request. */
+  current: boolean;
+}
+
+/** Facts for the Settings account card (`GET /me/account`). */
+export interface MyAccountInfo {
+  memberSince: string;
+  lastLoginAt: string | null;
+  ledgerBytes: number | null;
+  securityQuestionId: number | null;
+  deleteGraceDays: number;
+}

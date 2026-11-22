@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useEffect } from "react";
 import { TriangleAlert } from "lucide-react";
 import { useAuthStore } from "@/store/authStore";
@@ -10,6 +10,8 @@ import { timezoneOptions } from "@/config/timezones";
 import { appConfig } from "@/config/app";
 import { useBranding, useSecurityQuestions, useSetupStatus } from "@/hooks/queries";
 import { ApiError } from "@/lib/api/errors";
+import { authService } from "@/lib/api/services/authService";
+import { useDemoMode } from "@/hooks/queries";
 import { AuthShell } from "./AuthShell";
 import { useFormError } from "@/lib/hooks/useFormErrors";
 
@@ -22,21 +24,27 @@ export function SignupPage() {
   const toast = useToast();
 
   const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
+  const [params] = useSearchParams();
+  const [email, setEmail] = useState(params.get("email") ?? ""); // "Request again" arrives here with it filled in
+  const [website, setWebsite] = useState(""); // honeypot: real people never see or fill this
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [timezone, setTimezone] = useState(appConfig.defaultTimezone);
   const [currency, setCurrency] = useState(appConfig.currencyCode);
   const [questionId, setQuestionId] = useState<number | null>(null);
-  const [alreadySetUp, setAlreadySetUp] = useState(false);
+  const { isDemo } = useDemoMode();
+  // First run creates the superuser; once any account exists this page asks for an account instead.
+  const [raced, setRaced] = useState(false);
+  const [requested, setRequested] = useState(false);
+  const requesting = status.data === true || raced;
   const selectedQuestion = questionId ?? questions[0]?.id ?? null;
   const [answer, setAnswer] = useState("");
   const [error, setError] = useFormError([name, email, password, confirm, timezone, currency, questionId, answer]);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (status.data === true) setAlreadySetUp(true);
-  }, [status.data]);
+    if (isDemo) navigate("/login", { replace: true }); // the demo has no sign-ups
+  }, [isDemo, navigate]);
 
   async function submit() {
     setError("");
@@ -51,28 +59,31 @@ export function SignupPage() {
 
     setLoading(true);
     try {
+      if (requesting) {
+        await authService.register({ name: name.trim(), email: email.trim(), password, timezone, homeCurrencyCode: currency.toUpperCase(), securityQuestionId: selectedQuestion, securityAnswer: answer.trim(), website });
+        setRequested(true);
+        return;
+      }
       await setupAccount({ name: name.trim(), email: email.trim(), password, timezone, homeCurrencyCode: currency.toUpperCase(), securityQuestionId: selectedQuestion, securityAnswer: answer.trim() });
       toast.show(`Account created — welcome to ${appName}!`, { variant: "success" });
       navigate("/dashboard");
     } catch (e) {
-      if (ApiError.isApiError(e) && e.code === "ALREADY_SETUP") setAlreadySetUp(true);
+      if (ApiError.isApiError(e) && e.code === "ALREADY_SETUP") setRaced(true);
       else setError(e instanceof Error ? e.message : "Something went wrong.");
     } finally {
       setLoading(false);
     }
   }
 
-  if (alreadySetUp) {
+  if (requested) {
     return (
       <AuthShell>
-        <h1 className="mb-1 text-[19px] font-semibold">{appName} is already set up</h1>
+        <h1 className="mb-1 text-[19px] font-semibold">Request received</h1>
         <p className="mb-6 text-[12.8px] text-ink-faint">
-          This instance already has an owner, so setup can't be run again. Sign in with your account, or reset your password if you've forgotten it.
+          Thanks! An administrator will review your request. Once it is approved, sign in with the email and password you just chose. If you
+          already have an account, nothing changes: sign in as usual.
         </p>
-        <div className="flex flex-col gap-3">
-          <Button block onClick={() => navigate("/login")}>Sign in</Button>
-          <Button block variant="secondary" onClick={() => navigate("/forgot-password")}>Forgot password?</Button>
-        </div>
+        <Button block onClick={() => navigate("/login")}>Back to sign in</Button>
       </AuthShell>
     );
   }
@@ -99,8 +110,12 @@ export function SignupPage() {
 
   return (
     <AuthShell wide>
-      <h1 className="mb-1 text-[19px] font-semibold">Set up your ledger</h1>
-      <p className="mb-6 text-[12.8px] text-ink-faint">Create the owner account for this instance. This can only be done once.</p>
+      <h1 className="mb-1 text-[19px] font-semibold">{requesting ? "Request an account" : "Set up your ledger"}</h1>
+      <p className="mb-6 text-[12.8px] text-ink-faint">
+        {requesting
+          ? `Ask for your own private ledger on ${appName}. An administrator approves new accounts before they can sign in.`
+          : "Create the first account for this instance. It becomes the administrator. This can only be done once."}
+      </p>
       {error && (
         <div className="mb-4 flex items-center gap-2 rounded-[10px] bg-danger-soft px-3 py-3 text-[12.8px] text-danger">
           <TriangleAlert size={15} className="flex-none" />
@@ -111,6 +126,10 @@ export function SignupPage() {
         <FormField label="Full name" htmlFor="su-name">
           <Input id="su-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
         </FormField>
+      </div>
+      <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+        <label htmlFor="su-website">Website</label>
+        <input id="su-website" name="website" type="text" tabIndex={-1} autoComplete="off" value={website} onChange={(e) => setWebsite(e.target.value)} />
       </div>
       <div className="mb-4">
         <FormField label="Email" htmlFor="su-email">
@@ -156,8 +175,16 @@ export function SignupPage() {
         </FormField>
       </div>
       <Button block onClick={submit} disabled={loading}>
-        {loading ? "Setting up…" : "Create owner account"}
+        {loading ? (requesting ? "Sending…" : "Setting up…") : requesting ? "Request account" : "Create administrator account"}
       </Button>
+      {requesting && (
+        <p className="mt-5 text-center text-[12.8px] text-ink-faint">
+          Already have an account?{" "}
+          <button type="button" className="font-medium text-ink hover:underline" onClick={() => navigate("/login")}>
+            Sign in
+          </button>
+        </p>
+      )}
     </AuthShell>
   );
 }

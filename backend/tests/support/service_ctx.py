@@ -14,10 +14,8 @@ class Ctx:
 
     def __init__(self, conn):
         self.conn = conn
-        self.owner = user_service.bootstrap_owner(
-            conn, name=sd.OWNER["name"], email=sd.OWNER["email"], timezone=sd.OWNER["timezone"],
-            home_currency_code=sd.OWNER["currency"], password=sd.OWNER["password"],
-            security_question_id=1, security_answer="x")
+        self.owner = user_service.create_ledger_settings(
+            conn, timezone=sd.OWNER["timezone"], home_currency_code=sd.OWNER["currency"])
         self.acct = {k: account_service.create_account(
             conn, name=v["name"], account_type=v["type"], currency_code=v["currency"])["id"]
             for k, v in sd.ACCOUNTS.items()}
@@ -27,8 +25,9 @@ class Ctx:
                 conn, name=v["name"], category_type=v["type"], currency_code=v["currency"],
                 budget_limit_major=v.get("budget_limit"),
                 parent_id=self.cat[v["parent"]] if "parent" in v else None)["id"]
-        self.friend = {k: user_service.add_friend(conn, name=v["name"], email=v["email"])["id"]
-                       for k, v in sd.FRIENDS.items()}
+        self.friend = {k: user_service.add_friend(
+            conn, name=v["name"], email=v["email"], own_email=sd.OWNER["email"])["id"]
+            for k, v in sd.FRIENDS.items()}
         self.equity = repo.get_system_account(conn, AccountType.EQUITY.value)["id"]
 
     def due(self, friend):

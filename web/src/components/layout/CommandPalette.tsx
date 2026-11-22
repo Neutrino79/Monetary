@@ -1,8 +1,10 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Dialog } from "radix-ui";
 import { Search, Plus, User, Sun } from "lucide-react";
-import { ALL_NAV_ITEMS } from "@/config/nav";
+import { ALL_ADMIN_NAV_ITEMS, ALL_NAV_ITEMS, isAdminPath } from "@/config/nav";
+import { useAdminUsers } from "@/hooks/admin";
+import { selectIsSuperuser, useAuthStore } from "@/store/authStore";
 import { useFriends, useAccounts } from "@/hooks/queries";
 import { useUiStore } from "@/store/uiStore";
 import { cn } from "@/lib/utils/cn";
@@ -20,19 +22,28 @@ export function CommandPalette({ open, onOpenChange, onAddTransaction }: { open:
   const { data: friends = [] } = useFriends();
   const { data: accounts = [] } = useAccounts();
   const [query, setQuery] = useState("");
+  const admin = isAdminPath(useLocation().pathname);
+  const isSuperuser = useAuthStore(selectIsSuperuser);
+  // Ledger data is never loaded in admin mode; people are searched instead (accounts, never ledgers).
+  const { data: people } = useAdminUsers({ limit: 200 }, { enabled: admin && open });
 
   const items = useMemo<CommandItem[]>(() => {
-    const commands: CommandItem[] = [
-      { label: "Add transaction", hint: "Command", icon: <Plus size={16} />, action: onAddTransaction },
-      { label: "Toggle theme", hint: "Command", icon: <Sun size={16} />, action: toggleTheme },
-    ];
+    const toggle: CommandItem = { label: "Toggle theme", hint: "Command", icon: <Sun size={16} />, action: toggleTheme };
+    if (admin) {
+      const pages: CommandItem[] = ALL_ADMIN_NAV_ITEMS.filter((i) => !i.superuserOnly || isSuperuser).map((i) => ({ label: i.label, hint: "Go to page", icon: <i.icon size={16} />, action: () => navigate(i.path) }));
+      const users: CommandItem[] = (people?.items ?? []).map((u) => ({
+        label: u.name, hint: u.email, icon: <User size={16} />, action: () => navigate(`/admin/users/${u.id}`),
+      }));
+      return [toggle, { label: "My ledger", hint: "Go to page", icon: <User size={16} />, action: () => navigate("/dashboard") }, ...pages, ...users];
+    }
+    const commands: CommandItem[] = [{ label: "Add transaction", hint: "Command", icon: <Plus size={16} />, action: onAddTransaction }, toggle];
     const pages: CommandItem[] = ALL_NAV_ITEMS.map((i) => ({ label: i.label, hint: "Go to page", icon: <i.icon size={16} />, action: () => navigate(i.path) }));
     const friendItems: CommandItem[] = friends.map((f) => ({ label: f.name, hint: "Friend", icon: <User size={16} />, action: () => navigate("/friends") }));
     const accountItems: CommandItem[] = accounts
       .filter((a) => a.isActive)
       .map((a) => ({ label: a.name, hint: "Account", icon: <User size={16} />, action: () => navigate("/accounts") }));
     return [...commands, ...pages, ...friendItems, ...accountItems];
-  }, [friends, accounts, navigate, onAddTransaction, toggleTheme]);
+  }, [admin, isSuperuser, people, friends, accounts, navigate, onAddTransaction, toggleTheme]);
 
   const filtered = items.filter((i) => i.label.toLowerCase().includes(query.toLowerCase())).slice(0, 8);
 
@@ -54,7 +65,7 @@ export function CommandPalette({ open, onOpenChange, onAddTransaction }: { open:
               autoFocus
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search pages, friends, accounts, or type a command…"
+              placeholder={admin ? "Search users or pages…" : "Search pages, friends, accounts, or type a command…"}
               className="flex-1 bg-transparent text-[15px] text-ink outline-none"
             />
           </div>

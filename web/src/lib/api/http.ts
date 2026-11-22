@@ -7,7 +7,7 @@ import { appConfig } from "@/config/app";
 import { tokenStorage } from "./tokenStorage";
 import { ApiError, apiErrorFromBody } from "./errors";
 
-type Method = "GET" | "POST" | "PATCH" | "DELETE";
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 type QueryValue = string | number | boolean | null | undefined | (string | number)[];
 
 interface RequestOptions {
@@ -17,6 +17,12 @@ interface RequestOptions {
   form?: Record<string, string>;
   query?: Record<string, QueryValue>;
   signal?: AbortSignal;
+  /** Extra request headers (for example the captcha solution). */
+  headers?: Record<string, string>;
+  /** Return the response body as a file instead of JSON. */
+  asBlob?: boolean;
+  /** Name to save under when the server's Content-Disposition cannot be read. */
+  fallbackName?: string;
   /** Don't treat a 401 as "session expired" (e.g. wrong password on the login form). */
   skipUnauthorizedHandler?: boolean;
 }
@@ -43,7 +49,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), appConfig.apiTimeoutMs);
   const token = tokenStorage.get();
-  const headers: Record<string, string> = {};
+  const headers: Record<string, string> = { ...options.headers };
   if (token) headers.Authorization = `Bearer ${token}`;
   let body: BodyInit | undefined;
   if (options.form) {
@@ -72,6 +78,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       if (res.status === 401 && token && !options.skipUnauthorizedHandler) onUnauthorized?.();
       throw apiErrorFromBody(res.status, res.statusText, parsed);
     }
+    if (options.asBlob) {
+      return { blob: await res.blob(), filename: downloadName(res.headers.get("Content-Disposition"), options.fallbackName) } as T;
+    }
     if (res.status === 204) return undefined as T;
     return (await res.json()) as T;
   } catch (err) {
@@ -85,11 +94,30 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   }
 }
 
+/** The file name the server chose (`filename*=` wins over `filename=`), else the caller's own fallback. */
+export function downloadName(contentDisposition: string | null, fallback = "download"): string {
+  const header = contentDisposition ?? "";
+  const encoded = /filename\*\s*=\s*[^']*'[^']*'([^;]+)/i.exec(header)?.[1];
+  if (encoded) {
+    try {
+      return decodeURIComponent(encoded.trim());
+    } catch {
+      /* fall through to the plain name */
+    }
+  }
+  const plain = /filename\s*=\s*"?([^";]+)"?/i.exec(header)?.[1];
+  return plain?.trim() || fallback;
+}
+
 export const http = {
-  get: <T>(path: string, query?: Record<string, QueryValue>, signal?: AbortSignal) => request<T>(path, { query, signal }),
-  post: <T>(path: string, body?: unknown, opts?: Pick<RequestOptions, "query" | "signal">) => request<T>(path, { method: "POST", body, ...opts }),
-  postForm: <T>(path: string, form: Record<string, string>, opts?: Pick<RequestOptions, "skipUnauthorizedHandler">) =>
+  get: <T>(path: string, query?: Record<string, QueryValue>, signal?: AbortSignal, headers?: Record<string, string>) =>
+    request<T>(path, { query, signal, headers }),
+  post: <T>(path: string, body?: unknown, opts?: Pick<RequestOptions, "query" | "signal" | "headers">) => request<T>(path, { method: "POST", body, ...opts }),
+  postForm: <T>(path: string, form: Record<string, string>, opts?: Pick<RequestOptions, "skipUnauthorizedHandler" | "headers">) =>
     request<T>(path, { method: "POST", form, ...opts }),
+  /** A file download (the signed-in user's own data). */
+  download: (path: string, fallbackName?: string) => request<{ blob: Blob; filename: string }>(path, { asBlob: true, fallbackName }),
+  put: <T>(path: string, body?: unknown) => request<T>(path, { method: "PUT", body }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: "PATCH", body }),
   delete: <T>(path: string, query?: Record<string, QueryValue>) => request<T>(path, { method: "DELETE", query }),
 };

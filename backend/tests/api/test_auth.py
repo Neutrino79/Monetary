@@ -66,7 +66,8 @@ def test_login_expects_form_not_json(anon):
     assert r.status_code == 422
 
 
-def test_login_rate_limit_kicks_in_after_10_attempts(anon):
+def test_login_rate_limit_kicks_in_after_10_attempts(anon, monkeypatch):
+    monkeypatch.setenv("MONETARY_LOGIN_MAX_FAILURES", "1000")  # isolate the per-address limiter from the account lock
     anon.post("/setup/init", json=OWNER)
     codes = [login(anon, password="wrong-password").status_code for _ in range(12)]
     assert codes[:10] == [401] * 10 and codes[10:] == [429, 429]
@@ -88,16 +89,16 @@ def test_logout_invalidates_only_that_session(api, anon):
     assert api.get("/owner", headers={"Authorization": f"Bearer {other}"}).status_code == 200
 
 
-def test_expired_session_is_rejected_and_purged(api, db_path):
-    c = sqlite3.connect(db_path)
+def test_expired_session_is_rejected_and_purged(api, api_data_dir):
+    c = sqlite3.connect(api_data_dir / "control.db")
     c.execute("UPDATE session SET expires_at = '2000-01-01T00:00:00+00:00'"); c.commit()
     assert api.get("/owner").status_code == 401
     assert c.execute("SELECT COUNT(*) FROM session").fetchone()[0] == 0
     c.close()
 
 
-def test_secrets_are_not_stored_in_plaintext(api, db_path):
-    c = sqlite3.connect(db_path)
+def test_secrets_are_not_stored_in_plaintext(api, api_data_dir):
+    c = sqlite3.connect(api_data_dir / "control.db")
     pw, ans = c.execute("SELECT password_hash, security_answer_hash FROM user").fetchone()
     tok = c.execute("SELECT token_hash FROM session").fetchone()[0]
     assert pw.startswith("$2") and ans.startswith("$2")
@@ -149,13 +150,17 @@ def test_reset_wrong_answer_and_unknown_email_look_identical(anon):
     assert a.status_code == b.status_code == 422 and a.json() == b.json()
 
 
-def test_security_question_unknown_email_404(anon):
-    assert anon.get("/auth/security-question", params={"email": "ghost@example.com"}).status_code == 404
+def test_security_question_for_an_unknown_email_is_a_stable_decoy(anon):
+    """Asking about an email nobody registered must look like asking about a real one."""
+    first = anon.get("/auth/security-question", params={"email": "ghost@example.com"})
+    again = anon.get("/auth/security-question", params={"email": "Ghost@Example.com"})
+    assert first.status_code == 200 and first.json() == again.json()
+    assert first.json()["securityQuestionId"] in {1, 2, 3, 4, 5}
 
 
 def test_reset_endpoints_are_rate_limited(anon):
     codes = [anon.get("/auth/security-question", params={"email": "ghost@example.com"}).status_code for _ in range(12)]
-    assert codes[:10] == [404] * 10 and codes[10:] == [429, 429]
+    assert codes[:10] == [200] * 10 and codes[10:] == [429, 429]
 
 
 def test_security_questions_list_is_public(anon):

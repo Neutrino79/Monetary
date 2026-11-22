@@ -32,14 +32,18 @@ async function assertPortFree() {
 }
 
 export default async function setup() {
+  // The owner is created in UTC, so the tests' own "today" must be the UTC date too. Without this the
+  // suite fails for hours every day on a machine in another time zone (the server rejects "future" dates).
+  process.env.TZ = 'UTC'
   await assertPortFree()
   dir = mkdtempSync(join(tmpdir(), 'monetary-it-'))
   server = spawn(process.env.PYTHON ?? 'python3', ['-m', 'uvicorn', 'monetary.presentation.api.app:app', '--port', String(PORT), '--log-level', 'warning'], {
     cwd: resolve(__dirname, '../../../../backend'), // the backend package root
     env: {
       ...process.env,
-      MONETARY_DB_PATH: join(dir, 'integration.db'),
+      MONETARY_DATA_DIR: dir,
       MONETARY_ENV: 'development',
+      MONETARY_CAPTCHA_DIFFICULTY: '3000', // the built-in captcha stays on, just quick to solve
       MONETARY_CORS_ORIGINS: '*',
       MONETARY_APP_NAME: 'Monetary',
     },

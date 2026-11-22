@@ -44,7 +44,8 @@ def add_friend(
     owner: dict = Depends(get_current_owner),
 ):
     friend = user_service.add_friend(conn, name=payload.name, email=payload.email,
-                                      currency_code=payload.currency, phone=payload.phone)
+                                      currency_code=payload.currency, phone=payload.phone,
+                                      own_email=owner["email"])
     return _friend_out(conn, friend)
 
 
@@ -59,7 +60,7 @@ def update_friend(
     conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
     fields = payload.model_dump(include=payload.model_fields_set)
-    friend = user_service.update_friend(conn, friend_id, fields=fields)
+    friend = user_service.update_friend(conn, friend_id, fields=fields, own_email=owner["email"])
     return _friend_out(conn, friend)
 
 
@@ -83,8 +84,8 @@ def friend_statement(
     friend_id: int,
     conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
-    friend = repo.get_user(conn, friend_id)
-    if friend is None or friend["is_superuser"]:
+    friend = repo.get_contact(conn, friend_id)
+    if friend is None:
         raise NotFoundError(f"Friend {friend_id} not found.")
     due = repo.get_due_account_for_friend(conn, friend_id)
     if due is None:

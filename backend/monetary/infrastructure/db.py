@@ -6,6 +6,7 @@ import sqlite3
 from pathlib import Path
 
 from monetary.config import DEFAULT_DB_PATH
+from monetary.infrastructure import migrations
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS user (
@@ -114,8 +115,101 @@ CREATE INDEX IF NOT EXISTS idx_session_token_hash     ON session(token_hash);
 """
 
 
-def connect(db_path: str | Path | None = None) -> sqlite3.Connection:
-    path = Path(db_path) if db_path else DEFAULT_DB_PATH
+# Schema history of a ledger (tenant) database. Version 1 is the schema as it was before migrations
+# existed; every statement is IF NOT EXISTS, so a database created by an older release (stored version
+# 0) is adopted as-is. Add later changes as new numbered entries; never edit an existing one.
+def _settings_and_contacts(conn: sqlite3.Connection) -> None:
+    """Ledger configuration stops living on a person.
+
+    * `ledger_settings` (one row) takes the owner's timezone, home currency and ledger mode.
+    * `contact` takes the friends. Ids are kept, so every friend's DUE account still points at the same
+      person. A contact can later be linked to a platform account (`linked_user_id`, no foreign key
+      because that account lives in another database).
+    * `account.counterparty_user_id` becomes `counterparty_id` referencing `contact`.
+    * The owner row, its credentials and the old `session` table go: sign-in belongs to the control
+      database, and the owner's name and email are the account's, not the ledger's.
+    """
+    owner = conn.execute("SELECT * FROM user WHERE is_superuser = 1 ORDER BY id LIMIT 1").fetchone()
+    conn.execute("""CREATE TABLE ledger_settings (
+        id                  INTEGER PRIMARY KEY CHECK (id = 1),
+        timezone            TEXT,
+        home_currency_code  TEXT NOT NULL,
+        ledger_mode         TEXT NOT NULL DEFAULT 'DIRECT' CHECK(ledger_mode IN ('STRICT','DIRECT')),
+        created_at          TEXT NOT NULL,
+        updated_at          TEXT NOT NULL
+    )""")
+    if owner is not None:
+        conn.execute(
+            "INSERT INTO ledger_settings (id, timezone, home_currency_code, ledger_mode, created_at, updated_at) "
+            "VALUES (1, ?, ?, ?, ?, ?)",
+            (owner["timezone"], owner["home_currency_code"] or "INR", owner["ledger_mode"],
+             owner["created_at"], owner["updated_at"]))
+
+    conn.execute("""CREATE TABLE contact (
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        name            TEXT NOT NULL,
+        email           TEXT NOT NULL UNIQUE,
+        phone           TEXT,
+        linked_user_id  INTEGER,   -- platform account this contact is linked to (future); NULL = local only
+        created_at      TEXT NOT NULL,
+        updated_at      TEXT NOT NULL
+    )""")
+    conn.execute(
+        "INSERT INTO contact (id, name, email, phone, created_at, updated_at) "
+        "SELECT id, name, email, phone, created_at, updated_at FROM user "
+        "WHERE is_superuser = 0 OR id IN (SELECT counterparty_user_id FROM account "
+        "                                 WHERE counterparty_user_id IS NOT NULL)")
+    seq = conn.execute("SELECT seq FROM sqlite_sequence WHERE name = 'user'").fetchone()
+    if seq is not None:  # keep handing out fresh ids, never one a deleted friend used
+        if conn.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = 'contact'", (seq[0],)).rowcount == 0:
+            conn.execute("INSERT INTO sqlite_sequence (name, seq) VALUES ('contact', ?)", (seq[0],))
+
+    conn.execute("""CREATE TABLE account_new (
+        id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+        name                    TEXT NOT NULL,
+        account_type            TEXT NOT NULL CHECK(account_type IN
+                                    ('ASSET','LIABILITY','EXPENSE','INCOME','DUE','EQUITY')),
+        currency_code           TEXT,
+        parent_account_id       INTEGER REFERENCES account(id),
+        budget_limit            INTEGER,
+        subtype                 TEXT CHECK(subtype IS NULL OR subtype IN ('bank','cash','wallet','credit_card')),
+        credit_limit            INTEGER CHECK(credit_limit IS NULL OR credit_limit >= 0),
+        statement_day           INTEGER CHECK(statement_day IS NULL OR (statement_day BETWEEN 1 AND 31)),
+        color                   TEXT,
+        counterparty_id         INTEGER REFERENCES contact(id),
+        is_system               INTEGER NOT NULL DEFAULT 0,
+        is_active               INTEGER NOT NULL DEFAULT 1,
+        created_at              TEXT NOT NULL,
+        updated_at              TEXT NOT NULL
+    )""")
+    conn.execute(
+        "INSERT INTO account_new (id, name, account_type, currency_code, parent_account_id, budget_limit, "
+        "subtype, credit_limit, statement_day, color, counterparty_id, is_system, is_active, created_at, "
+        "updated_at) SELECT id, name, account_type, currency_code, parent_account_id, budget_limit, "
+        "subtype, credit_limit, statement_day, color, counterparty_user_id, is_system, is_active, "
+        "created_at, updated_at FROM account")
+    seq = conn.execute("SELECT seq FROM sqlite_sequence WHERE name = 'account'").fetchone()
+    conn.execute("DROP TABLE account")
+    conn.execute("ALTER TABLE account_new RENAME TO account")
+    if seq is not None:
+        conn.execute("UPDATE sqlite_sequence SET seq = ? WHERE name = 'account'", (seq[0],))
+    conn.execute("CREATE INDEX idx_account_type         ON account(account_type)")
+    conn.execute("CREATE INDEX idx_account_parent       ON account(parent_account_id)")
+    conn.execute("CREATE INDEX idx_account_counterparty ON account(counterparty_id)")
+
+    conn.execute("DROP TABLE session")
+    conn.execute("DROP TABLE user")
+
+
+TENANT_MIGRATIONS: list[migrations.Migration] = [
+    migrations.Migration(1, "baseline ledger schema", sql=SCHEMA),
+    migrations.Migration(2, "ledger settings and contacts replace the owner row", fn=_settings_and_contacts,
+                         rebuilds_tables=True),
+]
+
+
+def open_connection(path: Path) -> sqlite3.Connection:
+    """Open a SQLite file with this project's connection settings (no schema work)."""
     path.parent.mkdir(parents=True, exist_ok=True)
     # FastAPI resolves the per-request connection dependency and runs a sync
     # endpoint in *different* worker threads. sqlite3 refuses cross-thread use by
@@ -130,6 +224,10 @@ def connect(db_path: str | Path | None = None) -> sqlite3.Connection:
     # is concurrent by nature, unlike the old single-shot CLI process).
     conn.execute("PRAGMA journal_mode = WAL;")
     conn.execute("PRAGMA busy_timeout = 5000;")
-    conn.executescript(SCHEMA)
-    conn.commit()
+    return conn
+
+
+def connect(db_path: str | Path | None = None) -> sqlite3.Connection:
+    conn = open_connection(Path(db_path) if db_path else DEFAULT_DB_PATH)
+    migrations.migrate(conn, TENANT_MIGRATIONS)
     return conn

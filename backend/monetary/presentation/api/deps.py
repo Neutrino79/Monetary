@@ -16,19 +16,51 @@ from typing import Iterator
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 
-from monetary.application import user_service
-from monetary.config import API_PREFIX, database_path_from_environment, demo_mode_enabled
-from monetary.infrastructure import db
+from monetary.application import captcha_service, identity_service, provisioning
+from monetary.config import (
+    API_PREFIX,
+    data_dir_from_environment,
+    demo_mode_enabled,
+    legacy_db_path_from_environment,
+    login_captcha_after,
+)
+from monetary.domain.enums import PlatformRole
+from monetary.domain.exceptions import PasswordChangeRequired, PermissionDeniedError
+from monetary.infrastructure import control_db, instance_secret
 from monetary.infrastructure.rate_limiter import (
+    login_failure_counter,
+    captcha_rate_limiter,
     login_rate_limiter,
     password_reset_rate_limiter,
+    register_rate_limiter,
 )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl=f"{API_PREFIX}/auth/login")
 
+_prepared_data_dirs: set[str] = set()
 
-def get_db() -> Iterator[sqlite3.Connection]:
-    conn = db.connect(database_path_from_environment())
+
+def prepare_control_plane(data_dir) -> None:
+    """One-time-per-process start-up work on the control database: create it, and adopt the
+    single-owner ledger of an earlier release as the first superuser's ledger (docs/MULTI_TENANT.md)."""
+    key = str(data_dir)
+    if key in _prepared_data_dirs:
+        return
+    control = control_db.connect_control(data_dir)
+    try:
+        legacy = legacy_db_path_from_environment()
+        if legacy is not None and not identity_service.users_exist(control):
+            provisioning.adopt_legacy_ledger(control, data_dir, legacy)
+        control.commit()
+    finally:
+        control.close()
+    _prepared_data_dirs.add(key)
+
+
+def get_control() -> Iterator[sqlite3.Connection]:
+    data_dir = data_dir_from_environment()
+    prepare_control_plane(data_dir)
+    conn = control_db.connect_control(data_dir)
     try:
         yield conn
         conn.commit()
@@ -39,43 +71,116 @@ def get_db() -> Iterator[sqlite3.Connection]:
         conn.close()
 
 
-def _db_dependency():
-    """The per-request connection dependency, committed *before* the response is sent.
+def _function_scoped(dependency):
+    """`Depends` that commits *before* the response is sent.
 
-    By default newer FastAPI runs a `yield` dependency's cleanup (our commit) *after* the
-    response has gone out, so a client that fires its next request immediately -- as a
-    browser app does -- can read the database before the previous write is committed
-    (e.g. a settlement that "isn't there" right after the split it settles, or a password
-    reset that has no effect on the very next login). `scope="function"` closes that gap.
-    Older FastAPI versions already commit before responding and don't know the argument.
-    """
+    By default newer FastAPI runs a `yield` dependency's cleanup (our commit) *after* the response has
+    gone out, so a client that fires its next request immediately -- as a browser app does -- can read
+    the database before the previous write is committed (e.g. a settlement that "isn't there" right
+    after the split it settles, or a password reset that has no effect on the very next login).
+    `scope="function"` closes that gap. Older FastAPI versions already commit before responding and
+    don't know the argument."""
     try:
-        return Depends(get_db, scope="function")
+        return Depends(dependency, scope="function")
     except TypeError:
-        return Depends(get_db)
+        return Depends(dependency)
 
 
-DB = _db_dependency()
+CONTROL = _function_scoped(get_control)
 
 
-def get_current_owner(
-    conn: sqlite3.Connection = DB,
-    token: str = Depends(oauth2_scheme),
+def _unauthorized() -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=f"Invalid or expired session token; log in again via {API_PREFIX}/auth/login.",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def _authenticate(control: sqlite3.Connection, token: str) -> dict:
+    account = identity_service.verify_session(control, token)
+    if account is None:
+        # verify_session may have purged an expired session; persist that before the 401 below
+        # makes the dependency roll the transaction back.
+        control.commit()
+        raise _unauthorized()
+    return account
+
+
+def get_account_allow_password_change(
+    control: sqlite3.Connection = CONTROL, token: str = Depends(oauth2_scheme)
 ) -> dict:
-    """Every endpoint except /setup/init, /auth/* (pre-login), and /health
-    depends on this. An invalid or expired session token returns 401 before
-    any application/domain code runs."""
-    owner = user_service.verify_session(conn, token)
-    if owner is None:
-        # verify_session may have purged an expired session; persist that before
-        # the 401 below makes get_db roll the transaction back.
+    """The signed-in platform account, even while a forced password change is pending."""
+    return _authenticate(control, token)
+
+
+def get_current_account(
+    account: dict = Depends(get_account_allow_password_change),
+) -> dict:
+    """The signed-in platform account. Everything except changing the password, logging out and
+    /me requires that a temporary password has already been replaced."""
+    if account["must_change_password"]:
+        raise PasswordChangeRequired("Choose a new password before continuing.")
+    return account
+
+
+def get_superuser(account: dict = Depends(get_current_account)) -> dict:
+    """The signed-in account, only if it is a superuser (the role is read from the control database on
+    every request, so a demotion or suspension takes effect immediately). Administration is not
+    available in demo mode."""
+    if demo_mode_enabled():
+        raise PermissionDeniedError("Administration is disabled in demo mode.")
+    if account["role"] != "superuser":
+        raise PermissionDeniedError("Superuser access required.")
+    return account
+
+
+def get_admin(account: dict = Depends(get_current_account)) -> dict:
+    """The signed-in account, only if it is an admin or the superuser (read from the control database on
+    every request). Administration is not available in demo mode."""
+    if demo_mode_enabled():
+        raise PermissionDeniedError("Administration is disabled in demo mode.")
+    if account["role"] not in (PlatformRole.ADMIN.value, PlatformRole.SUPERUSER.value):
+        raise PermissionDeniedError("Administrator access required.")
+    return account
+
+
+def get_db(
+    account: dict = Depends(get_current_account), control: sqlite3.Connection = CONTROL
+) -> Iterator[sqlite3.Connection]:
+    """The signed-in user's own ledger database (commit on success, rollback on exception)."""
+    conn = provisioning.open_ledger(control, data_dir_from_environment(), account["id"])
+    if conn is None:
+        raise provisioning.NoLedgerError("This account has no ledger.")
+    try:
+        yield conn
         conn.commit()
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid or expired session token; log in again via {API_PREFIX}/auth/login.",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return owner
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+DB = _function_scoped(get_db)
+
+
+def get_current_owner(conn: sqlite3.Connection = DB, account: dict = Depends(get_current_account)) -> dict:
+    """The caller as the ledger sees them: the ledger's own settings (timezone, home currency, ledger
+    mode) plus who they are, which is the platform account's business (name, email, security question)."""
+    from monetary.application import user_service
+
+    return owner_view(user_service.require_settings(conn), account)
+
+
+def owner_view(settings: dict, account: dict) -> dict:
+    return {
+        "id": account["id"], "name": account["name"], "email": account["email"], "is_superuser": True,
+        "security_question_id": account["security_question_id"],
+        "timezone": settings["timezone"], "home_currency_code": settings["home_currency_code"],
+        "ledger_mode": settings["ledger_mode"],
+        "created_at": account["created_at"], "updated_at": settings["updated_at"],
+    }
 
 
 def _client_key(request: Request) -> str:
@@ -93,6 +198,30 @@ def enforce_login_rate_limit(request: Request) -> None:
 
 def enforce_password_reset_rate_limit(request: Request) -> None:
     password_reset_rate_limiter.check(_client_key(request))
+
+
+def enforce_captcha_rate_limit(request: Request) -> None:
+    captcha_rate_limiter.check(_client_key(request))
+
+
+def enforce_register_rate_limit(request: Request) -> None:
+    register_rate_limiter.check(_client_key(request))
+
+
+def server_secret() -> bytes:
+    return instance_secret.load_secret(data_dir_from_environment())
+
+
+def require_captcha(request: Request) -> None:
+    """Gate for public forms that bots love: a solved captcha in the `X-Captcha` header (a no-op when
+    MONETARY_CAPTCHA_PROVIDER=none)."""
+    captcha_service.require(request.headers.get("X-Captcha"), server_secret(), remote_ip=_client_key(request))
+
+
+def require_login_captcha(request: Request) -> None:
+    """Sign-in needs a captcha only once this client address has failed a few times in a row."""
+    if login_failure_counter.count(_client_key(request)) >= login_captcha_after():
+        require_captcha(request)
 
 
 def require_demo_mode() -> None:

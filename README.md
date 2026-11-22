@@ -123,6 +123,9 @@ python -m pip install -r backend/requirements.txt
 export MONETARY_ENV=development MONETARY_CORS_ORIGINS=http://localhost:5173
 cd backend
 python -m uvicorn monetary.presentation.api.app:app --reload --port 8000
+# first account (or skip this and use the setup page in the web app):
+# python -m monetary.cli create-superuser --email you@example.com --name "Your Name"
+# (there is exactly one superuser; to hand over: python -m monetary.cli transfer-superuser --to other@example.com)
 
 # 2. Web app -> http://localhost:5173   (second terminal, from the repo root)
 cd web
@@ -158,17 +161,17 @@ Then open <http://localhost:5173>. In demo mode the sign-in page is just a welco
 demo** button (there is no email/password form). You land on a dashboard with four accounts, a full year of
 transactions, two friends, splits and settlements; a banner at the top reminds you it is demo data.
 
-**Fresh or kept?** The sample data lives in its own file, `~/.monetary_0.5/demo.db`, never in your real
+**Fresh or kept?** The sample data lives in its own file, `~/.monetary_0.5/demo/`, never in your real
 `monetary.db`.
 
-| You run | What happens to `demo.db` |
+| You run | What happens to the demo data |
 |---|---|
 | `./scripts/dev.sh demo` (task **Dev: demo (reset demo DB)**) | Rebuilt from scratch on every start, so the data is clean and the dates are relative to *today* |
 | `./scripts/dev.sh demo --keep` (task **Dev: demo (keep demo DB)**) | Reused if it exists (created on the first run), so your edits survive restarts |
 
 Without `dev.sh` (for example `uvicorn` or Docker), set `MONETARY_DEMO_MODE=true` yourself. The sample
 ledger is created the first time the server starts and **reused afterwards**; add `MONETARY_DEMO_RESET=true`
-to rebuild it at every start, or delete `demo.db` to reset it by hand.
+to rebuild it at every start, or delete the `demo/` folder to reset it by hand.
 
 **How it works and what it protects.** The server generates the sample ledger through its normal services
 (no database file is committed). `POST /auth/demo` signs you in without a password and exists only in demo
@@ -222,12 +225,25 @@ template in [`backend/.env.example`](backend/.env.example) -- the app does not l
 |---|---|---|
 | `MONETARY_ENV` | `production` | `production` or `development`. Production hides API docs and sends HSTS + security headers |
 | `MONETARY_CORS_ORIGINS` | *(empty -- no origins)* | Comma-separated browser origins allowed to call the API; `*` allows all but disables credentials |
-| `MONETARY_DB_PATH` | `~/.monetary_0.5/monetary.db` | SQLite file path |
-| `MONETARY_DEMO_MODE` | `false` | `true` serves a generated sample ledger from a separate `demo.db` and adds a no-credentials `POST /auth/demo`; see [Demo mode](#demo-mode) |
+| `MONETARY_DATA_DIR` | `~/.monetary_0.5` | Folder holding `control.db` (accounts) and `tenants/` (one SQLite ledger per user) |
+| `MONETARY_DB_PATH` | *(unset)* | Ledger file of an earlier release; adopted in place as the first superuser's ledger. Its folder is the data directory when `MONETARY_DATA_DIR` is unset |
+| `MONETARY_DEMO_MODE` | `false` | `true` serves a generated sample ledger from a separate `demo/` data folder and adds a no-credentials `POST /auth/demo`; see [Demo mode](#demo-mode) |
 | `MONETARY_DEMO_RESET` | `false` | With demo mode on, `true` rebuilds the sample ledger at every start (only ever deletes a demo database) |
 | `MONETARY_ENABLE_DOCS` | *(follows `MONETARY_ENV`)* | `true`/`false` forces `/docs`, `/redoc`, `/openapi.json` on or off |
 | `MONETARY_APP_NAME` | `Monetary` | Product name served by `GET /meta` and shown by the web app |
 | `MONETARY_APP_TAGLINE` | `Personal expense ledger` | Tagline served by `GET /meta` |
+| `MONETARY_LOGIN_MAX_FAILURES` | `5` | Wrong passwords (or security answers) in a row before an account is locked |
+| `MONETARY_LOGIN_LOCKOUT_MINUTES` | `15` | How long that lock lasts |
+| `MONETARY_LOGIN_CAPTCHA_AFTER` | `3` | Failed sign-ins from one address before the sign-in form also needs a captcha |
+| `MONETARY_TEMP_PASSWORD_HOURS` | `72` | How long an administrator-issued temporary password stays valid |
+| `MONETARY_SESSION_TOUCH_SECONDS` | `300` | At most how often a session's "last seen" time is refreshed |
+| `MONETARY_ADMIN_BULK_LIMIT` | `50` | Most accounts one bulk admin action may touch |
+| `MONETARY_MAX_REREQUESTS` | `3` | How many times a rejected person can ask again before only a superuser can reopen the request |
+| `MONETARY_CAPTCHA_PROVIDER` | `altcha` | `altcha` (built-in proof of work, no third party), `turnstile` (Cloudflare) or `none` |
+| `MONETARY_CAPTCHA_DIFFICULTY` | `50000` | Altcha: largest number a browser may have to try (higher = slower for bots and people) |
+| `MONETARY_CAPTCHA_TTL_SECONDS` | `300` | Altcha: how long a challenge stays valid |
+| `MONETARY_TURNSTILE_SITE_KEY` / `MONETARY_TURNSTILE_SECRET` | *(empty)* | Turnstile: the public site key (served to the web app) and the secret used to verify tokens |
+| `MONETARY_SECRET_KEY` | *(generated)* | Optional fixed server secret; otherwise a random `instance.key` is created in the data folder |
 | `MONETARY_SEED_DEFAULTS_PATH` | bundled `backend/monetary/seed_defaults.json` | Replace the default categories / income sources |
 
 The web app's own settings (`VITE_*`) are documented in [`web/.env.example`](web/.env.example).
@@ -238,9 +254,12 @@ SQLite in WAL mode. The schema is created automatically on first connection by
 `backend/monetary/infrastructure/db.py` (reference copy: [`docs/LIVE_SCHEMA.sql`](docs/LIVE_SCHEMA.sql)), and the
 first `POST /setup/init` seeds the defaults.
 
-> **There is no migration framework.** The schema is edited in place, so a database created by an older
-> release must be deleted and re-created. The default location is `~/.monetary_0.5/monetary.db`; the
-> directory name carries the schema generation. Back up the file before upgrading anything you care about.
+> **Schema versions.** Each database stores its schema version and is upgraded by numbered migrations
+> (`backend/monetary/infrastructure/migrations.py`) when it is opened; a database from an earlier release is
+> adopted as-is. The default location is `~/.monetary_0.5/monetary.db`. Back up the file before upgrading anything
+> you care about. To back everything up while the service runs, use
+> `python -m monetary.cli backup --to <folder>` from `backend/` (see "Administration" in
+> [`docs/API.md`](docs/API.md)); every user can also download their own ledger from Settings.
 
 ## Testing and checks
 

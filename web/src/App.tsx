@@ -1,6 +1,12 @@
 import { lazy, Suspense, useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { ProtectedRoute, GuestOnlyRoute } from "@/routes/guards";
+import { AdminRoute, ProtectedRoute, GuestOnlyRoute, SuperuserRoute } from "@/routes/guards";
+import { AdminOverviewPage } from "@/pages/admin/AdminOverviewPage";
+import { AdminPendingPage } from "@/pages/admin/AdminPendingPage";
+import { AdminUsersPage } from "@/pages/admin/AdminUsersPage";
+import { AdminUserDetailPage } from "@/pages/admin/AdminUserDetailPage";
+import { AdminAuditPage } from "@/pages/admin/AdminAuditPage";
+import { AdminPlatformPage } from "@/pages/admin/AdminPlatformPage";
 import { AppShell } from "@/components/layout/AppShell";
 import { useBranding } from "@/hooks/queries";
 
@@ -63,6 +69,16 @@ export default function App() {
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/reports" element={<ReportsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
+              <Route element={<AdminRoute />}>
+                <Route path="/admin" element={<AdminOverviewPage />} />
+                <Route path="/admin/pending" element={<AdminPendingPage />} />
+                <Route path="/admin/users" element={<AdminUsersPage />} />
+                <Route path="/admin/users/:id" element={<AdminUserDetailPage />} />
+                <Route path="/admin/audit" element={<AdminAuditPage />} />
+                <Route element={<SuperuserRoute />}>
+                  <Route path="/admin/platform" element={<AdminPlatformPage />} />
+                </Route>
+              </Route>
             </Route>
           </Route>
 

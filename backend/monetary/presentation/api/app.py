@@ -16,7 +16,7 @@ from monetary.config import (
     VERSION,
     app_name,
     cors_origins_from_environment,
-    database_path_from_environment,
+    data_dir_from_environment,
     demo_mode_enabled,
     demo_reset_on_start,
     docs_enabled_from_environment,
@@ -25,6 +25,7 @@ from monetary.config import (
 from monetary.presentation.api.errors import register_exception_handlers
 from monetary.presentation.api.routers import (
     accounts,
+    admin,
     auth,
     friends,
     meta,
@@ -52,16 +53,17 @@ async def lifespan(_app: FastAPI):
     behind MONETARY_DEMO_MODE) fails fast instead of on the first visitor's request."""
     if demo_mode_enabled():
         from monetary.application import demo_service
-        from monetary.infrastructure import db
+        from monetary.infrastructure import control_db
 
+        data_dir = data_dir_from_environment()
         if demo_reset_on_start():
-            demo_service.reset_demo_database(database_path_from_environment())
-        conn = db.connect(database_path_from_environment())
+            demo_service.reset_demo_data(data_dir)
+        control = control_db.connect_control(data_dir)
         try:
-            demo_service.ensure_demo_ledger(conn)
-            conn.commit()
+            demo_service.ensure_demo_account(control, data_dir)
+            control.commit()
         finally:
-            conn.close()
+            control.close()
         logging.getLogger(__name__).warning(
             "DEMO MODE is on: anyone can open the sample ledger without a password. Never use it with real data.")
     yield
@@ -105,6 +107,9 @@ app.add_middleware(
     allow_credentials=_allow_credentials,
     allow_methods=["*"],
     allow_headers=["*"],
+    # Without this a browser hides Content-Disposition from the web app (it is on another origin), so
+    # downloads would lose the server's file name and extension.
+    expose_headers=["Content-Disposition"],
 )
 
 
@@ -130,6 +135,7 @@ app.include_router(meta.router)
 app.include_router(setup.router)
 app.include_router(auth.router)
 app.include_router(owner.router)
+app.include_router(admin.router)
 app.include_router(accounts.router)
 app.include_router(friends.router)
 app.include_router(transactions.router)
@@ -145,11 +151,10 @@ def health():
     """Liveness/readiness check. Also verifies the database file is reachable
     and the schema bootstraps cleanly, since a broken DB_PATH or permissions
     issue should show up here rather than as a 500 on the first real request."""
-    from monetary.config import database_path_from_environment
-    from monetary.infrastructure import db as db_module
+    from monetary.infrastructure import control_db
 
     try:
-        conn = db_module.connect(database_path_from_environment())
+        conn = control_db.connect_control(data_dir_from_environment())
         conn.execute("SELECT 1")
         conn.close()
         db_ok = True

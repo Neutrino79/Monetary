@@ -69,7 +69,7 @@ describe('branding comes from the backend', () => {
   })
 })
 
-describe('first-run setup (single owner)', () => {
+describe('first-run setup and account requests', () => {
   it('sends a visitor to setup until the owner exists, and there is no "create account" link on login', async () => {
     handlers['GET /meta'] = () => meta('Monetary')
     handlers['GET /setup/status'] = () => ({ json: { initialized: false } })
@@ -80,14 +80,14 @@ describe('first-run setup (single owner)', () => {
     expect(await screen.findByText('What was the name of your first pet?')).toBeInTheDocument()
   })
 
-  it('refuses setup when the instance is already initialised, pointing to sign-in and password reset', async () => {
+  it('turns the page into an account request once the instance is initialised (setup can never run twice)', async () => {
     handlers['GET /meta'] = () => meta('Monetary')
     handlers['GET /setup/status'] = () => ({ json: { initialized: true } })
+    handlers['GET /auth/security-questions'] = () => ({ json: [{ id: 1, text: 'Pet?' }] })
     renderApp('/signup')
-    expect(await screen.findByText('Monetary is already set up')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Sign in' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Forgot password?' })).toBeInTheDocument()
-    expect(screen.queryByLabelText('Email')).not.toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Request an account' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Request account' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Create administrator account' })).not.toBeInTheDocument()
     expect(calls).not.toContain('POST /setup/init') // nothing was submitted
   })
 
@@ -105,8 +105,9 @@ describe('first-run setup (single owner)', () => {
     await user.type(screen.getByLabelText('Password'), 'correct-horse-1')
     await user.type(screen.getByLabelText('Confirm password'), 'correct-horse-1')
     await user.type(screen.getByLabelText('Your answer'), 'whiskers')
-    await user.click(screen.getByRole('button', { name: 'Create owner account' }))
-    expect(await screen.findByText('Monetary is already set up')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Create administrator account' }))
+    // the form turns into a request for an account instead of dead-ending, and nothing is sent to /setup/init
+    expect(await screen.findByRole('heading', { name: 'Request an account' })).toBeInTheDocument()
     expect(calls).not.toContain('POST /setup/init')
   })
 })
@@ -130,7 +131,7 @@ describe('login and session handling', () => {
 
   it('logs the user out and says why when a stored session is rejected', async () => {
     localStorage.setItem('emx_token', 'ets_stale')
-    handlers['GET /owner'] = () => ({ status: 401, json: { detail: 'Invalid or expired session.', error_type: 'AuthenticationError' } })
+    handlers['GET /me'] = () => ({ status: 401, json: { detail: 'Invalid or expired session.', error_type: 'AuthenticationError' } })
     useAuthStore.setState({ isHydrating: true })
     renderApp('/dashboard')
     await useAuthStore.getState().hydrate()

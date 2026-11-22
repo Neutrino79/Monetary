@@ -34,8 +34,8 @@ def _require_real_account(conn, account_id) -> dict:
 
 
 def _require_friend(conn, friend_id) -> tuple[dict, dict]:
-    friend = repo.get_user(conn, friend_id)
-    if friend is None or friend["is_superuser"]:
+    friend = repo.get_contact(conn, friend_id)
+    if friend is None:
         raise NotFoundError(f"Friend {friend_id} not found.")
     due = repo.get_due_account_for_friend(conn, friend_id)
     if due is None:
@@ -164,7 +164,7 @@ def edit_settlement(conn, owner, entry_id, *, friend_id=None, account_id=None,
     old_due_leg = next(l for l in legs if repo.get_account(conn, l.account_id)["account_type"]
                         == AccountType.DUE.value)
     old_due_account = repo.get_account(conn, old_due_leg.account_id)
-    old_friend_id = old_due_account["counterparty_user_id"]
+    old_friend_id = old_due_account["counterparty_id"]
 
     resolved_friend_id = friend_id if friend_id is not None else old_friend_id
     friend, due = _require_friend(conn, resolved_friend_id)

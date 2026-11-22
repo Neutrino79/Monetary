@@ -9,11 +9,12 @@ import { Input, Select, FormField } from "@/components/ui/form";
 import { timezoneOptions } from "@/config/timezones";
 import { appConfig } from "@/config/app";
 import { LogoMark } from "@/components/ui/LogoMark";
-import { useBranding } from "@/hooks/queries";
+import { useBranding, useDemoMode } from "@/hooks/queries";
 import { authService } from "@/lib/api/services/authService";
 import { currencySymbol } from "@/lib/utils/format";
 import type { LedgerMode } from "@/types";
 import { useFormError } from "@/lib/hooks/useFormErrors";
+import { AccountCard, DeleteAccountCard, SecurityQuestionCard, SignedInDevicesCard } from "@/components/settings/AccountCards";
 
 export function SettingsPage() {
   const user = useAuthStore((s) => s.user);
@@ -22,6 +23,7 @@ export function SettingsPage() {
   const toggleTheme = useUiStore((s) => s.toggleTheme);
   const toast = useToast();
   const { name: appName, tagline } = useBranding();
+  const { isDemo } = useDemoMode();
 
   const [name, setName] = useState(user?.name ?? "");
   const [timezone, setTimezone] = useState(user?.timezone ?? appConfig.defaultTimezone);
@@ -64,7 +66,7 @@ export function SettingsPage() {
         <p className="mt-1 text-[13.5px] text-ink-soft">Your profile, ledger behavior, and how {appName} is configured.</p>
       </div>
 
-      <div className="grid grid-cols-[1.3fr_1fr] gap-5 max-[900px]:grid-cols-1">
+      <div className="grid grid-cols-2 items-start gap-5 max-[900px]:grid-cols-1">
         <div className="flex flex-col gap-5">
           <Card>
             <div className="mb-4 text-[14.5px] font-semibold">Profile</div>
@@ -96,6 +98,7 @@ export function SettingsPage() {
           </Card>
 
           <ChangePasswordCard />
+          {!isDemo && <SecurityQuestionCard />}
 
           <Card>
             <div className="mb-1 text-[14.5px] font-semibold">Ledger mode</div>
@@ -132,7 +135,11 @@ export function SettingsPage() {
           </Card>
         </div>
 
-        <Card className="self-start">
+        <div className="flex flex-col gap-5">
+        {!isDemo && <AccountCard />}
+        {!isDemo && <SignedInDevicesCard />}
+        <ExportCard />
+        <Card>
           <div className="mb-4 text-[14.5px] font-semibold">About this instance</div>
           <div className="flex items-center gap-3 border-b border-dashed border-line py-3">
             <LogoMark size={32} />
@@ -154,6 +161,8 @@ export function SettingsPage() {
             Questions? Reach out at <span className="font-medium text-ink-soft">{appConfig.supportEmail}</span>
           </div>
         </Card>
+        {!isDemo && <DeleteAccountCard />}
+        </div>
       </div>
     </div>
   );
@@ -191,7 +200,7 @@ function ChangePasswordCard() {
     <Card>
       <div className="mb-1 text-[14.5px] font-semibold">Password</div>
       <p className="mb-4 text-[12.8px] text-ink-faint">Changing your password signs you out of any other devices.</p>
-      <div className="grid grid-cols-3 gap-4 max-[640px]:grid-cols-1">
+      <div className="grid grid-cols-1 gap-4">
         <FormField label="Current password" error={error && !next ? error : undefined}>
           <Input type="password" autoComplete="current-password" value={current} onChange={(e) => setCurrent(e.target.value)} />
         </FormField>
@@ -206,6 +215,36 @@ function ChangePasswordCard() {
       <div className="mt-4">
         <Button onClick={submit} disabled={saving}>{saving ? "Saving…" : "Change password"}</Button>
       </div>
+    </Card>
+  );
+}
+
+/** Every user can take their own data with them: a SQLite file of their ledger, without any credentials in it. */
+function ExportCard() {
+  const toast = useToast();
+  const { isDemo } = useDemoMode();
+  const [busy, setBusy] = useState(false);
+  if (isDemo) return null; // the demo ledger is shared sample data
+  async function download() {
+    setBusy(true);
+    try {
+      const name = await authService.downloadMyData();
+      toast.show(`Saved ${name}`, { variant: "success" });
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : "Something went wrong.", { variant: "error" });
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Card>
+      <h3 className="mb-1 text-[15px] font-semibold">Your data</h3>
+      <p className="mb-4 text-[12.8px] text-ink-faint">
+        Download your whole ledger as one SQLite file. It contains your transactions, accounts and friends, never your password.
+      </p>
+      <Button variant="secondary" onClick={download} disabled={busy}>
+        {busy ? "Preparing…" : "Download my data"}
+      </Button>
     </Card>
   );
 }

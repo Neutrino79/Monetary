@@ -20,18 +20,22 @@ generate a typed client for whatever UI framework you use. **Docs are
 disabled by default outside development** -- see Configuration below.
 
 Config via environment variables (see `backend/monetary/config.py`):
-- `MONETARY_DB_PATH` -- SQLite file path (default `~/.monetary_0.5/monetary.db`)
+- `MONETARY_DATA_DIR` -- directory holding everything the service stores: `control.db` (accounts, sessions,
+  audit log) and `tenants/` (one SQLite ledger per user). Default `~/.monetary_0.5`.
+- `MONETARY_DB_PATH` -- the single ledger file of earlier releases. Still honoured: when no accounts exist
+  yet, that file is adopted in place as the first superuser's ledger, and (if `MONETARY_DATA_DIR` is unset)
+  its folder becomes the data directory. See `docs/MULTI_TENANT.md`.
 - `MONETARY_CORS_ORIGINS` -- comma-separated allowed browser origins (default:
   none allowed). `*` is accepted for a public API, but credentialed requests
   are then disabled automatically (wildcard origin + credentials is invalid
   per the CORS spec and rejected by browsers anyway).
 - `MONETARY_ENV` -- `production` (default) or `development`.
-- `MONETARY_DEMO_MODE` -- `true` turns on demo mode (default off): the DB defaults to a separate
-  `demo.db`, a sample ledger is generated on first start, `GET /meta` reports `demo: true`, and
+- `MONETARY_DEMO_MODE` -- `true` turns on demo mode (default off): the data directory defaults to a
+  separate `demo/` folder, a demo account with a sample ledger is generated on first start, `GET /meta` reports `demo: true`, and
   `POST /auth/demo` (404 otherwise) returns a session without credentials. Password change/reset are
-  answered 403. The server refuses a database whose owner is not the demo owner.
+  answered 403. Registration is answered 403. The server refuses a data directory that holds real accounts.
 - `MONETARY_DEMO_RESET` -- with demo mode on, `true` deletes and rebuilds the demo database at every
-  start (refused, and the server stops, when the database belongs to a real owner). Default off: the
+  start (refused, and the server stops, when the data directory holds real accounts). Default off: the
   sample ledger is created once and reused.
 - `MONETARY_ENABLE_DOCS` -- force `/docs`, `/redoc`, `/openapi.json` on/off.
 - `MONETARY_APP_NAME` / `MONETARY_APP_TAGLINE` -- the user-facing product name and tagline (default
@@ -57,11 +61,49 @@ Config via environment variables (see `backend/monetary/config.py`):
 
 ## Authentication
 
-Single-owner email + password login, with security-question-based password recovery.
+Email + password login, with security-question-based password recovery. Every account has its own
+ledger database; the first account is a superuser, and others either sign up (`POST /auth/register`,
+202 with the same generic answer whether or not the email is known, rate-limited, waits for approval) or
+are created by a superuser. `POST /auth/login` answers 403 with `AccountPendingApproval`,
+`AccountRejected`, `AccountSuspended` or `AccountPendingDelete` only after a correct password (a wrong
+email and a wrong password both give the same 401). While a temporary password is pending, everything
+except `GET /me`, `POST /auth/change-password` and `POST /auth/logout` answers 403
+`PasswordChangeRequired`; an account without a ledger gets 403 `NoLedgerError`.
+
+**Protections** (every number is a setting, see the README configuration table):
+- *Lock:* after `MONETARY_LOGIN_MAX_FAILURES` wrong passwords (or wrong security answers) in a row an account
+  is locked for `MONETARY_LOGIN_LOCKOUT_MINUTES`; sign-in and password reset answer 429 `AccountLocked` while
+  it lasts. A superuser can lift it (`POST /admin/users/{id}/unlock`, or `python -m monetary.cli unlock`).
+- *Temporary passwords* expire after `MONETARY_TEMP_PASSWORD_HOURS`; a correct but expired one answers 403
+  `TemporaryPasswordExpired` and needs a new reset by an administrator.
+- *Asking again:* registering with the email of a **rejected** request puts it back to pending with the new
+  details (same generic 202), at most `MONETARY_MAX_REREQUESTS` times; after that only a superuser can
+  `reopen` it. The 403 `AccountRejected` message says which applies.
+- *Captcha:* `GET /auth/captcha` returns `{provider, challenge, siteKey}`. With provider `altcha` (default;
+  a self-contained proof of work) or `turnstile`, `POST /auth/register`, `GET /auth/security-question` and
+  `POST /auth/reset-password` need the solution in an `X-Captcha` header, and `POST /auth/login` needs it
+  once the client address has failed `MONETARY_LOGIN_CAPTCHA_AFTER` times. Without it: 400 `CaptchaRequired`.
+  Each proof-of-work solution works once. `MONETARY_CAPTCHA_PROVIDER=none` turns it off.
+- `POST /auth/register` also accepts an optional hidden `website` field; a request that fills it in is a bot
+  and is answered normally but ignored.
+`GET /me` returns `{id, email, name, role, status, mustChangePassword, hasLedger}`.
+`GET /me/export` downloads the signed-in user's own ledger as a SQLite file (a consistent snapshot, without
+password hashes, security answers or sessions); it is disabled in demo mode.
+
+Self-service for the signed-in user (all but the reads are disabled in demo mode):
+
+- `GET /me/sessions` -- where the account is signed in: `[{id, createdAt, expiresAt, lastSeenAt, ip, userAgent, current}]`;
+  `current` is true for the session making the request.
+- `DELETE /me/sessions/{id}` -- sign out one device (404 if it is not yours).
+- `POST /me/sessions/revoke-others` -- sign out every device except this one; `{ended}`.
+- `GET /me/account` -- `{memberSince, lastLoginAt, ledgerBytes, securityQuestionId, deleteGraceDays}`.
+- `PUT /me/security-question` -- `{currentPassword, securityQuestionId, securityAnswer}`; needs the current password.
+- `POST /me/delete` -- `{password}`: puts the account in `pending_delete` (locked, all sessions ended). The
+  superuser can restore it, or purge it after `deleteGraceDays`. The superuser account cannot delete itself (409).
 
 **Is the instance set up?** `GET /api/v0.5/setup/status` (public) returns `{"initialized": true|false}`.
 A client can use it to choose between a first-run screen and a sign-in screen; `POST /setup/init` still
-re-checks atomically and answers `409` if an owner already exists.
+re-checks atomically and answers `409` once any account exists. It creates the first superuser and their ledger.
 
 **Bootstrap once** (also logs you in immediately -- the response includes a token):
 
@@ -108,7 +150,9 @@ curl "http://localhost:8000/api/v0.5/auth/security-question?email=you@example.co
 curl -X POST http://localhost:8000/api/v0.5/auth/reset-password -H "Content-Type: application/json" \
   -d '{"email": "you@example.com", "securityAnswer": "Whiskers", "newPassword": "a new one"}'
 ```
-Both of these are also rate-limited per client IP. A correct reset (or
+Both of these are also rate-limited per client IP and need the captcha above. The question endpoint never
+reveals whether an email has an account: an unknown email gets a stable decoy question, and any answer is
+then refused with the same "Invalid email or security answer". A correct reset (or
 `POST /api/v0.5/auth/change-password`) invalidates every existing session,
 forcing a fresh login everywhere.
 
@@ -133,6 +177,9 @@ the message string:
 | `OwnershipError` | 403 | (not currently reachable in single-owner scope, reserved) |
 | `ConflictError` | 409 | Valid input, but conflicts with current state (over-refund, settlement-history guard, etc.) |
 | `RateLimitError` | 429 | Too many attempts against a rate-limited endpoint |
+| `AccountLocked` | 429 | Too many wrong passwords in a row; the account is locked for a while |
+| `CaptchaRequired` | 400 | The request needs a solved captcha (`X-Captcha` header) |
+| `TemporaryPasswordExpired` | 403 | The temporary password is too old; ask an administrator for a new one |
 | `InternalError` | 500 | An unexpected server-side error. The response never includes the raw exception or a traceback; details are logged server-side only |
 | anything else | 400 | Fallback |
 
@@ -145,9 +192,9 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
 
 | Resource | Routes |
 |---|---|
-| `system` | `GET /meta` (public: app name, tagline, version, `demo` flag), `GET /health` (liveness + DB connectivity), `GET /` (service info) |
+| `system` | `GET /meta` (public: app name, tagline, version, `demo` flag), `GET /me` (the signed-in account), `GET /health` (liveness + DB connectivity), `GET /` (service info) |
 | `setup` | `GET /setup/status` (public), `POST /setup/init` -- the one-time owner creation that logs them in |
-| `auth` | `GET /auth/security-questions`, `POST /auth/login`, `POST /auth/demo` (demo mode only), `POST /auth/logout`, `POST /auth/change-password`, `GET /auth/security-question`, `POST /auth/reset-password` |
+| `auth` | `GET /auth/security-questions`, `POST /auth/register` (public sign-up request), `POST /auth/login`, `POST /auth/demo` (demo mode only), `POST /auth/logout`, `POST /auth/change-password`, `GET /auth/security-question`, `POST /auth/reset-password` |
 | `owner` | `GET /owner`, `PATCH /owner` |
 | `accounts` | `POST /accounts` (optional `openingBalance`, LIABILITY-only `creditLimit` / `statementDay`), `GET /accounts` (includes `balance` and `lastActivity`, the local date of the newest live entry), `PATCH /accounts/{id}`, `GET /accounts/{id}/balance`, `GET /accounts/{id}/statement` (every posting in date order with the balance after it -- for a liability, the amount owed; same row shape as the friend statement; reversed entries are left out), `POST /accounts/{id}/reconcile` (body `{balance, date?}`: what the bank shows; any difference is posted as one adjustment and returned as `{difference, entryId}`, `entryId: null` when already matched), `POST /accounts/{id}/{deactivate,reactivate}` |
 | `categories` | `POST /categories`, `GET /categories` (`?type=EXPENSE\|INCOME` -- income sources are INCOME categories), `PATCH /categories/{id}` (name, colour, budget, parent), `POST /categories/{id}/{deactivate,reactivate}` |
@@ -260,6 +307,56 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
 - **`GET /reports/trends/...`** -- monthly time series for the last N months.
 - **Split/fronted `DELETE` takes `?force=true` / `?remove_settlements=true`** query params
   (not a body -- DELETE-with-body is non-standard and some HTTP clients/proxies mishandle it).
+
+## Administration (admins and the superuser)
+
+Everything under `/api/v0.5/admin` requires an `admin` or `superuser` session. `delete`, `restore` and `PUT .../role` are superuser only. An actor can act only on a strictly lower role and never on their own account (`409`; revoking your own sessions is allowed). There is exactly one superuser. The role is read from the control
+database on every request, so a demotion or suspension applies at once. It is disabled (403) in demo
+mode. Superusers manage *accounts*; they never see ledger contents. Every action writes one audit row
+(actor, action, target, small detail, client address) and never a password.
+
+- `GET /admin/stats` -- `{totalUsers, byStatus, pendingApproval, activeSuperusers, activeAdmins, ledgerCount, ledgerBytes}`.
+- `GET /admin/users?status=&q=&limit=&offset=` / `GET /admin/users/{id}` -- accounts, never any credential.
+- `POST /admin/users` `{name, email, currency, timezone?, role?}` -- active account with an empty ledger and a
+  generated temporary password, returned **once** as `temporaryPassword`; the user must change it at first sign-in.
+- `POST /admin/users/{id}/approve` | `reject` (`{reason?}`) | `suspend` (`{reason?}`) | `reactivate` |
+  `reset-password` (new temporary password, returned once) | `unlock` (lift a sign-in lock) | `reopen` (a
+  rejected request back to pending, with a fresh allowance of re-requests) | `revoke-sessions` | `delete` (locks the account,
+  data purged after 30 days) | `restore`; `PUT /admin/users/{id}/role` `{role: "user"|"admin"}` (`superuser` -> `409`, unknown -> `422`).
+- `PATCH /admin/users/{id}` `{name?, email?, timezone?}` -- correct a profile (equal/higher role `403`, taken
+  email `409`); a new email signs the person out.
+- `GET /admin/users/{id}/sessions` -- live sign-ins `{id, createdAt, expiresAt, lastSeenAt, ip, userAgent}` (never
+  tokens); `DELETE /admin/users/{id}/sessions/{sessionId}` ends one (`404` if it is not theirs).
+- `POST /admin/users/bulk` `{action: approve|reject|suspend|reactivate, userIds, reason?}` -- at most
+  `MONETARY_ADMIN_BULK_LIMIT` (50) ids; each account is attempted on its own and reported:
+  `{action, succeeded, failed, results: [{userId, ok, error}]}`. There is no bulk delete.
+- `POST /admin/purge` (superuser) -- permanently remove accounts whose 30-day grace ended; `{purged}`.
+- `POST /admin/purge-selected` (superuser) -- `{userIds}`: permanently remove those accounts **now**, skipping the
+  grace period. Only accounts already in `pending_delete` are touched; others are ignored. Audited as `user.purge`
+  with `forced: true`.
+  `stats.overdueForPurge` counts them. User rows also carry `lastActivityAt` and `storageBytes`.
+- `GET /admin/audit-log?user_id=&limit=&offset=` -- newest first.
+- `GET /admin/audit-log/export` -- the whole audit log as a CSV download (`audit-log.csv`, newest first, at most
+  50,000 rows) with names and emails beside the ids. Admins and the superuser. Cells that start with `=`, `+`,
+  `-` or `@` are prefixed with `'` so a spreadsheet never runs them.
+- `GET /admin/platform` (superuser only) -- `{version, apiVersion, environment, demoMode, settings: [{key, label,
+  value}], controlDbBytes, ledgerCount, ledgerBytes}`. Read-only; shows sign-in and access settings only, never
+  keys, secrets or the data directory path.
+- Rules: a wrong state change is `409`; acting on an equal or higher role is `403`; `POST /admin/users` with
+  `role: admin` needs the superuser and `role: superuser` is `409`.
+
+Without the web UI, `python -m monetary.cli` (run from `backend/`, same `MONETARY_DATA_DIR`) offers
+`create-superuser` (refused once one exists), `transfer-superuser --to EMAIL [--demote-to admin|user]`, `list-users`, `reset-password`, `unlock`, `migrate-all`, `usage`, `backup --to DIR` and
+`purge [--dry-run]`. Passwords come from a prompt, `--password-stdin` or `MONETARY_PASSWORD`, never from
+an argument.
+
+Operations: run `purge` daily (cron or a systemd timer). It finishes deletions whose 30-day grace period
+has ended (the account, its sessions and its ledger file; the audit row keeps the email), drops sign-up
+requests nobody approved in 30 days and rejected ones older than 30 days, and removes leftover ledger
+files that no account refers to. A ledger file outside the data directory (an adopted earlier install) is
+never deleted automatically. `backup --to DIR` writes consistent snapshots of `control.db` and every
+ledger (safe while the service runs); restore by copying `control.db` and `tenants/` into an empty
+`MONETARY_DATA_DIR`.
 
 ## What's enforced at the API boundary
 

@@ -46,7 +46,7 @@ describe('first run', () => {
     await user.type(screen.getByLabelText('Confirm password'), OWNER.password)
     await selectValue(user, screen.getByLabelText('Timezone'), 'UTC')
     await user.type(screen.getByLabelText('Your answer'), OWNER.answer)
-    await user.click(screen.getByRole('button', { name: 'Create owner account' }))
+    await user.click(screen.getByRole('button', { name: 'Create administrator account' }))
 
     await waitFor(() => expect(window.location.pathname).toBe('/dashboard'), { timeout: 15_000 })
     expect(await screen.findByText('Nothing here yet')).toBeInTheDocument()   // a new ledger gets the welcome card, not empty charts
@@ -103,11 +103,11 @@ describe('adding a transaction through the UI', () => {
 })
 
 describe('already set up, and logging out', () => {
-  it('a second visit to setup is refused with a pointer to sign-in / password reset', async () => {
+  it('a second visit to setup becomes a request for an account, never a second setup', async () => {
     await useAuthStore.getState().logout()
     renderApp('/signup')
-    expect(await screen.findByText('Monetary is already set up')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Forgot password?' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: 'Request an account' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Create administrator account' })).not.toBeInTheDocument()
   })
 
   it('refuses a direct POST /setup/init too (409), so the UI check is a convenience, not the lock', async () => {

@@ -23,7 +23,7 @@ The application uses:
 - SQLite
 - Integer money values, stored as the smallest currency unit
 - FastAPI, Uvicorn, Pydantic, bcrypt, and `python-multipart`
-- A single owner account
+- One account per user, each with its own ledger database (see [MULTI_TENANT.md](MULTI_TENANT.md))
 - Bearer-token authentication for protected API endpoints
 
 The SQLite database is created automatically at:
@@ -32,7 +32,8 @@ The SQLite database is created automatically at:
 ~/.monetary_0.5/monetary.db
 ```
 
-The path can be overridden with `MONETARY_DB_PATH`.
+The folder can be overridden with `MONETARY_DATA_DIR`; `MONETARY_DB_PATH` (the single-file setting of
+earlier releases) is still read, see [MULTI_TENANT.md](MULTI_TENANT.md).
 
 Project-facing metadata and runtime names are centralized in
 `backend/monetary/config.py`. This module defines the display name, Python package name,
@@ -177,7 +178,9 @@ Responsibilities:
 2. Creates the parent directory.
 3. Opens SQLite with row-based results.
 4. Enables foreign keys.
-5. Executes the schema bootstrap.
+5. Applies any pending schema migrations (`infrastructure/migrations.py`). The schema version is stored
+   in `PRAGMA user_version`; a database created before versioning existed is adopted as version 1 without
+   changing its data, and a database newer than the release is refused.
 
 The schema is defined in `backend/monetary/infrastructure/db.py`; `LIVE_SCHEMA.sql` is the
 schema snapshot generated from SQLite's `sqlite_master`.
@@ -252,38 +255,40 @@ The application bootstraps the schema automatically. The complete SQL,
 including every index, lives only in [`LIVE_SCHEMA.sql`](LIVE_SCHEMA.sql), so there is
 a single copy to keep in sync.
 
-### 5.1 `user`
+### 5.1 `ledger_settings`
 
-Stores the single owner and friend records. Friends use the same table but
-have no login credentials.
+One row (`id = 1`) holding the ledger's own configuration. Who may sign in, and their name and email, belong to
+the control database (see `MULTI_TENANT.md`); the ledger keeps nothing that identifies or authenticates a person.
+
+| Column | Meaning |
+|---|---|
+| `id` | Always `1` |
+| `timezone` | IANA timezone the ledger's dates are read in |
+| `home_currency_code` | Default currency |
+| `ledger_mode` | `DIRECT` or `STRICT`; defaults to `DIRECT` |
+| `created_at`, `updated_at` | ISO timestamps |
+
+### 5.2 `contact`
+
+The friends this ledger shares money with. They are local records only: a contact cannot sign in.
+`linked_user_id` is reserved for linking a contact to a platform account later; it is `NULL` today.
 
 | Column | Meaning |
 |---|---|
 | `id` | Primary key |
 | `name` | Display name |
 | `email` | Unique email |
-| `phone` | Optional contact detail (friends only) |
-| `is_superuser` | Owner/admin marker |
-| `timezone` | Owner's IANA timezone |
-| `home_currency_code` | Owner's default currency |
-| `ledger_mode` | `DIRECT` or `STRICT`; defaults to `DIRECT` |
-| `password_hash` | Bcrypt password hash; null for friends |
-| `security_question_id` | Password recovery question ID |
-| `security_answer_hash` | Bcrypt hash of normalized answer |
+| `phone` | Optional contact detail |
+| `linked_user_id` | Platform account this contact is linked to (future); no foreign key, it lives in another database |
 | `created_at`, `updated_at` | ISO timestamps |
 
-### 5.2 `session`
-
-Stores API login sessions. Raw bearer tokens are not stored; only their hashes
-are persisted. Sessions expire after seven days.
-
-| Column | Meaning |
-|---|---|
-| `id` | Primary key |
-| `owner_id` | References `user.id` |
-| `token_hash` | Unique hash of the bearer token |
-| `created_at` | Session creation time |
-| `expires_at` | Session expiry time |
+**The owner's email.** A friend may not have the account holder's own email. The ledger cannot see that
+email (it lives in `control.db`), so `user_service.add_friend` / `update_friend` take it as a required
+`own_email` argument; the friends router supplies it from the signed-in account. This is a validation on a
+mutable value, not an invariant: it is checked only when a friend is created or edited. Changing the
+account email later (an admin action) is deliberately **not** checked against contacts, because a
+collision is harmless and admin code must not open ledgers. When real-user friends are added, the rule
+"a contact cannot link to its own account" will be enforced by a permanent public id, not by email.
 
 ### 5.3 `account`
 
@@ -298,7 +303,7 @@ accounts, and the system equity account are represented as account rows.
 | `currency_code` | Currency; null only for the system equity account |
 | `parent_account_id` | Optional parent category |
 | `budget_limit` | Integer-point monthly budget |
-| `counterparty_user_id` | Friend represented by a `DUE` account |
+| `counterparty_id` | Contact (friend) represented by a `DUE` account; references `contact.id` |
 | `is_system` | System-account marker |
 | `is_active` | Active/deactivated marker |
 | `created_at`, `updated_at` | ISO timestamps |
@@ -484,7 +489,7 @@ Passwords and security answers are stored as bcrypt hashes.
 ### Database
 
 ```bash
-export MONETARY_DB_PATH="$PWD/data/expense.db"
+export MONETARY_DATA_DIR="$PWD/data"
 ```
 
 ### API CORS
@@ -559,3 +564,5 @@ fresh directory instead of opening an old database.
 - [`README.md`](../README.md): installation and application startup
 - [`API.md`](API.md): API endpoints and authentication
 - [`LIVE_SCHEMA.sql`](LIVE_SCHEMA.sql): complete generated SQLite schema
+- [`MULTI_TENANT.md`](MULTI_TENANT.md): design for per-user databases, the control database and the superuser Admin area
+- [`CONTROL_SCHEMA.sql`](CONTROL_SCHEMA.sql): schema of the control database (accounts, logins, workspaces, audit log)

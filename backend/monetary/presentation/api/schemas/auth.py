@@ -31,3 +31,29 @@ class ResetPasswordRequest(ApiModel):
 class ChangePasswordRequest(ApiModel):
     current_password: str
     new_password: str = Field(min_length=8, max_length=128)
+
+
+class CaptchaChallengeOut(ApiModel):
+    algorithm: str
+    challenge: str
+    salt: str
+    maxnumber: int
+    signature: str
+
+
+class CaptchaConfigOut(ApiModel):
+    """What the sign-up, reset and sign-in forms need to show the right challenge."""
+    provider: str
+    challenge: CaptchaChallengeOut | None = None
+    site_key: str | None = None
+
+
+class RegisterRequest(ApiModel):
+    name: str
+    email: EmailStr
+    currency: str = Field(min_length=3, max_length=3)
+    timezone: str | None = None
+    password: str = Field(min_length=8, max_length=128)
+    security_question_id: int = Field(ge=1, le=5)
+    security_answer: str
+    website: str | None = Field(default=None, max_length=200)  # honeypot: real people leave it empty
