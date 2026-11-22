@@ -1,3 +1,4 @@
+import { DeviceListCard } from "@/components/settings/DeviceList";
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { Card, Skeleton } from "@/components/ui/primitives";
@@ -57,13 +58,16 @@ function Sessions({ user, canAct }: { user: AdminUser; canAct: boolean }) {
   const revokeAll = useAdminMutation(() => adminService.revokeSessions(user.id));
   const [confirmAll, setConfirmAll] = useState(false);
   return (
-    <Card className="overflow-hidden p-0">
-      <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
-        <span className="text-[15px] font-semibold">Signed-in devices{q.data ? <span className="ml-1 font-normal text-ink-faint">· {q.data.length}</span> : null}</span>
-        {canAct && (q.data?.length ?? 0) > 0 && (
-          <Button size="sm" variant="secondary" onClick={() => setConfirmAll(true)}>Sign out everywhere…</Button>
-        )}
-      </div>
+    <>
+      <DeviceListCard
+        rows={q.data} loading={q.isLoading} error={q.isError}
+        description={`Browsers where ${user.name} is signed in.`}
+        action={canAct && (q.data?.length ?? 0) > 0 ? <Button size="sm" variant="secondary" onClick={() => setConfirmAll(true)}>Sign out everywhere…</Button> : undefined}
+        onSignOut={canAct ? async (row) => {
+          try { await revoke.mutateAsync(row.id); toast.show("Signed out.", { variant: "success" }); }
+          catch (e) { toast.show(e instanceof Error ? e.message : "Couldn't sign out.", { variant: "error" }); }
+        } : undefined}
+      />
       <ConfirmDialog
         open={confirmAll} onOpenChange={setConfirmAll} variant="primary"
         title={`Sign ${user.name} out everywhere?`} message="All of their sessions end now. They can sign in again."
@@ -73,28 +77,7 @@ function Sessions({ user, canAct }: { user: AdminUser; canAct: boolean }) {
           catch (e) { toast.show(e instanceof Error ? e.message : "Couldn't sign out.", { variant: "error" }); }
         }}
       />
-      {q.isLoading ? <Skeleton className="m-4 h-16" /> : !q.data?.length ? (
-        <p className="px-4 py-5 text-[13px] text-ink-faint">Not signed in anywhere.</p>
-      ) : (
-        <ul>
-          {q.data.map((s) => (
-            <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3 last:border-b-0">
-              <div className="min-w-0 text-[13px]">
-                <div className="truncate font-medium">{s.userAgent ?? "Unknown device"}</div>
-                <div className="text-[12px] text-ink-faint">{s.ip ?? "unknown address"} · last seen {formatWhen(s.lastSeenAt ?? s.createdAt)} · signed in {formatWhen(s.createdAt)}</div>
-              </div>
-              {canAct && (
-                <Button size="sm" variant="secondary" aria-label={`Sign out ${s.userAgent ?? "device"} ${s.id}`}
-                  onClick={async () => {
-                    try { await revoke.mutateAsync(s.id); toast.show("Signed out.", { variant: "success" }); }
-                    catch (e) { toast.show(e instanceof Error ? e.message : "Couldn't sign out.", { variant: "error" }); }
-                  }}>Sign out</Button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </Card>
+    </>
   );
 }
 
