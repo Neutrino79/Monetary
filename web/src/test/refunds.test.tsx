@@ -94,6 +94,8 @@ function open(txn: Transaction = purchase) {
   return onOpenChange
 }
 
+const refundAsTxn = (): Transaction => ({ ...purchase, id: 8, type: 'refund', description: 'Refund — Headphones and case', amount: 200, refundOfId: 5, date: '2026-10-12' })
+
 describe('summariseRefunds', () => {
   it('works in whole cents', () => {
     const s = summariseRefunds(0.3, [{ amount: 0.1 }, { amount: 0.2 }])
@@ -117,18 +119,37 @@ describe('refunds on a purchase', () => {
     await u.click(await screen.findByRole('button', { name: /Refund — Headphones and case/ }))
     // now looking at the refund: it names and links its purchase
     expect(await screen.findByText('Refund of')).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Back to Headphones and case/ })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Back to purchase/ })).toBeInTheDocument()
     await u.click(screen.getByRole('button', { name: /Headphones and case \(₹500\)/ }))
     // and we are on the purchase again, with its refund list
     expect(await screen.findByText('₹200.00 of ₹500.00 refunded')).toBeInTheDocument()
     expect(screen.queryByText('Refund of')).toBeNull()
   })
 
+  it('does not stack a loop: reopening the refund after visiting the purchase goes back, not forward', async () => {
+    open()
+    const u = userEvent.setup()
+    await u.click(await screen.findByRole('button', { name: /Refund — Headphones and case/ }))
+    await u.click(await screen.findByRole('button', { name: /Headphones and case \(₹500\)/ }))
+    await u.click(await screen.findByRole('button', { name: /Refund — Headphones and case/ }))
+    await u.click(await screen.findByRole('button', { name: /Headphones and case \(₹500\)/ }))
+    // back on the purchase it started from: nothing left to go back to
+    expect(await screen.findByText('₹200.00 of ₹500.00 refunded')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Back to/ })).toBeNull()
+  })
+
+  it('opening a refund from the purchase labels the way back plainly', async () => {
+    open(refundAsTxn())
+    const u = userEvent.setup()
+    await u.click(await screen.findByRole('button', { name: /Headphones and case \(₹500\)/ }))
+    expect(await screen.findByRole('button', { name: 'Back to refund' })).toBeInTheDocument()
+  })
+
   it('Back returns to where you came from', async () => {
     open()
     const u = userEvent.setup()
     await u.click(await screen.findByRole('button', { name: /Refund — Headphones and case/ }))
-    await u.click(await screen.findByRole('button', { name: /Back to Headphones and case/ }))
+    await u.click(await screen.findByRole('button', { name: /Back to purchase/ }))
     expect(await screen.findByText('₹200.00 of ₹500.00 refunded')).toBeInTheDocument()
   })
 

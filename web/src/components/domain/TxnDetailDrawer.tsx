@@ -111,7 +111,14 @@ export function TxnDetailDrawer({ txn: base, open, onOpenChange }: { txn: Transa
   const summary = purchase ? summariseRefunds(purchase.amount, refunds) : null;
   const otherRefunds = refunds.filter((r) => r.id !== txn.id);
   const corrections = [correctionOf.data, replacedBy.data].filter((t): t is Transaction => !!t && t.id !== txn.id);
-  const openLinked = (t: Transaction) => setTrail((prev) => [...prev, t]);
+  // Opening something already on the path goes back to it instead of stacking a loop (purchase -> refund -> purchase ...).
+  const openLinked = (t: Transaction) =>
+    setTrail((prev) => {
+      if (base && t.id === base.id) return [];
+      const at = prev.findIndex((x) => x.id === t.id);
+      return at >= 0 ? prev.slice(0, at + 1) : [...prev, t];
+    });
+  const backLabel = previous ? (previous.type === "refund" ? "Back to refund" : previous.type === "expense" ? "Back to purchase" : `Back to ${previous.description}`) : "";
 
   const editable = ["income", "expense", "transfer", "split", "fronted"].includes(txn.type) && txn.status === "posted";
   const isRefund = txn.type === "refund" && txn.status === "posted";
@@ -209,7 +216,7 @@ export function TxnDetailDrawer({ txn: base, open, onOpenChange }: { txn: Transa
       >
         {trail.length > 0 && previous && (
           <button type="button" onClick={() => setTrail((prev) => prev.slice(0, -1))} className="mb-3 inline-flex items-center gap-1.5 text-[12.8px] font-medium text-accent hover:underline">
-            <ArrowLeft size={14} aria-hidden="true" /> Back to {previous.description}
+            <ArrowLeft size={14} aria-hidden="true" /> {backLabel}
           </button>
         )}
         <div className="mb-5 overflow-hidden rounded-2xl border border-line bg-paper-sunken">
