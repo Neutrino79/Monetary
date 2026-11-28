@@ -16,11 +16,12 @@ from decimal import Decimal
 from pathlib import Path
 from datetime import date, timedelta
 
-from monetary.application import account_service, identity_service, provisioning, split_service
+from monetary.application import account_service, bill_service, identity_service, provisioning, split_service
 from monetary.application import transaction_service
 from monetary.application import settlement_service, transfer_service, user_service
 from monetary.domain.enums import PlatformRole, UserStatus
 from monetary.domain.exceptions import ConflictError
+from monetary.domain.money import Money
 from monetary.domain.time_utils import utc_now_iso
 from monetary.infrastructure import control_repository as crepo
 
@@ -151,6 +152,23 @@ def start_demo_session(control, data_dir: str | Path) -> tuple[dict, str]:
     return account, identity_service.start_session(control, account)
 
 
+def _pay_oldest_bills(conn, owner, friend, account, amount, note, date_str) -> None:
+    """A friend pays back `amount`, applied to what they owe from the oldest bill on."""
+    left = Money.from_major_units(amount, account["currency_code"]).points
+    allocations = []
+    for bill in bill_service.friend_bills(conn, owner, friend["id"], only_open=True):
+        if left <= 0:
+            break
+        if bill["direction"] != bill_service.THEY_OWE_YOU or bill["date"] > date_str:
+            continue
+        take = min(left, bill["remaining_points"])
+        allocations.append((bill["entry_id"], Money(take, bill["currency"]).to_major_units_str()))
+        left -= take
+    settlement_service.create_settlement(
+        conn, owner, friend_id=friend["id"], account_id=account["id"], allocations=allocations,
+        date_str=date_str, note=note)
+
+
 def _build(conn, owner: dict) -> None:
     def account(name, subtype, opening, **extra):
         return account_service.create_account_with_opening_balance(
@@ -238,6 +256,4 @@ def _build(conn, owner: dict) -> None:
     for days_ago, friend, amount, note in ((3, alex, "20.00", "Alex paid back part of it"),
                                            (45, sam, "32.00", "Sam settled up"),
                                            (95, alex, "28.00", "Alex paid back")):
-        settlement_service.create_settlement(
-            conn, owner, friend_id=friend["id"], account_id=bank["id"], amount_major=amount,
-            description=note, date_str=_day(days_ago))
+        _pay_oldest_bills(conn, owner, friend, bank, amount, note, _day(days_ago))

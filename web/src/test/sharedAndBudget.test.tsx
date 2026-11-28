@@ -61,6 +61,11 @@ describe('friend cards', () => {
       '/friends/balances': [{ friendId: 11, friendName: 'Rahul', balance: money(-124000), frontedUnpaid: money(124000) }],
       '/accounts': [{ id: 1, name: 'HDFC Savings', accountType: 'ASSET', currencyCode: 'INR', isActive: true, subtype: 'bank', creditLimit: null, statementDay: null, balance: money(1000000), createdAt: 'x', updatedAt: 'x' }],
       '/transactions': { items: [], total: 0, limit: 12, offset: 0 },
+      '/friends/11/bills': [{
+        entryId: 31, friendId: 11, type: 'fronted', direction: 'you_owe_them', description: 'Hotel', date: '2026-09-01', currency: 'INR', categoryId: 7,
+        amount: money(124000), paid: money(0), matched: money(0), remaining: money(124000), status: 'unpaid',
+      }],
+      '/friends/11/unassigned-payments': [],
     }
     vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
       const path = new URL(String(input)).pathname.replace(/^\/api\/v0\.5/, '')
@@ -72,13 +77,14 @@ describe('friend cards', () => {
   const wrap = (ui: React.ReactElement) =>
     render(<QueryClientProvider client={queryClient}><ToastProvider><MemoryRouter>{ui}</MemoryRouter></ToastProvider></QueryClientProvider>)
 
-  it('shows what a friend paid for you that is not paid back, with a Pay back button that opens prefilled', async () => {
+  it('shows what a friend paid for you that is not paid back, with a Pay back button that lists the bills to tick', async () => {
     const user = userEvent.setup()
     wrap(<FriendsPage />)
     expect(await screen.findByText(/Paid for you, not paid back/)).toHaveTextContent('1,240')
     await user.click(screen.getByRole('button', { name: /Pay back/ }))
     const dialog = await screen.findByRole('dialog')
-    expect(within(dialog).getByRole('textbox', { name: /Amount/ })).toHaveValue('1240')              // the amount owed is prefilled
+    await user.click(await within(dialog).findByRole('checkbox', { name: /Settle Hotel/ }))
+    expect(within(dialog).getByRole('textbox', { name: /Amount for Hotel/ })).toHaveValue('1240.00')   // ticking a bill fills what is left on it
     expect(within(dialog).getByRole('combobox', { name: /Pay from account/ })).toHaveTextContent('HDFC Savings')   // first account chosen
   })
 

@@ -12,6 +12,7 @@ import { accountsService } from '@/lib/api/services/accountsService'
 import { categoriesService } from '@/lib/api/services/categoriesService'
 import { friendsService } from '@/lib/api/services/friendsService'
 import { transactionsService } from '@/lib/api/services/transactionsService'
+import { matchesService, settlementsService } from '@/lib/api/services/settlementsService'
 import { reportsService } from '@/lib/api/services/reportsService'
 import { tokenStorage } from '@/lib/api/tokenStorage'
 import { today, toMonthKey } from '@/lib/utils/clock'
@@ -37,6 +38,21 @@ beforeAll(async () => {
   salary = (await categoriesService.list('INCOME')).find((c) => c.name === 'Salary')!.id
   baseline = await reportsService.dashboard('INR', month)
 })
+
+
+/** Pay `amount` against the friend's open bills in one direction, oldest first (what the settle form's "fill amount" does). */
+async function payOldest(friendId: number, accountId: number, amount: number, direction: 'they_owe_you' | 'you_owe_them', date: string = D) {
+  let left = Math.round(amount * 100)
+  const allocations: { billId: number; amount: number }[] = []
+  for (const b of (await friendsService.bills(friendId, true)).filter((x) => x.direction === direction)) {
+    if (left <= 0) break
+    const take = Math.min(left, Math.round(b.remaining * 100))
+    allocations.push({ billId: b.entryId, amount: take / 100 })
+    left -= take
+  }
+  if (left > 0 && allocations.length) allocations[allocations.length - 1]!.amount += left / 100 // let the server's cap answer
+  return settlementsService.create({ friendId, accountId, allocations, date })
+}
 
 describe('branding and identity', () => {
   it('serves the configured product name', async () => {
@@ -95,8 +111,8 @@ describe('the transaction lifecycle (DIRECT mode)', () => {
       yourShare: 100, splits: [{ friendId: priya.id, share: 200 }],
     })
     expect(split).toMatchObject({ type: 'split', amount: 300, yourShare: 100, splits: [{ friendId: priya.id, share: 200 }] })
-    const settle = await transactionsService.settle({ friendId: priya.id, accountId: bank.id, amount: 50, direction: 'receive', date: D })
-    expect(settle).toMatchObject({ type: 'settlement', direction: 'receive', friendId: priya.id })
+    const [settle] = await payOldest(priya.id, bank.id, 50, 'they_owe_you')
+    expect(settle).toMatchObject({ type: 'settlement', direction: 'receive', friendId: priya.id, settlesEntryId: split.id })
     const refund = await transactionsService.create({ type: 'refund', description: 'Refund', date: D, amount: 20, refundOfId: expenseId })
     expect(refund).toMatchObject({ type: 'refund', refundOfId: expenseId, accountId: bank.id })
 
@@ -149,10 +165,8 @@ describe('the transaction lifecycle (DIRECT mode)', () => {
       type: 'split', description: 'x', date: D, amount: 100, accountId: bank.id, categoryId: groceries, yourShare: 10, splits: [{ friendId: priya.id, share: 50 }],
     })).rejects.toMatchObject({ status: 422, message: expect.stringContaining('add up') })
 
-    await expect(transactionsService.settle({ friendId: priya.id, accountId: bank.id, amount: 10, direction: 'pay' })).rejects.toMatchObject({
-      status: 422, message: expect.stringContaining('not one you pay'),
-    })
-    await expect(transactionsService.settle({ friendId: priya.id, accountId: bank.id, amount: 9999 })).rejects.toMatchObject({ status: 409 })
+    await expect(payOldest(priya.id, bank.id, 9999, 'they_owe_you')).rejects.toMatchObject({ status: 409 }) // more than is left on the bill
+    await expect(transactionsService.create({ type: 'settlement', description: 'x', date: D, amount: 10, friendId: priya.id, accountId: bank.id })).rejects.toMatchObject({ status: 422 })
     await expect(transactionsService.create({ type: 'refund', description: 'r', date: D, amount: 999, refundOfId: expenseId })).rejects.toMatchObject({ status: 409 })
 
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 3)
@@ -161,10 +175,11 @@ describe('the transaction lifecycle (DIRECT mode)', () => {
     })).rejects.toMatchObject({ status: 422, message: expect.stringContaining('future') })
   })
 
-  it('guards a settled split behind an explicit force', async () => {
+  it('guards a bill with payments behind an explicit removeLinked', async () => {
     const dinner = (await transactionsService.list({ type: ['split'], search: 'Dinner' })).items[0]!
-    await expect(transactionsService.update(dinner.id, { description: 'Dinner (renamed)' })).rejects.toMatchObject({ status: 409 })
-    const ok = await transactionsService.update(dinner.id, { description: 'Dinner (renamed)' }, { force: true })
+    const lower = { amount: 100, yourShare: 90, splits: [{ friendId: priya.id, share: 10 }] } // Priya paid 50, so it can't drop to 10
+    await expect(transactionsService.update(dinner.id, lower)).rejects.toMatchObject({ status: 409, code: 'BillDependencyError' })
+    const ok = await transactionsService.update(dinner.id, { description: 'Dinner (renamed)' }) // a rename touches no money
     expect(ok.description).toBe('Dinner (renamed)')
   })
 })
@@ -238,12 +253,12 @@ describe('friend-paid (fronted) expenses', () => {
     expect(owed).toMatchObject({ balance: -100, frontedUnpaid: 100 })
 
     // paying back 40 leaves 60 of that expense unpaid; the repayment is not spending again
-    await transactionsService.settle({ friendId: dev.id, accountId: bank.id, amount: 40, direction: 'pay', date: D })
+    await payOldest(dev.id, bank.id, 40, 'you_owe_them')
     expect((await transactionsService.get(fronted.id)).unpaid).toBe(60)
     expect((await friendsService.balances()).find((b) => b.friendId === dev.id)).toMatchObject({ balance: -60, frontedUnpaid: 60 })
     expect(await bal(bank.id)).toBe(bankBefore - 40)
 
-    await transactionsService.settle({ friendId: dev.id, accountId: bank.id, amount: 60, direction: 'pay', date: D })
+    await payOldest(dev.id, bank.id, 60, 'you_owe_them')
     expect((await transactionsService.get(fronted.id)).unpaid).toBe(0)
   })
 })
@@ -260,23 +275,47 @@ describe('edit an expense into a split, and delete a settlement', () => {
     expect(await bal(bank.id)).toBe(bankBefore - 100) // you still paid the whole bill
     expect((await friendsService.balances()).find((b) => b.friendId === mia.id)?.balance).toBe(60)
 
-    const settle = await transactionsService.settle({ friendId: mia.id, accountId: bank.id, amount: 60, direction: 'receive', date: D })
+    const [settle] = await payOldest(mia.id, bank.id, 60, 'they_owe_you')
     // a settlement is titled from what it covers, not with a generic word tacked on
-    expect(settle.description).toMatch(/^Settlement from Mia — Cab/)
-    expect(settle.description).not.toMatch(/— Settlement$/)
+    expect(settle!.description).toMatch(/^Settlement from Mia — Cab/)
+    expect(settle!.description).not.toMatch(/— Settlement$/)
 
     // the friend's statement lists the split and the settlement with the balance after each
     const lines = await friendsService.statement(mia.id)
     expect(lines.map((l) => [l.entryType, l.delta, l.runningBalance])).toEqual([['SPLIT', 60, 60], ['SETTLEMENT', -60, 0]])
     expect(lines[0].date).toBe(D)
 
-    await transactionsService.remove(settle.id)
+    await transactionsService.remove(settle!.id)
     expect((await friendsService.balances()).find((b) => b.friendId === mia.id)?.balance).toBe(60)
     expect(await bal(bank.id)).toBe(bankBefore - 100)
 
     const back = await transactionsService.update(split.id, { splits: [] })
     expect(back).toMatchObject({ type: 'expense', amount: 100 })
     expect((await friendsService.balances()).find((b) => b.friendId === mia.id)?.balance).toBe(0)
+  })
+})
+
+describe('matching bills against each other, and the stack rule', () => {
+  it('nets a friend-paid bill against a split without moving money, and locks it once paid', async () => {
+    const ravi = await friendsService.create({ name: 'Ravi', email: 'ravi@example.com' })
+    const split = await transactionsService.create({
+      type: 'split', description: 'Cinema', date: D, amount: 100, accountId: bank.id, categoryId: groceries, yourShare: 40, splits: [{ friendId: ravi.id, share: 60 }],
+    })
+    const fronted = await transactionsService.create({ type: 'fronted', description: 'Taxi', date: D, amount: 25, friendId: ravi.id, categoryId: groceries })
+    const bankBefore = await bal(bank.id)
+
+    const m = await matchesService.create({ friendId: ravi.id, owedToMeId: split.id, owedByMeId: fronted.id, amount: 25 })
+    expect(m).toMatchObject({ amount: 25, locked: false })
+    expect(await bal(bank.id)).toBe(bankBefore) // no money moves
+    expect((await friendsService.balances()).find((b) => b.friendId === ravi.id)?.balance).toBe(35) // 60 - 25, unchanged by the match
+    const open = await friendsService.bills(ravi.id, true)
+    expect(open.map((b) => [b.description, b.remaining])).toEqual([['Cinema', 35]]) // the taxi is fully covered
+
+    await payOldest(ravi.id, bank.id, 10, 'they_owe_you')
+    expect((await friendsService.matches(ravi.id))[0]).toMatchObject({ locked: true })
+    await expect(matchesService.remove(m.id)).rejects.toMatchObject({ status: 409, code: 'BillDependencyError' })
+    await matchesService.remove(m.id, true) // removeLinked also deletes the payment
+    expect((await friendsService.bills(ravi.id, true)).map((b) => b.remaining).sort()).toEqual([25, 60])
   })
 })
 

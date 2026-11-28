@@ -25,6 +25,15 @@ class ConflictError(DomainError):
     """The requested operation conflicts with current state."""
 
 
+class BillDependencyError(ConflictError):
+    """A change would leave payments or matches without the bill they belong to. `details` lists them so a
+    client can show exactly what depends on the bill and offer to remove it together with the change."""
+
+    def __init__(self, message: str, details: dict | None = None):
+        super().__init__(message)
+        self.details = details or {}
+
+
 class RateLimitError(DomainError):
     """Too many requests for a rate-limited operation (e.g. login attempts)."""
 

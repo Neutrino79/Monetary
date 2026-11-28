@@ -107,13 +107,11 @@ class SplitEdit(ApiModel):
     title: str | None = Field(default=None, max_length=500)
     date: str | None = None
     note: str | None = Field(default=None, max_length=2000)
-    force: bool = False
-    remove_settlements: bool = False
+    remove_linked: bool = Field(default=False, description="Also remove the payments and matches tied to this bill")
 
 
 class SplitDeleteRequest(ApiModel):
-    force: bool = False
-    remove_settlements: bool = False
+    remove_linked: bool = False
 
 
 class SplitParticipantOut(ApiModel):
@@ -144,22 +142,37 @@ class TransferEdit(ApiModel):
     date: str | None = None
 
 
+class AllocationIn(ApiModel):
+    bill_id: int = Field(description="The split or friend-paid entry this part of the payment is for")
+    amount: str = Field(description="Major units, at most what is left on that bill")
+
+
 class SettlementCreate(ApiModel):
     friend_id: int
-    account_id: int
-    amount: str
-    description: str | None = Field(default=None, max_length=500)
+    account_id: int = Field(description="The account the money goes into (they pay you) or comes out of (you pay them)")
+    allocations: list[AllocationIn] = Field(min_length=1, description="The bills this payment settles, one direction only")
     date: str | None = None
     note: str | None = Field(default=None, max_length=2000)
 
 
 class SettlementEdit(ApiModel):
-    friend_id: int | None = None
-    account_id: int | None = None
-    amount: str | None = None
-    description: str | None = Field(default=None, max_length=500)
-    date: str | None = None
     note: str | None = Field(default=None, max_length=2000)
+
+
+class SettlementAssign(ApiModel):
+    allocations: list[AllocationIn] = Field(min_length=1, description="Must add up to the payment's amount")
+
+
+class MatchCreate(ApiModel):
+    friend_id: int
+    owed_to_me_id: int = Field(description="A split: the friend owes you")
+    owed_by_me_id: int = Field(description="A friend-paid expense: you owe the friend")
+    amount: str
+
+
+class MatchEdit(ApiModel):
+    amount: str
+    remove_linked: bool = Field(default=False, description="Also delete the payments tied to either bill")
 
 
 # --------------------------------------------------------------------------- #
@@ -176,10 +189,10 @@ class SplitShareOut(ApiModel):
 
 
 class TransactionCreate(ApiModel):
-    type: str = Field(description="income | expense | transfer | split | fronted | settlement | refund | adjustment")
+    type: str = Field(description="income | expense | transfer | split | fronted | refund | adjustment "
+                                  "(a payment between you and a friend is recorded with POST /settlements)")
     description: str | None = Field(default=None, min_length=1, max_length=500,
-                                    validation_alias=AliasChoices("description", "title"),
-                                    description="Required except for a settlement, which is titled from who it covers")
+                                    validation_alias=AliasChoices("description", "title"))
     amount: str = Field(description="Major units. For a split this is the TOTAL bill.")
     date: str | None = Field(default=None, description="'YYYY-MM-DD' (owner's local date); defaults to now")
     memo: str | None = Field(default=None, max_length=2000, validation_alias=AliasChoices("memo", "note"))
@@ -187,7 +200,7 @@ class TransactionCreate(ApiModel):
     to_account_id: int | None = None
     category_id: int | None = None
     friend_id: int | None = None
-    direction: str | None = Field(default=None, description="settlement: receive|pay (verified); adjustment: increase|decrease")
+    direction: str | None = Field(default=None, description="adjustment: increase|decrease")
     your_share: str | None = Field(default=None, description="split: your own share (can be '0')")
     splits: list[SplitShareIn] | None = None
     refund_of_id: int | None = None
@@ -210,8 +223,16 @@ class TransactionPatch(ApiModel):
     your_share: str | None = None
     splits: list[SplitShareIn] | None = None
     tags: list[str] | None = Field(default=None, description="The complete new tag set; [] clears the tags, absent leaves them")
-    force: bool = False
-    remove_settlements: bool = False
+    remove_linked: bool = Field(default=False, description="Also remove the payments and matches tied to this bill")
+
+
+class BillStatusOut(ApiModel):
+    friend_id: int
+    amount: MoneyOut = Field(description="The friend's share of this bill")
+    paid: MoneyOut = Field(description="Payments tied to this bill")
+    matched: MoneyOut = Field(description="Covered by matching against a bill in the other direction")
+    remaining: MoneyOut
+    status: str = Field(description="unpaid | partial | paid")
 
 
 class TransactionOut(ApiModel):
@@ -238,6 +259,48 @@ class TransactionOut(ApiModel):
     updated_at: str
     unpaid: MoneyOut | None = Field(default=None, description="Friend-fronted only: the part not repaid to the friend yet")
     group_key: str | None = Field(default=None, description="Only when listed with `groupBy`: the group this row is in")
+    bill: list[BillStatusOut] | None = Field(
+        default=None, description="Split / friend-paid only: per friend, how much is paid, matched and left")
+    settles_entry_id: int | None = Field(default=None, description="Settlement only: the bill this payment is for")
+    payment_group: str | None = Field(default=None, description="Settlement only: entries of one payment share this")
+
+
+class PaymentOut(ApiModel):
+    payment_group: str | None
+    transactions: list[TransactionOut]
+
+
+class BillOut(ApiModel):
+    entry_id: int
+    friend_id: int
+    type: str = Field(description="split | fronted")
+    direction: str = Field(description="they_owe_you | you_owe_them")
+    description: str
+    date: str
+    currency: str
+    category_id: int | None
+    amount: MoneyOut
+    paid: MoneyOut
+    matched: MoneyOut
+    remaining: MoneyOut
+    status: str = Field(description="unpaid | partial | paid")
+
+
+class MatchBillOut(ApiModel):
+    entry_id: int
+    description: str
+    date: str
+
+
+class MatchOut(ApiModel):
+    id: int
+    friend_id: int
+    amount: MoneyOut
+    owed_to_me: MatchBillOut
+    owed_by_me: MatchBillOut
+    locked: bool = Field(description="A payment is tied to one of the bills, so the match can't change until it goes")
+    created_at: str
+    updated_at: str
 
 
 class GroupTotalOut(ApiModel):

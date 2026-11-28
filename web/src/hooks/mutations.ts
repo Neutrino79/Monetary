@@ -9,6 +9,7 @@ import { categoriesService } from "@/lib/api/services/categoriesService";
 import { friendsService } from "@/lib/api/services/friendsService";
 import { tagsService } from "@/lib/api/services/tagsService";
 import { transactionsService } from "@/lib/api/services/transactionsService";
+import { matchesService, settlementsService } from "@/lib/api/services/settlementsService";
 import { qk } from "./queries";
 
 /**
@@ -44,7 +45,18 @@ export const useUpdateTransaction = () =>
     transactionsService.update(id, patch, opts));
 export const useDeleteTransaction = () =>
   useLedgerMutation(({ id, opts }: { id: Id; opts?: TransactionWriteOptions }) => transactionsService.remove(id, opts));
-export const useSettleFriend = () => useLedgerMutation((s: SettlementInput) => transactionsService.settle(s));
+export const useSettleFriend = () => useLedgerMutation((s: SettlementInput) => settlementsService.create(s));
+export const useAssignPayment = () =>
+  useLedgerMutation(({ id, allocations }: { id: Id; allocations: SettlementInput["allocations"] }) => settlementsService.assign(id, allocations));
+export const useEditPaymentNote = () => useLedgerMutation(({ id, note }: { id: Id; note: string | null }) => settlementsService.editNote(id, note));
+
+// ------------------------------------------------------------------ matches
+export const useCreateMatch = () =>
+  useLedgerMutation((m: { friendId: Id; owedToMeId: Id; owedByMeId: Id; amount: number }) => matchesService.create(m));
+export const useUpdateMatch = () =>
+  useLedgerMutation(({ id, amount, removeLinked }: { id: Id; amount: number; removeLinked?: boolean }) => matchesService.update(id, amount, removeLinked));
+export const useDeleteMatch = () =>
+  useLedgerMutation(({ id, removeLinked }: { id: Id; removeLinked?: boolean }) => matchesService.remove(id, removeLinked));
 
 // ----------------------------------------------------------------- accounts
 export const useCreateAccount = () => useLedgerMutation((p: NewAccountInput) => accountsService.create(p));

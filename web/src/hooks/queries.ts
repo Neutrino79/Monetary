@@ -26,6 +26,9 @@ export const qk = {
   friendBalances: ["friends", "balances"] as const,
   accountStatement: (id: Id) => ["accounts", "statement", id] as const,
   friendStatement: (id: Id) => ["friends", "statement", id] as const,
+  friendBills: (id: Id, open: boolean) => ["friends", "bills", id, open] as const,
+  friendMatches: (id: Id) => ["friends", "matches", id] as const,
+  unassignedPayments: (id: Id) => ["friends", "unassigned", id] as const,
   transactions: (f: TransactionFilters) => ["transactions", f] as const,
   transactionGroups: (f: TransactionFilters) => ["transactions", "groups", f] as const,
   transaction: (id: Id) => ["transaction", id] as const,
@@ -100,6 +103,20 @@ export function useAccountStatement(id: Id | undefined) {
 
 export function useFriendStatement(id: Id | undefined) {
   return useQuery({ queryKey: qk.friendStatement(id ?? 0), queryFn: () => friendsService.statement(id!), enabled: id != null });
+}
+
+/** The splits a friend owes you and the expenses they paid for you, with paid / matched / remaining. */
+export function useFriendBills(id: Id | undefined, onlyOpen = false) {
+  return useQuery({ queryKey: qk.friendBills(id ?? 0, onlyOpen), queryFn: () => friendsService.bills(id!, onlyOpen), enabled: id != null });
+}
+
+export function useFriendMatches(id: Id | undefined) {
+  return useQuery({ queryKey: qk.friendMatches(id ?? 0), queryFn: () => friendsService.matches(id!), enabled: id != null });
+}
+
+/** Old payments not tied to any bill yet; the friend cannot take new payments until these are linked. */
+export function useUnassignedPayments(id: Id | undefined) {
+  return useQuery({ queryKey: qk.unassignedPayments(id ?? 0), queryFn: () => friendsService.unassignedPayments(id!), enabled: id != null });
 }
 
 /** A server-filtered, server-sorted, server-paged page of transactions. */

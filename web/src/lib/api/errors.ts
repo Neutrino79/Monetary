@@ -5,9 +5,12 @@ export class ApiError extends Error {
   code?: string;
   /** Per-field messages for 422 validation errors, keyed by the request field name. */
   fieldErrors: Record<string, string>;
+  /** Structured extras some 409s carry, e.g. the payments a bill change would delete (BillDependencyError). */
+  details?: Record<string, unknown>;
 
-  constructor(message: string, status = 0, code?: string, fieldErrors: Record<string, string> = {}) {
+  constructor(message: string, status = 0, code?: string, fieldErrors: Record<string, string> = {}, details?: Record<string, unknown>) {
     super(message);
+    this.details = details;
     this.name = "ApiError";
     this.status = status;
     this.code = code;
@@ -16,6 +19,11 @@ export class ApiError extends Error {
 
   static isApiError(err: unknown): err is ApiError {
     return err instanceof ApiError;
+  }
+
+  /** The change is blocked by payments / matches resting on a bill; retrying with `removeLinked` deletes them. */
+  get isBillDependency(): boolean {
+    return this.status === 409 && this.code === "BillDependencyError";
   }
 
   get isNetwork(): boolean {
@@ -30,8 +38,8 @@ interface ValidationItem {
 
 /** Turns a FastAPI error body (`{detail, error_type}`; `detail` is a list for 422 validation) into an ApiError. */
 export function apiErrorFromBody(status: number, statusText: string, body: unknown): ApiError {
-  const data = (body ?? {}) as { detail?: unknown; error_type?: string };
-  if (typeof data.detail === "string") return new ApiError(data.detail, status, data.error_type);
+  const data = (body ?? {}) as { detail?: unknown; error_type?: string; details?: Record<string, unknown> };
+  if (typeof data.detail === "string") return new ApiError(data.detail, status, data.error_type, {}, data.details ?? undefined);
   if (Array.isArray(data.detail)) {
     const fieldErrors: Record<string, string> = {};
     for (const item of data.detail as ValidationItem[]) {

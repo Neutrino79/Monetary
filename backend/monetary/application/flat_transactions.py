@@ -99,9 +99,10 @@ def _create_entry(conn, owner: dict, data: dict) -> dict:
     ftype = data["type"]
     if ftype not in FLAT_TYPES:
         raise ValidationError(f"Unknown transaction type {ftype!r}; expected one of: {', '.join(FLAT_TYPES)}.")
+    if ftype == "settlement":
+        raise ValidationError("Record a payment with POST /settlements, choosing the bills it pays.")
     description = (data.get("description") or "").strip()
-    if ftype != "settlement":
-        _need({"description": description}, ftype, "description")
+    _need({"description": description}, ftype, "description")
     date_str = data.get("date")
     _check_date(date_str, owner)
     memo = _clean_memo(data.get("memo"))
@@ -134,21 +135,6 @@ def _create_entry(conn, owner: dict, data: dict) -> dict:
         return split_service.create_friend_fronted_expense(
             conn, owner, category_id=data["category_id"], friend_id=data["friend_id"],
             amount_major=amount, description=description, date_str=date_str, note=memo)
-
-    if ftype == "settlement":
-        _need(data, ftype, "friend_id", "account_id")
-        entry = settlement_service.create_settlement(
-            conn, owner, friend_id=data["friend_id"], account_id=data["account_id"],
-            amount_major=amount, description=description or None, date_str=date_str, note=memo)
-        requested = data.get("direction")
-        if requested:
-            actual = to_views(conn, owner, [entry])[0]["direction"]
-            if actual != requested:
-                # raising rolls back the whole request, so nothing is posted
-                raise ValidationError(
-                    f"Your balance with this friend makes this a settlement you {actual}, "
-                    f"not one you {requested}.")
-        return entry
 
     if ftype == "refund":
         _need(data, ftype, "refund_of_id")
@@ -247,7 +233,7 @@ def _filters(conn, owner: dict, *, account_id, category_id, friend_id, refund_of
 # --------------------------------------------------------------------------- #
 # update / delete
 # --------------------------------------------------------------------------- #
-def update(conn, owner: dict, entry_id: int, fields: dict, *, force=False, remove_settlements=False) -> dict:
+def update(conn, owner: dict, entry_id: int, fields: dict, *, remove_linked=False) -> dict:
     """`fields` holds only the keys the client sent. A key present with null
     clears the field where clearing is meaningful (memo); absent = unchanged. `tags`, when sent, is the
     new complete tag set (`[]` clears them); a replacement entry always keeps the original's tags."""
@@ -255,12 +241,12 @@ def update(conn, owner: dict, entry_id: int, fields: dict, *, force=False, remov
     if set(fields) <= {"tags"}:
         entry = _entry_or_404(conn, entry_id)               # tags only: no ledger edit (nor a STRICT replacement)
     else:
-        entry = _update_entry(conn, owner, entry_id, fields, force=force, remove_settlements=remove_settlements)
+        entry = _update_entry(conn, owner, entry_id, fields, remove_linked=remove_linked)
     tag_service.apply_after_edit(conn, entry_id, entry["id"], tags)
     return entry
 
 
-def _update_entry(conn, owner: dict, entry_id: int, fields: dict, *, force=False, remove_settlements=False) -> dict:
+def _update_entry(conn, owner: dict, entry_id: int, fields: dict, *, remove_linked=False) -> dict:
     entry = _entry_or_404(conn, entry_id)
     etype = entry["entry_type"]
     if "date" in fields and fields["date"]:
@@ -288,7 +274,7 @@ def _update_entry(conn, owner: dict, entry_id: int, fields: dict, *, force=False
         return split_service.convert_split_to_expense(
             conn, owner, entry_id, account_id=fields.get("account_id"), category_id=fields.get("category_id"),
             amount_major=amount, description=description, date_str=date_str, note=note,
-            force=force, remove_settlements=remove_settlements)
+            remove_linked=remove_linked)
 
     if etype in ("NORMAL", "REFUND", "ADJUSTMENT"):
         if etype == "ADJUSTMENT" and fields.get("direction"):
@@ -308,9 +294,10 @@ def _update_entry(conn, owner: dict, entry_id: int, fields: dict, *, force=False
             description=description, date_str=date_str, note=note)
 
     if etype == "SETTLEMENT":
-        return settlement_service.edit_settlement(
-            conn, owner, entry_id, friend_id=fields.get("friend_id"), account_id=fields.get("account_id"),
-            amount_major=amount, description=description, date_str=date_str, note=note)
+        if set(fields) - {"memo", "tags"}:
+            raise ValidationError("A payment can't be changed. Delete it and record it again; only its note "
+                                  "can be edited.")
+        return settlement_service.edit_settlement(conn, owner, entry_id, note=note)
 
     if etype == "SPLIT":
         current = view_of(conn, owner, entry)
@@ -330,18 +317,18 @@ def _update_entry(conn, owner: dict, entry_id: int, fields: dict, *, force=False
         return split_service.edit(
             conn, owner, entry_id, account_id=fields.get("account_id"), category_id=fields.get("category_id"),
             owner_share_major=owner_share, friend_shares=friend_shares, description=description,
-            date_str=date_str, note=note, force=force, remove_settlements=remove_settlements)
+            date_str=date_str, note=note, remove_linked=remove_linked)
 
     if etype == "FRONTED":
         return split_service.edit(
             conn, owner, entry_id, category_id=fields.get("category_id"), friend_id=fields.get("friend_id"),
             amount_major=amount, description=description, date_str=date_str, note=note,
-            force=force, remove_settlements=remove_settlements)
+            remove_linked=remove_linked)
 
     raise ValidationError(f"Transactions of type {etype} can't be edited.")
 
 
-def delete(conn, owner: dict, entry_id: int, *, force=False, remove_settlements=False) -> None:
+def delete(conn, owner: dict, entry_id: int, *, remove_linked=False) -> None:
     entry = _entry_or_404(conn, entry_id)
     etype = entry["entry_type"]
     if etype in ("NORMAL", "REFUND", "ADJUSTMENT"):
@@ -349,7 +336,7 @@ def delete(conn, owner: dict, entry_id: int, *, force=False, remove_settlements=
     elif etype == "TRANSFER":
         transfer_service.delete_transfer(conn, owner, entry_id)
     elif etype in ("SPLIT", "FRONTED"):
-        split_service.delete_split(conn, owner, entry_id, force=force, remove_settlements=remove_settlements)
+        split_service.delete_split(conn, owner, entry_id, remove_linked=remove_linked)
     elif etype == "SETTLEMENT":
         settlement_service.delete_settlement(conn, owner, entry_id)
     else:

@@ -198,12 +198,13 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
 | `owner` | `GET /owner`, `PATCH /owner` |
 | `accounts` | `POST /accounts` (optional `openingBalance`, LIABILITY-only `creditLimit` / `statementDay`), `GET /accounts` (includes `balance` and `lastActivity`, the local date of the newest live entry), `PATCH /accounts/{id}`, `GET /accounts/{id}/balance`, `GET /accounts/{id}/statement` (every posting in date order with the balance after it -- for a liability, the amount owed; same row shape as the friend statement; reversed entries are left out), `POST /accounts/{id}/reconcile` (body `{balance, date?}`: what the bank shows; any difference is posted as one adjustment and returned as `{difference, entryId}`, `entryId: null` when already matched), `POST /accounts/{id}/{deactivate,reactivate}` |
 | `categories` | `POST /categories`, `GET /categories` (`?type=EXPENSE\|INCOME` -- income sources are INCOME categories), `PATCH /categories/{id}` (name, colour, budget, parent), `POST /categories/{id}/{deactivate,reactivate}` |
-| `friends` | `POST /friends`, `GET /friends`, `PATCH /friends/{id}` (name, email, phone), `DELETE /friends/{id}`, `GET /friends/balances`, `GET /friends/{id}/statement` (every entry against the friend, oldest first: `entryType`, `date` in the owner's timezone, `delta`, `runningBalance`) |
+| `friends` | `POST /friends`, `GET /friends`, `PATCH /friends/{id}` (name, email, phone), `DELETE /friends/{id}`, `GET /friends/balances`, `GET /friends/{id}/statement` (every entry against the friend, oldest first: `entryType`, `date` in the owner's timezone, `delta`, `runningBalance`, and for payments `settlesEntryId` / `paymentGroup`), `GET /friends/{id}/bills?open=` (splits they owe you and expenses they paid for you, each with `amount`, `paid`, `matched`, `remaining`, `status`), `GET /friends/{id}/matches`, `GET /friends/{id}/unassigned-payments` |
 | `transactions` | **Flat API:** `POST /transactions` (one body for every type -- income, expense, transfer, split, fronted, settlement, refund, adjustment), `GET /transactions` (server-side filter / sort / group / paging), `GET /transactions/groups` (group headers), `GET/PATCH/DELETE /transactions/{id}`, `GET /transactions/{id}/postings` (the raw double-entry view). Typed creates `POST /transactions/{expense,income,refund,adjustment}` remain. |
 | `tags` | `POST /tags`, `GET /tags` (every tag, alphabetical, with its `uses` count of live transactions), `PATCH /tags/{id}` (rename; onto an existing tag it merges), `DELETE /tags/{id}` (removes the tag from every transaction). See *Tags* below. |
 | `splits` | `POST /splits`, `POST /splits/fronted`, `GET /splits`, `GET/PATCH/DELETE /splits/{id}` |
 | `transfers` | `POST /transfers`, `GET /transfers`, `PATCH/DELETE /transfers/{id}` |
-| `settlements` | `POST /settlements`, `GET /settlements`, `PATCH/DELETE /settlements/{id}` |
+| `settlements` | `POST /settlements` (pay specific bills: `{friendId, accountId, allocations: [{billId, amount}], date?, note?}`; one settlement entry per bill, sharing a `paymentGroup`), `GET /settlements`, `PATCH /settlements/{id}` (note only), `DELETE /settlements/{id}`, `POST /settlements/{id}/assign` (tie an unassigned old payment to bills) |
+| `matches` | `POST /matches` (`{friendId, owedToMeId, owedByMeId, amount}`), `PATCH /matches/{id}` (`{amount, removeLinked?}`), `DELETE /matches/{id}?removeLinked=` -- set a bill you owe a friend against a split they owe you; no money moves |
 | `reports` | `GET /reports/{balance,budget,net-worth,spending,income,dashboard}` |
 | `reports` (UI-oriented) | `GET /reports/reference-data`, `GET /reports/trends/{net-worth,spending,cashflow}` |
 
@@ -243,17 +244,29 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
   (fronted spend in that category and month that is not repaid). Rows of any other type have `unpaid: null`.
 - **Creating a transaction**: `type`, `description`, `amount` (a split's total bill), `date`, plus the
   fields that type needs (`accountId`, `categoryId`, `toAccountId`, `friendId`, `yourShare` and `splits`
-  for a split, `refundOfId`, `direction`). A settlement's direction is derived from the friend's balance;
-  sending one that disagrees is a `422`. `description` is required for every type except a settlement, which is titled from
-  what it covers (e.g. `Settlement from Rahul — Goa hotel (#12)`) when none is sent. A split's shares must add up to the total exactly.
+  for a split, `refundOfId`, `direction`). A settlement can no longer be created here (`422`, use
+  `POST /settlements`). `description` is required for every type. A split's shares must add up to the total exactly.
 - **Splitting later / un-splitting** -- `PATCH /transactions/{id}` on a plain *expense* with `yourShare` and
   a non-empty `splits` turns it into a split (`amount`, `accountId`, `categoryId` may change in the same call;
   the shares must add up to the bill exactly). Income can't be split, and an expense that has refunds is a
   `409`. `PATCH` on a split with `splits: []` turns it back into a plain expense for the whole bill; like any
-  split edit it is a `409` when friends already settled, unless `force` / `removeSettlements` is sent.
+  split edit it is a `409` `BillDependencyError` when payments or matches rest on the split and the change
+  would take it below what is paid plus matched, unless `removeLinked: true` is sent (the payments and matches are then deleted).
   The entry keeps its id in DIRECT mode and is replaced (`correctionOf`) in STRICT mode.
+- **Bill-based settlements** -- every payment is tied to specific bills (`settlesEntryId`). A bill is a split
+  (they owe you) or a friend-paid expense (you owe them); `remaining = amount - paid - matched`, all computed,
+  never stored. One payment covers one direction only; direction and the per-bill cap come from the bill. A
+  payment can't predate its bill. To net opposite bills, create a **match** first (no ledger effect, the friend's
+  balance does not change). Stack rule: bills <- matches <- payments. While payments are attached, a match
+  can't change and a bill can't be deleted or lowered below matched + paid; the API answers `409`
+  (`error_type: BillDependencyError`, `details.payments` / `details.matches`) unless `removeLinked` is sent.
+  Matches go with their bill without asking (no money involved). A payment's amount can't be edited: only its
+  note (`PATCH /settlements/{id}`); delete it and record it again.
+- **Unassigned payments** -- payments recorded before this feature carry no bill. They are never guessed:
+  `GET /friends/{id}/unassigned-payments` lists them, `POST /settlements/{id}/assign` ties one to bills (amounts
+  must add up to the payment), and new payments for that friend are a `409` until they are all tied.
 - **Deleting a settlement** -- `DELETE /transactions/{id}` (or `DELETE /settlements/{id}`) on a settlement
-  restores the friend's balance and the account; settlements have no edit in the web app.
+  restores the friend's balance, the bill and the account.
 - **`GET /reports/dashboard?month=YYYY-MM`** -- everything a dashboard needs computed server-side:
   net worth, income / spending / savings for the month, budgets, per-category spend with its
   subcategories, account balances and what friends owe you (or you owe them).
@@ -305,7 +318,7 @@ All routes are under `/api/v0.5`. Full detail is in `/docs` (when enabled); this
     over; holding the limit would save `monthlySaving` a month.
 - **`GET /reports/reference-data`** -- accounts + categories + friends in one call.
 - **`GET /reports/trends/...`** -- monthly time series for the last N months.
-- **Split/fronted `DELETE` takes `?force=true` / `?remove_settlements=true`** query params
+- **Split/fronted `DELETE` takes `?removeLinked=true`** (replaces `force` / `remove_settlements`) query param
   (not a body -- DELETE-with-body is non-standard and some HTTP clients/proxies mishandle it).
 
 ## Administration (admins and the superuser)

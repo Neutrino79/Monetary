@@ -132,7 +132,9 @@ Important services:
 | `transaction_service.py` | Expenses, income, refunds, adjustments, basic transactions |
 | `split_service.py` | Shared and friend-fronted expenses |
 | `transfer_service.py` | Transfers between owner accounts |
-| `settlement_service.py` | Friend balance settlement |
+| `settlement_service.py` | Payments against specific bills; assigning old payments |
+| `bill_service.py` | Bills (splits and friend-paid expenses) with paid / matched / remaining; the stack rule |
+| `match_service.py` | Matches between a friend-paid bill and a split |
 | `budget_service.py` | Monthly budget status |
 | `statement_service.py` | Account and friend statements |
 | `dashboard_service.py` | Net worth, spending, income, dashboard data |
@@ -406,13 +408,16 @@ checks the remaining refundable amount before posting a new `REFUND` entry.
 
 ### Settlement
 
-Settlement direction is calculated from the current signed `DUE` balance:
+A settlement pays specific bills. A bill is a posted `SPLIT` (the friend owes you) or `FRONTED` expense (you owe
+the friend), seen through the friend's `DUE` account. One `SETTLEMENT` entry is posted per bill
+(`settles_entry_id`), grouped by `payment_group`; it posts against the `DUE` account and the chosen owner
+asset or liability account. All bills of one payment point the same way, and the direction and cap come from the
+bill, not the balance sign. `remaining = amount - paid - matched` is always computed.
 
-- Positive balance: the friend pays the owner.
-- Negative balance: the owner pays the friend.
-
-The settlement posts against the friend's `DUE` account and the selected owner
-asset or liability account.
+A `bill_match` links a fronted bill to a split of the same friend (partial, many-to-many). It has no postings and
+does not change the balance. Stack rule: bills <- matches <- payments; a lower layer cannot change while a
+higher one rests on it unless the caller passes `remove_linked`. Settlements from before migration 3 have no bill
+and are "unassigned" until linked by hand.
 
 ### Transfer
 
@@ -439,10 +444,9 @@ The owner setting `ledger_mode` controls future corrections:
 Both modes preserve the debit-credit balance invariant. Mode changes affect
 future operations; they do not rewrite old entries.
 
-Split edit/delete operations additionally protect against changing a
-participant relationship after settlement history exists. The API accepts
-`force` and `remove_settlements` query/body parameters for explicit override
-behavior.
+Split/fronted edit and delete operations additionally protect payments and matches that rest on the bill
+(`BillDependencyError`, 409). The API accepts `removeLinked` for explicit override behavior; STRICT mode
+repoints links to the replacement entry.
 
 ## 8. Validation and error handling
 

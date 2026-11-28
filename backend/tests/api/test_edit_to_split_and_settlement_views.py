@@ -33,7 +33,7 @@ def fronted(world, friend="rahul", amount="50.00"):
 
 
 def settle(world, friend="rahul", amount="100.00"):
-    return make(world, "settlement", amount=amount, friendId=world.friend[friend], accountId=world.acct["bank"])
+    return world.settle(friend=friend, amount=amount)
 
 
 def shares(world, *pairs):
@@ -98,12 +98,13 @@ def test_a_split_can_be_edited_back_into_a_plain_expense(world, mode):
     assert world.friend_balance("rahul") == 0
 
 
-def test_unsplitting_is_guarded_when_the_friend_already_settled(world):
+def test_unsplitting_is_guarded_when_the_friend_already_paid_it(world):
     s = split(world)
     settle(world, amount="100.00")
     assert patch(world, s["id"], splits=[]).status_code == 409
-    r = patch(world, s["id"], splits=[], force=True)
+    r = patch(world, s["id"], splits=[], removeLinked=True)
     assert r.status_code == 200 and r.json()["type"] == "expense"
+    assert world.friend_balance("rahul") == 0
 
 
 # ------------------------------------------------------- settlements in the totals ---

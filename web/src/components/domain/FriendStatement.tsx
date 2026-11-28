@@ -1,11 +1,13 @@
 import { Fragment, useState } from "react";
 import { HandCoins } from "lucide-react";
 import type { Friend } from "@/types";
-import { useFriendBalances, useFriendStatement, useTransaction } from "@/hooks/queries";
+import { useFriendBalances, useFriendStatement, useTransaction, useUnassignedPayments } from "@/hooks/queries";
 import { Drawer } from "@/components/ui/Dialog";
 import { Button } from "@/components/ui/Button";
 import { Avatar, EmptyState, Skeleton } from "@/components/ui/primitives";
 import { SettleForm } from "@/components/domain/SettleForm";
+import { LinkPaymentsDialog } from "@/components/domain/LinkPaymentsDialog";
+import { MatchWizard } from "@/components/domain/MatchWizard";
 import { TxnDetailDrawer } from "@/components/domain/TxnDetailDrawer";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { balanceSentence, describeStatementRow, groupByMonth, statementTotals } from "@/lib/utils/statement";
@@ -19,6 +21,9 @@ export function FriendStatement({ friend, open, onOpenChange }: { friend: Friend
   const { data: balances = [] } = useFriendBalances();
   const [openId, setOpenId] = useState<number | undefined>();
   const [settleOpen, setSettleOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [matchOpen, setMatchOpen] = useState(false);
+  const unassigned = useUnassignedPayments(open ? friend?.id : undefined);
   const selected = useTransaction(openId);
 
   if (!friend) return null;
@@ -73,6 +78,21 @@ export function FriendStatement({ friend, open, onOpenChange }: { friend: Friend
           </Button>
         }
       >
+        {(unassigned.data?.length ?? 0) > 0 && (
+          <div role="alert" className="mb-4 rounded-xl border border-warn/40 bg-warn/10 p-3 text-[13px]">
+            {unassigned.data!.length} payment{unassigned.data!.length === 1 ? "" : "s"} with {friend.name} {unassigned.data!.length === 1 ? "is" : "are"} not tied to a bill yet. Link {unassigned.data!.length === 1 ? "it" : "them"} to the bills they paid before recording new payments.
+            <div className="mt-2">
+              <Button size="sm" variant="secondary" onClick={() => setLinkOpen(true)}>
+                Link payment{unassigned.data!.length === 1 ? "" : "s"}
+              </Button>
+            </div>
+          </div>
+        )}
+        <div className="mb-3 flex justify-end">
+          <Button size="sm" variant="ghost" onClick={() => setMatchOpen(true)}>
+            Match bills
+          </Button>
+        </div>
         {statement.isLoading ? (
           <Skeleton className="h-40 w-full rounded-xl" />
         ) : statement.isError ? (
@@ -113,6 +133,8 @@ export function FriendStatement({ friend, open, onOpenChange }: { friend: Friend
       </Drawer>
 
       <SettleForm friend={friend} open={settleOpen} onOpenChange={setSettleOpen} />
+      <LinkPaymentsDialog friend={friend} open={linkOpen} onOpenChange={setLinkOpen} />
+      <MatchWizard friend={friend} open={matchOpen} onOpenChange={setMatchOpen} />
       <TxnDetailDrawer txn={selected.data ?? null} open={openId != null && !!selected.data} onOpenChange={(o) => !o && setOpenId(undefined)} />
     </>
   );

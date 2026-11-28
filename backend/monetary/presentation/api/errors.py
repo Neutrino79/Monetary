@@ -25,6 +25,7 @@ from monetary.domain.exceptions import (
     AccountRejectedFinal,
     AccountSuspended,
     AuthenticationError,
+    BillDependencyError,
     ConflictError,
     DomainError,
     NoLedgerError,
@@ -56,13 +57,18 @@ _STATUS_MAP = {
     PasswordChangeRequired: status.HTTP_403_FORBIDDEN,
     NoLedgerError: status.HTTP_403_FORBIDDEN,
     ConflictError: status.HTTP_409_CONFLICT,
+    BillDependencyError: status.HTTP_409_CONFLICT,
     RateLimitError: status.HTTP_429_TOO_MANY_REQUESTS,
     MoneyError: 422,
 }
 
 
 def _error_body(exc: Exception, error_type: str) -> dict:
-    return {"detail": str(exc), "error_type": error_type}
+    body = {"detail": str(exc), "error_type": error_type}
+    details = getattr(exc, "details", None)
+    if details:
+        body["details"] = details
+    return body
 
 
 def register_exception_handlers(app: FastAPI) -> None:

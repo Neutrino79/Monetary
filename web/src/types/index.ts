@@ -98,6 +98,43 @@ export interface Transaction {
   unpaid?: number;
   /** Set only on rows listed with `groupBy`. */
   groupKey?: string;
+  /** Split / friend-paid: per friend, what is paid, matched and left (computed by the server). */
+  bill?: BillStatus[];
+  /** Settlement: the bill this payment is for (absent = an old payment not tied to any bill yet) and its group. */
+  settlesEntryId?: Id;
+  paymentGroup?: string;
+}
+
+export type BillState = "unpaid" | "partial" | "paid";
+
+export interface BillStatus {
+  friendId: Id;
+  amount: number;
+  paid: number;
+  matched: number;
+  remaining: number;
+  status: BillState;
+}
+
+/** A split the friend owes you, or an expense they paid for you, with what is left to settle. */
+export interface Bill extends BillStatus {
+  entryId: Id;
+  type: "split" | "fronted";
+  direction: "they_owe_you" | "you_owe_them";
+  description: string;
+  date: string;
+  currency: string;
+}
+
+/** Part of a bill you owe a friend set against a split they owe you. No money moves. */
+export interface BillMatch {
+  id: Id;
+  friendId: Id;
+  amount: number;
+  owedToMe: { entryId: Id; description: string; date: string };
+  owedByMe: { entryId: Id; description: string; date: string };
+  /** A payment is tied to one of the bills, so the match can't change until it goes. */
+  locked: boolean;
 }
 
 /** A group header of a grouped transaction list. Totals are per currency. */
@@ -196,6 +233,9 @@ export interface StatementRow {
   /** positive = they owe you more; negative = they owe you less (or you owe them more) */
   delta: number;
   runningBalance: number;
+  /** Payments: the bill it is for (none = recorded before bills were settled one by one) and its payment group. */
+  settlesEntryId?: Id;
+  paymentGroup?: string;
 }
 
 export interface Dashboard {

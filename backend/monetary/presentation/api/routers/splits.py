@@ -91,13 +91,13 @@ def edit_split(
             conn, owner, entry_id, account_id=payload.account_id, category_id=payload.category_id,
             owner_share_major=payload.owner_share, friend_shares=friend_shares,
             description=payload.title, date_str=payload.date, note=payload.note,
-            force=payload.force, remove_settlements=payload.remove_settlements,
+            remove_linked=payload.remove_linked,
         )
     else:
         split_service.edit_fronted_expense(
             conn, owner, entry_id, category_id=payload.category_id, friend_id=payload.friend_id,
             amount_major=payload.amount, description=payload.title, date_str=payload.date,
-            note=payload.note, force=payload.force, remove_settlements=payload.remove_settlements,
+            note=payload.note, remove_linked=payload.remove_linked,
         )
     comp = split_service.split_composition(conn, entry_id)
     return _composition_out(conn, comp)
@@ -106,11 +106,10 @@ def edit_split(
 @router.delete("/{entry_id}", response_model=MessageOut)
 def delete_split(
     entry_id: int,
-    force: bool = Query(default=False),
-    remove_settlements: bool = Query(default=False),
+    remove_linked: bool = Query(default=False, alias="removeLinked"),
     conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
-    split_service.delete_split(conn, owner, entry_id, force=force, remove_settlements=remove_settlements)
+    split_service.delete_split(conn, owner, entry_id, remove_linked=remove_linked)
     return MessageOut(detail=f"Split {entry_id} deleted (mode={owner['ledger_mode']}).")
 
 
