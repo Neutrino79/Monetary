@@ -7,6 +7,7 @@ DUE account in order, with a running total, exactly like a bank statement).
 from __future__ import annotations
 
 from monetary.domain.enums import AccountType
+from monetary.infrastructure import bill_repository as bill_repo
 from monetary.infrastructure import repositories as repo
 
 
@@ -29,10 +30,10 @@ def account_balances(conn, include_inactive=False) -> list[dict]:
 def friend_balances(conn) -> list[dict]:
     """Every friend's current DUE balance. Positive = they owe you; negative =
     you owe them; zero = settled up. `fronted_unpaid_points` is the part of what they paid for you
-    that you have not repaid (see fronted_unpaid)."""
+    that you have not repaid (see fronted_unpaid: tied to bills)."""
     rows = _due_balances(conn)
     unpaid: dict[int, int] = {}
-    for f in fronted_unpaid(conn, rows):
+    for f in fronted_unpaid(conn):
         unpaid[f["friend_id"]] = unpaid.get(f["friend_id"], 0) + f["unpaid_points"]
     return [{**r, "fronted_unpaid_points": unpaid.get(r["friend_id"], 0)} for r in rows]
 
@@ -79,27 +80,24 @@ def _statement(conn, account_id: int, normal_side: str, *, include_reversed: boo
             rows.append({
                 "entry_id": e["id"], "description": e["description"], "entry_type": e["entry_type"],
                 "entry_date": e["entry_date"], "status": e["status"], "delta_points": delta,
-                "running_balance_points": running,
+                "running_balance_points": running, "settles_entry_id": e["settles_entry_id"],
+                "payment_group": e["payment_group"],
             })
     return rows
 
 
-def fronted_unpaid(conn, balances: list[dict] | None = None) -> list[dict]:
-    """How much of each friend-fronted expense is still unpaid.
-
-    A friend's repayments are not tied to a particular expense, so they are applied oldest-first (FIFO):
-    what the owner still owes a friend (their negative DUE balance) is the part of their *most recent*
-    fronted expenses that is unpaid. Repayment beyond the fronted total -- or a positive balance -- leaves
-    every expense fully paid. Each row: entry id, friend, category, date, amount and unpaid (points).
-    """
-    owed = {r["due_account_id"]: max(-r["points"], 0) for r in (balances if balances is not None else _due_balances(conn))}
+def fronted_unpaid(conn) -> list[dict]:
+    """How much of each friend-fronted expense is still unpaid: what is left on the bill after the payments
+    tied to it and the matches set against it (see bill_service). Each row: entry id, friend, category, date,
+    amount and unpaid (points)."""
     entries = repo.posted_fronted_entries(conn)
+    bill_rows = bill_repo.bills_for_entries(conn, [e["id"] for e in entries])
     rows = []
-    for e in reversed(entries):                         # newest first: they are the last to be repaid
-        take = min(e["amount"], owed.get(e["due_account_id"], 0))
-        owed[e["due_account_id"]] = owed.get(e["due_account_id"], 0) - take
+    for e in entries:
+        bill = next((b for b in bill_rows.get(e["id"], []) if b["due_account_id"] == e["due_account_id"]), None)
+        unpaid = max(bill["amount"] - bill["paid"] - bill["matched"], 0) if bill else e["amount"]
         rows.append({
             "entry_id": e["id"], "friend_id": e["friend_id"], "category_id": e["category_id"],
-            "entry_date": e["entry_date"], "amount_points": e["amount"], "unpaid_points": take,
+            "entry_date": e["entry_date"], "amount_points": e["amount"], "unpaid_points": unpaid,
         })
-    return rows[::-1]
+    return rows

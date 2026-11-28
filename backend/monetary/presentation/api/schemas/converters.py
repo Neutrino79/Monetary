@@ -25,7 +25,7 @@ def money_value_out(m: Money) -> MoneyOut:
 
 def transaction_out(view: dict):
     """Flat transaction view (application/transaction_view.py) -> API model."""
-    from monetary.presentation.api.schemas.transactions import SplitShareOut, TransactionOut
+    from monetary.presentation.api.schemas.transactions import BillStatusOut, SplitShareOut, TransactionOut
 
     cur = view["currency"]
     return TransactionOut(
@@ -41,7 +41,33 @@ def transaction_out(view: dict):
         replaced_by=view["replaced_by"], created_at=view["created_at"], updated_at=view["updated_at"],
         unpaid=money_out(view["unpaid_points"], cur) if view.get("unpaid_points") is not None else None,
         group_key=view.get("group_key"),
+        bill=([BillStatusOut(friend_id=b["friend_id"], amount=money_out(b["amount_points"], cur),
+                             paid=money_out(b["paid_points"], cur), matched=money_out(b["matched_points"], cur),
+                             remaining=money_out(b["remaining_points"], cur), status=b["status"])
+               for b in view["bill"]] if view.get("bill") else None),
+        settles_entry_id=view.get("settles_entry_id"), payment_group=view.get("payment_group"),
     )
+
+
+def bill_out(b: dict):
+    from monetary.presentation.api.schemas.transactions import BillOut
+
+    cur = b["currency"]
+    return BillOut(
+        entry_id=b["entry_id"], friend_id=b["friend_id"], type=b["type"], direction=b["direction"],
+        description=b["description"], date=b["date"], currency=cur, category_id=b["category_id"],
+        amount=money_out(b["amount_points"], cur), paid=money_out(b["paid_points"], cur),
+        matched=money_out(b["matched_points"], cur), remaining=money_out(b["remaining_points"], cur),
+        status=b["status"])
+
+
+def match_out(m: dict):
+    from monetary.presentation.api.schemas.transactions import MatchBillOut, MatchOut
+
+    return MatchOut(
+        id=m["id"], friend_id=m["friend_id"], amount=money_out(m["amount_points"], m["currency"]),
+        owed_to_me=MatchBillOut(**m["owed_to_me"]), owed_by_me=MatchBillOut(**m["owed_by_me"]),
+        locked=m["locked"], created_at=m["created_at"], updated_at=m["updated_at"])
 
 
 # --- report rows (shared by /reports/* and the dashboard, which embeds the same shapes) ---

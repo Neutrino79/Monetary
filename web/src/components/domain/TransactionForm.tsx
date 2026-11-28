@@ -13,6 +13,8 @@ import { useToast } from "@/components/ui/Toast";
 import { formatCurrency } from "@/lib/utils/format";
 import { today } from "@/lib/utils/clock";
 import { useLookups } from "@/hooks/useLookups";
+import { friendsService } from "@/lib/api/services/friendsService";
+import { MatchWizard } from "./MatchWizard";
 import { ApiError } from "@/lib/api/errors";
 import { cn } from "@/lib/utils/cn";
 import { useFormErrors } from "@/lib/hooks/useFormErrors";
@@ -98,7 +100,8 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
     "*": [kind, description, date, amount, accountId, toAccountId, categoryId, payer, payerFriendId, checkedFriends, yourShare, friendShares],
   });
   const [saving, setSaving] = useState(false);
-  /** A guarded split edit the server refused (friends already settled against it); asks the user before forcing it. */
+  /** A split edit the server refused because payments or matches rest on it; asks before deleting them. */
+  const [matchTarget, setMatchTarget] = useState<{ friendId: number; billId: number } | null>(null);
   const [forcePrompt, setForcePrompt] = useState<{ message: string; retry: () => void } | null>(null);
 
   const editingType = editingTxn?.type;
@@ -167,7 +170,28 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
     }
   }
 
-  async function handleSubmit(force = false) {
+  /**
+   * A new bill you owe a friend (or they owe you) can be set against bills the other way. This step is optional:
+   * the wizard opens only when the friend has such an open bill, and closing it skips matching.
+   */
+  async function offerMatching(bill: Transaction) {
+    const ids = bill.type === "fronted" ? [bill.friendId] : (bill.bill ?? []).map((b) => b.friendId);
+    for (const id of ids) {
+      if (id == null) continue;
+      try {
+        const open = await friendsService.bills(id, true);
+        const wanted = bill.type === "fronted" ? "they_owe_you" : "you_owe_them";
+        if (open.some((b) => b.direction === wanted && b.remaining > 0)) {
+          setMatchTarget({ friendId: id, billId: bill.id });
+          return;
+        }
+      } catch {
+        /* matching is optional; a failed lookup just skips it */
+      }
+    }
+  }
+
+  async function handleSubmit(removeLinked = false) {
     const newErrors: Record<string, string> = {};
     if (!description.trim()) newErrors.description = "Description is required.";
     if (!date) newErrors.date = "Pick a date.";
@@ -221,15 +245,16 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
       let result: Transaction;
       if (isEdit && editingTxn) {
         const { type: _type, ...patch } = input; // type can't change
-        result = await updateTxn.mutateAsync({ id: editingTxn.id, patch: patch as TransactionPatch, opts: force ? { force: true } : undefined });
+        result = await updateTxn.mutateAsync({ id: editingTxn.id, patch: patch as TransactionPatch, opts: removeLinked ? { removeLinked: true } : undefined });
       } else {
         result = await createTxn.mutateAsync(input);
       }
       toast.show(isEdit ? "Transaction updated." : "Transaction added.", { variant: "success" });
       onOpenChange(false);
       onSaved?.(result);
+      if (!isEdit && (result.type === "split" || result.type === "fronted")) void offerMatching(result);
     } catch (e) {
-      if (isEdit && ApiError.isApiError(e) && e.status === 409 && /settlement/i.test(e.message)) {
+      if (isEdit && ApiError.isApiError(e) && e.isBillDependency) {
         setForcePrompt({ message: e.message, retry: () => handleSubmit(true) });
       } else {
         applyServerError(e);
@@ -296,6 +321,7 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
   );
 
   return (
+    <>
     <Modal
       open={open}
       onOpenChange={onOpenChange}
@@ -502,9 +528,9 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
       <ConfirmDialog
         open={!!forcePrompt}
         onOpenChange={(o) => !o && setForcePrompt(null)}
-        title="Friends have already settled against this split"
-        message={`${forcePrompt?.message ?? ""} Saving anyway keeps their settlements and recalculates what each friend owes.`}
-        confirmLabel="Save anyway"
+        title="Payments rest on this bill"
+        message={`${forcePrompt?.message ?? ""} Save anyway to delete those payments and matches together with this change?`}
+        confirmLabel="Delete them and save"
         variant="primary"
         onConfirm={() => {
           const retry = forcePrompt?.retry;
@@ -513,6 +539,13 @@ export function TransactionForm({ open, onOpenChange, initialType = "expense", e
         }}
       />
     </Modal>
+      <MatchWizard
+        friend={friends.find((f) => f.id === matchTarget?.friendId) ?? null}
+        open={matchTarget !== null}
+        onOpenChange={(o) => !o && setMatchTarget(null)}
+        billId={matchTarget?.billId}
+      />
+    </>
   );
 }
 

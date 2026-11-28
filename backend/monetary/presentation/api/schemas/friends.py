@@ -44,3 +44,5 @@ class StatementRowOut(ApiModel):
     status: str
     delta: MoneyOut
     running_balance: MoneyOut
+    settles_entry_id: int | None = Field(default=None, description="Settlement rows: the bill the payment is for")
+    payment_group: str | None = Field(default=None, description="Settlement rows: rows of one payment share this")

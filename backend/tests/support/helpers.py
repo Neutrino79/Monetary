@@ -89,11 +89,39 @@ class World:
         assert r.status_code == 201, r.text
         return r.json()
 
-    def settle(self, friend="rahul", account="bank", amount="100.00", **extra) -> dict:
-        r = self.api.post("/settlements", json={
-            "friend_id": self.friend[friend], "account_id": self.acct[account], "amount": amount, **extra})
-        assert r.status_code == 201, r.text
+    def bills(self, friend="rahul", open_only=True) -> list[dict]:
+        r = self.api.get(f"/friends/{self.friend[friend]}/bills", params={"open": str(open_only).lower()})
+        assert r.status_code == 200, r.text
         return r.json()
+
+    def pay(self, allocations, friend="rahul", account="bank", **extra):
+        """POST /settlements for explicit [(bill id, amount)] -- the raw response, for negative tests too."""
+        return self.api.post("/settlements", json={
+            "friend_id": self.friend[friend], "account_id": self.acct[account],
+            "allocations": [{"bill_id": b, "amount": a} for b, a in allocations], **extra})
+
+    def settle(self, friend="rahul", account="bank", amount="100.00", direction=None, **extra) -> dict:
+        """Pay `amount` against the friend's open bills, oldest first (the way the web form fills them).
+        Direction defaults to what the balance says. Returns the first settlement created."""
+        from decimal import Decimal
+        if direction is None:
+            direction = "they_owe_you" if self.friend_balance(friend) >= 0 else "you_owe_them"
+        left = int(Decimal(amount) * 100)
+        allocations = []
+        for b in self.bills(friend):
+            if left <= 0:
+                break
+            if b["direction"] != direction:
+                continue
+            take = min(left, b["remaining"]["points"])
+            allocations.append((b["entryId"], f"{Decimal(take) / 100:.2f}"))
+            left -= take
+        if left > 0 and allocations:             # more than is owed: let the cap on the last bill answer
+            bid, amt = allocations[-1]
+            allocations[-1] = (bid, f"{Decimal(amt) + Decimal(left) / 100:.2f}")
+        r = self.pay(allocations, friend=friend, account=account, **extra)
+        assert r.status_code == 201, r.text
+        return r.json()["transactions"][0]
 
     def transfer(self, src="bank", dst="wallet", amount="100.00", **extra) -> dict:
         r = self.api.post("/transfers", json={
@@ -147,5 +175,27 @@ def _assert_one_ledger(db_path) -> None:
                          "JOIN account a ON a.id = p.account_id "
                          "WHERE a.currency_code IS NOT NULL AND a.currency_code != j.currency_code").fetchone()[0]
         assert n == 0, f"{n} postings whose account currency differs from the entry currency"
+        # 6. bills: what is paid plus matched never exceeds the bill, and no link points at a missing/reversed bill
+        if conn.execute("SELECT 1 FROM sqlite_master WHERE name = 'bill_match'").fetchone():
+            _assert_bills_not_over_covered(conn)
     finally:
         conn.close()
+
+
+def _assert_bills_not_over_covered(conn) -> None:
+    for r in conn.execute(
+            "SELECT j.id AS id, p.account_id AS due, j.entry_type AS kind, p.debit_amount + p.credit_amount AS share "
+            "FROM journal_entry j JOIN posting p ON p.journal_entry_id = j.id "
+            "JOIN account a ON a.id = p.account_id AND a.account_type = 'DUE' "
+            "WHERE j.status = 'POSTED' AND j.entry_type IN ('SPLIT', 'FRONTED')"):
+        paid = conn.execute(
+            "SELECT COALESCE(SUM(p.debit_amount + p.credit_amount), 0) FROM journal_entry s "
+            "JOIN posting p ON p.journal_entry_id = s.id AND p.account_id = ? "
+            "WHERE s.settles_entry_id = ? AND s.status = 'POSTED'", (r["due"], r["id"])).fetchone()[0]
+        col = "owed_to_me_entry_id" if r["kind"] == "SPLIT" else "owed_by_me_entry_id"
+        matched = conn.execute(f"SELECT COALESCE(SUM(amount), 0) FROM bill_match WHERE {col} = ? "
+                               "AND friend_due_account_id = ?", (r["id"], r["due"])).fetchone()[0]
+        assert paid + matched <= r["share"], f"bill {r['id']} is over-covered: {paid}+{matched} > {r['share']}"
+    n = conn.execute("SELECT COUNT(*) FROM journal_entry s JOIN journal_entry b ON b.id = s.settles_entry_id "
+                     "WHERE s.status = 'POSTED' AND b.status != 'POSTED'").fetchone()[0]
+    assert n == 0, f"{n} payments are tied to a bill that is no longer posted"

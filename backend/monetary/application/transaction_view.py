@@ -19,7 +19,7 @@ which accounts the postings touch:
 
 from __future__ import annotations
 
-from monetary.application import statement_service
+from monetary.application import bill_service
 from monetary.domain.time_utils import utc_iso_to_local_date
 from monetary.infrastructure import tag_repository as tag_repo
 from monetary.infrastructure import transaction_queries as q
@@ -91,16 +91,22 @@ def to_views(conn, owner: dict, entries: list[dict]) -> list[dict]:
         ).fetchall()
         cat_types = {r["id"]: r["account_type"] for r in rows}
 
-    unpaid: dict[int, int] = {}
-    if any(e["entry_type"] == "FRONTED" for e in entries):
-        unpaid = {f["entry_id"]: f["unpaid_points"] for f in statement_service.fronted_unpaid(conn)}
+    bill_ids = [e["id"] for e in entries if e["entry_type"] in ("SPLIT", "FRONTED") and e["status"] == "POSTED"]
+    bill_rows = bill_service.statuses_for(conn, bill_ids)
 
     tags = tag_repo.tags_for_entries(conn, ids)
     tz = owner["timezone"]
     views = []
     for e in entries:
         v = _derive(e, postings.get(e["id"], []), cat_types.get(e["category_id"]))
-        v["unpaid_points"] = unpaid.get(e["id"]) if e["entry_type"] == "FRONTED" and e["status"] == "POSTED" else None
+        rows = bill_rows.get(e["id"])
+        v["bill"] = [{"friend_id": b["friend_id"], "amount_points": b["amount"], "paid_points": b["paid"],
+                      "matched_points": b["matched"], "remaining_points": bill_service.remaining(b),
+                      "status": bill_service.status_of(b)} for b in rows] if rows else None
+        v["unpaid_points"] = (max(bill_service.remaining(rows[0]), 0)
+                              if rows and e["entry_type"] == "FRONTED" else None)
+        v["settles_entry_id"] = e["settles_entry_id"]
+        v["payment_group"] = e["payment_group"]
         v.update({
             "id": e["id"], "description": e["description"], "memo": e["memo"] or None,
             "date": utc_iso_to_local_date(e["entry_date"], tz), "currency": e["currency_code"],

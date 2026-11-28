@@ -31,6 +31,7 @@ from monetary.presentation.api.routers import (
     meta,
     owner,
     reports,
+    matches,
     settlements,
     setup,
     tags,
@@ -140,6 +141,7 @@ app.include_router(accounts.router)
 app.include_router(friends.router)
 app.include_router(transactions.router)
 app.include_router(splits.router)
+app.include_router(matches.router)
 app.include_router(transfers.router)
 app.include_router(settlements.router)
 app.include_router(tags.router)

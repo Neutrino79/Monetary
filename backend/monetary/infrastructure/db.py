@@ -201,10 +201,34 @@ def _settings_and_contacts(conn: sqlite3.Connection) -> None:
     conn.execute("DROP TABLE user")
 
 
+BILL_SETTLEMENTS_SQL = """
+ALTER TABLE journal_entry ADD COLUMN settles_entry_id INTEGER REFERENCES journal_entry(id);
+ALTER TABLE journal_entry ADD COLUMN payment_group TEXT;
+CREATE INDEX idx_entry_settles ON journal_entry(settles_entry_id);
+
+CREATE TABLE bill_match (
+    id                     INTEGER PRIMARY KEY AUTOINCREMENT,
+    owed_to_me_entry_id    INTEGER NOT NULL REFERENCES journal_entry(id),  -- a SPLIT: the friend owes you
+    owed_by_me_entry_id    INTEGER NOT NULL REFERENCES journal_entry(id),  -- a FRONTED: you owe the friend
+    friend_due_account_id  INTEGER NOT NULL REFERENCES account(id),
+    amount                 INTEGER NOT NULL CHECK(amount > 0),
+    created_at             TEXT NOT NULL,
+    updated_at             TEXT NOT NULL,
+    UNIQUE(owed_to_me_entry_id, owed_by_me_entry_id, friend_due_account_id)
+);
+CREATE INDEX idx_match_to_me ON bill_match(owed_to_me_entry_id);
+CREATE INDEX idx_match_by_me ON bill_match(owed_by_me_entry_id);
+CREATE INDEX idx_match_friend ON bill_match(friend_due_account_id);
+"""
+
 TENANT_MIGRATIONS: list[migrations.Migration] = [
     migrations.Migration(1, "baseline ledger schema", sql=SCHEMA),
     migrations.Migration(2, "ledger settings and contacts replace the owner row", fn=_settings_and_contacts,
                          rebuilds_tables=True),
+    # Settlements are tied to the bill they pay (`settles_entry_id`, grouped by `payment_group`), and a bill
+    # you owe a friend can be matched against a bill they owe you (`bill_match`, no ledger effect). Existing
+    # settlements keep both columns empty: they are "unassigned payments" the owner links by hand.
+    migrations.Migration(3, "settlements are tied to bills; bill matches", sql=BILL_SETTLEMENTS_SQL),
 ]
 
 

@@ -110,26 +110,40 @@ def test_edit_and_delete_missing_split(world):
     assert world.api.patch(f"/splits/{e}", json={"title": "x"}).status_code in (404, 422)
 
 
-def test_settlement_history_guards_edit_and_delete(world):
+def test_edits_that_leave_payments_alone_are_not_blocked(world):
     sid = world.split()["entry"]["id"]
     world.settle(amount="100.00")
-    r = world.api.patch(f"/splits/{sid}", json={"owner_share": "40.00"})
-    assert r.status_code == 409 and "settlement" in r.json()["detail"]
+    assert world.api.patch(f"/splits/{sid}", json={"note": "just a memo", "title": "Dinner out"}).status_code == 200
+    assert world.api.patch(f"/splits/{sid}", json={"owner_share": "40.00"}).status_code == 200    # his share is unchanged
+    raised = world.api.patch(f"/splits/{sid}", json={"friend_shares": [{"friend_id": world.friend["rahul"], "amount": "400.00"}]})
+    assert raised.status_code == 200 and world.friend_balance("rahul") == 30_000                      # raising his share is fine
+
+
+def test_a_share_cannot_drop_below_what_is_paid_and_a_paid_bill_cannot_be_deleted(world):
+    sid = world.split()["entry"]["id"]
+    world.settle(amount="100.00")
+    r = world.api.patch(f"/splits/{sid}", json={"friend_shares": [{"friend_id": world.friend["rahul"], "amount": "50.00"}]})
+    body = r.json()
+    assert r.status_code == 409 and body["error_type"] == "BillDependencyError" and "force" not in body["detail"]
+    assert [p["amount_points"] for p in body["details"]["payments"]] == [10_000]
     assert world.api.delete(f"/splits/{sid}").status_code == 409
-    assert world.api.patch(f"/splits/{sid}", json={"owner_share": "40.00"}).status_code == 409
+    assert world.friend_balance("rahul") == 25_000
 
 
-def test_force_edit_keeps_settlement_history(world):
+def test_remove_linked_lowers_the_share_and_removes_the_payments(world):
     sid = world.split()["entry"]["id"]
     world.settle(amount="100.00")
-    assert world.api.patch(f"/splits/{sid}", json={"friend_shares": [{"friend_id": world.friend["rahul"], "amount": "200.00"}], "force": True}).status_code == 200
-    assert world.friend_balance("rahul") == 10_000 and len(world.api.get("/settlements").json()) == 1
+    r = world.api.patch(f"/splits/{sid}", json={
+        "friend_shares": [{"friend_id": world.friend["rahul"], "amount": "50.00"}], "remove_linked": True})
+    assert r.status_code == 200
+    assert world.api.get("/settlements").json() == [] and world.friend_balance("rahul") == 5_000
+    assert world.balance("bank") == OPEN - 20_000                  # 50 (his) + 150 (mine) of 200 paid; the 100 payment is gone
 
 
-def test_remove_settlements_then_delete(world):
+def test_remove_linked_then_delete(world):
     sid = world.split()["entry"]["id"]
     world.settle(amount="100.00")
-    assert world.api.delete(f"/splits/{sid}", params={"remove_settlements": True}).status_code == 200
+    assert world.api.delete(f"/splits/{sid}", params={"removeLinked": True}).status_code == 200
     assert world.api.get("/settlements").json() == [] and world.friend_balance("rahul") == 0
     assert world.balance("bank") == OPEN
 

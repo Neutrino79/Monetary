@@ -7,16 +7,15 @@ entry's own postings -- the expense-account leg is the owner's share, each
 DUE-account leg is a friend's share -- never from a separate table, so there's
 nothing that can drift out of sync with reality (see split_composition()).
 
-Editing/deleting a split whose participants have existing SETTLEMENT history is
-guarded: by default it's refused with a clear explanation, and the caller must
-pass either force=True (proceed, keep the settlement history as-is) or
-remove_settlements=True (also remove those settlements first, via the current
-edit policy, before applying the change).
+Editing/deleting a bill that has payments or matches tied to it follows the stack rule in
+bill_service.apply_bill_change: a change that would leave them without their bill is refused with the list of
+what depends on it, unless the caller passes remove_linked=True to remove those payments (and matches) together
+with the change. A STRICT-mode correction gives the bill a new entry id; payments and matches follow it.
 """
 
 from __future__ import annotations
 
-from monetary.application import ledger_service
+from monetary.application import bill_service, ledger_service
 from monetary.application.edit_policies import get_edit_policy
 from monetary.application.posting_strategies import simple as simple_strategy
 from monetary.application.posting_strategies import split as split_strategy
@@ -184,55 +183,12 @@ def list_splits(conn, entry_type=None) -> list[dict]:
 
 
 # --------------------------------------------------------------------------- #
-# settlement-conflict guard (shared by edit and delete)
-# --------------------------------------------------------------------------- #
-
-def _friends_with_settlement_history(conn, due_account_ids: list[int]) -> list[tuple[dict, list[dict]]]:
-    """[(friend_dict, [settlement_entries]), ...] for any of the given DUE
-    accounts that have at least one POSTED settlement against them."""
-    result = []
-    for due_id in due_account_ids:
-        settlements = repo.list_journal_entries(
-            conn, account_id=due_id, entry_types=[EntryType.SETTLEMENT.value]
-        )
-        if settlements:
-            due_account = repo.get_account(conn, due_id)
-            friend = repo.get_contact(conn, due_account["counterparty_id"])
-            result.append((friend, settlements))
-    return result
-
-
-def _check_settlement_conflicts(conn, owner, due_account_ids, *, force, remove_settlements) -> None:
-    conflicts = _friends_with_settlement_history(conn, due_account_ids)
-    if not conflicts:
-        return
-    if remove_settlements:
-        policy = get_edit_policy(owner["ledger_mode"])
-        for _friend, settlements in conflicts:
-            for s in settlements:
-                if s["status"] != "REVERSED":
-                    policy.delete(conn, s["id"])
-        return
-    if force:
-        return
-    names = ", ".join(
-        f"{friend['name']} ({len(settlements)} settlement(s))" for friend, settlements in conflicts
-    )
-    raise ConflictError(
-        f"This split involves friends with existing settlement history: {names}. "
-        "Pass force=true to edit/delete anyway (their balance will simply reflect the new "
-        "numbers), or remove_settlements=true to also remove those settlements first."
-    )
-
-
-# --------------------------------------------------------------------------- #
 # edit
 # --------------------------------------------------------------------------- #
 
 def edit_split(conn, owner, entry_id, *, account_id=None, category_id=None,
                 owner_share_major=None, friend_shares: list[tuple[int, str]] | None = None,
-                description=None, date_str=None, note=None,
-                force=False, remove_settlements=False) -> dict:
+                description=None, date_str=None, note=None, remove_linked=False) -> dict:
     """Freely re-specify a SPLIT entry's account, category, owner share, and/or
     friend shares -- equivalent to recreating it from scratch, but updating the
     existing entry (STRICT mode: via reversal; DIRECT mode: in place)."""
@@ -244,8 +200,6 @@ def edit_split(conn, owner, entry_id, *, account_id=None, category_id=None,
         raise ConflictError(f"Entry {entry_id} has already been reversed/replaced.")
 
     composition = split_composition(conn, entry_id)
-    old_due_ids = [f["due_account_id"] for f in composition["friends"]]
-    _check_settlement_conflicts(conn, owner, old_due_ids, force=force, remove_settlements=remove_settlements)
 
     legs = ledger_service.legs_for_entry(conn, entry_id)
     real_leg = next(l for l in legs if repo.get_account(conn, l.account_id)["account_type"]
@@ -277,13 +231,22 @@ def edit_split(conn, owner, entry_id, *, account_id=None, category_id=None,
         owner_share=owner_share, friend_shares=resolved_shares, description=new_description,
         entry_date=entry_date, memo=new_note,
     )
-    policy = get_edit_policy(owner["ledger_mode"])
-    return policy.correct(conn, entry_id, new_intent)
+    return _correct_bill(conn, owner, entry_id, new_intent,
+                         {due_id: money.points for due_id, money in resolved_shares}, remove_linked)
+
+
+def _correct_bill(conn, owner, entry_id, new_intent, new_shares, remove_linked) -> dict:
+    """Apply an edit to a split / friend-paid entry: clear or refuse what is tied to it, correct it, and let
+    payments and matches follow it when the correction replaced the entry (STRICT mode)."""
+    bill_service.apply_bill_change(conn, owner, entry_id, new_shares, remove_linked=remove_linked)
+    result = get_edit_policy(owner["ledger_mode"]).correct(conn, entry_id, new_intent)
+    bill_service.follow_correction(conn, entry_id, result)
+    return result
 
 
 def edit_fronted_expense(conn, owner, entry_id, *, category_id=None, friend_id=None,
                           amount_major=None, description=None, date_str=None, note=None,
-                          force=False, remove_settlements=False) -> dict:
+                          remove_linked=False) -> dict:
     """Freely re-specify a FRONTED entry's category, which friend fronted it,
     and/or the amount."""
     entry = _require_split_entry(conn, entry_id)
@@ -294,8 +257,6 @@ def edit_fronted_expense(conn, owner, entry_id, *, category_id=None, friend_id=N
         raise ConflictError(f"Entry {entry_id} has already been reversed/replaced.")
 
     composition = split_composition(conn, entry_id)
-    old_due_ids = [f["due_account_id"] for f in composition["friends"]]
-    _check_settlement_conflicts(conn, owner, old_due_ids, force=force, remove_settlements=remove_settlements)
 
     current_friend_id = composition["friends"][0]["friend_id"]
     resolved_category_id = category_id or entry["category_id"]
@@ -317,8 +278,7 @@ def edit_fronted_expense(conn, owner, entry_id, *, category_id=None, friend_id=N
         expense_account_id=resolved_category_id, friend_due_account_id=due["id"], amount=money,
         description=new_description, entry_date=entry_date, memo=new_note,
     )
-    policy = get_edit_policy(owner["ledger_mode"])
-    return policy.correct(conn, entry_id, new_intent)
+    return _correct_bill(conn, owner, entry_id, new_intent, {due["id"]: money.points}, remove_linked)
 
 
 def convert_expense_to_split(conn, owner, entry_id, *, account_id=None, category_id=None,
@@ -365,7 +325,7 @@ def convert_expense_to_split(conn, owner, entry_id, *, account_id=None, category
 
 def convert_split_to_expense(conn, owner, entry_id, *, account_id=None, category_id=None,
                               amount_major=None, description=None, date_str=None, note=None,
-                              force=False, remove_settlements=False) -> dict:
+                              remove_linked=False) -> dict:
     """Undo a split: the entry becomes a plain expense for the whole bill and the friends' shares
     stop being owed. Guarded like any split edit when those friends already settled."""
     entry = _require_split_entry(conn, entry_id)
@@ -373,9 +333,6 @@ def convert_split_to_expense(conn, owner, entry_id, *, account_id=None, category
         raise ValidationError(f"Entry {entry_id} isn't a split.")
     if entry["status"] == "REVERSED":
         raise ConflictError(f"Entry {entry_id} has already been reversed/replaced.")
-    composition = split_composition(conn, entry_id)
-    _check_settlement_conflicts(conn, owner, [f["due_account_id"] for f in composition["friends"]],
-                                force=force, remove_settlements=remove_settlements)
     legs = ledger_service.legs_for_entry(conn, entry_id)
     real_leg = next(l for l in legs if repo.get_account(conn, l.account_id)["account_type"]
                      in (AccountType.ASSET.value, AccountType.LIABILITY.value))
@@ -391,7 +348,7 @@ def convert_split_to_expense(conn, owner, entry_id, *, account_id=None, category
         description=(description or entry["description"]).strip(), entry_date=entry_date,
         memo=note if note is not None else entry["memo"],
     )
-    return get_edit_policy(owner["ledger_mode"]).correct(conn, entry_id, new_intent)
+    return _correct_bill(conn, owner, entry_id, new_intent, None, remove_linked)
 
 
 def edit(conn, owner, entry_id, **kwargs) -> dict:
@@ -407,12 +364,9 @@ def edit(conn, owner, entry_id, **kwargs) -> dict:
 # delete
 # --------------------------------------------------------------------------- #
 
-def delete_split(conn, owner, entry_id, *, force=False, remove_settlements=False) -> None:
+def delete_split(conn, owner, entry_id, *, remove_linked=False) -> None:
     entry = _require_split_entry(conn, entry_id)
     if entry["status"] == "REVERSED":
         raise ConflictError(f"Entry {entry_id} is already reversed.")
-    composition = split_composition(conn, entry_id)
-    due_ids = [f["due_account_id"] for f in composition["friends"]]
-    _check_settlement_conflicts(conn, owner, due_ids, force=force, remove_settlements=remove_settlements)
-    policy = get_edit_policy(owner["ledger_mode"])
-    policy.delete(conn, entry_id)
+    bill_service.apply_bill_change(conn, owner, entry_id, None, remove_linked=remove_linked)
+    get_edit_policy(owner["ledger_mode"]).delete(conn, entry_id)

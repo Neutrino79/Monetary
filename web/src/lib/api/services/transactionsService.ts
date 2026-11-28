@@ -1,6 +1,6 @@
 import type { Id, Page, Transaction, TransactionGroup } from "@/types";
 import type {
-  NewTransactionInput, PageDto, SettlementInput, TransactionDto, TransactionFilters, TransactionGroupsDto, TransactionPatch, TransactionWriteOptions,
+  NewTransactionInput, PageDto, TransactionDto, TransactionFilters, TransactionGroupsDto, TransactionPatch, TransactionWriteOptions,
 } from "@/types/api";
 import { http } from "@/lib/api/http";
 import { toMajor, toPage, toTransaction, toTransactionGroup } from "@/lib/api/mappers";
@@ -43,15 +43,7 @@ export const transactionsService = {
   },
 
   async remove(id: Id, opts: TransactionWriteOptions = {}): Promise<void> {
-    await http.delete(`/transactions/${id}`, { force: opts.force, removeSettlements: opts.removeSettlements });
-  },
-
-  /** Settle up with a friend. The server derives the direction from the balance and rejects a mismatch. */
-  async settle(input: SettlementInput): Promise<Transaction> {
-    return transactionsService.create({
-      type: "settlement", date: input.date ?? "", amount: input.amount,
-      friendId: input.friendId, accountId: input.accountId, direction: input.direction, memo: input.memo,
-    });
+    await http.delete(`/transactions/${id}`, { removeLinked: opts.removeLinked });
   },
 };
 

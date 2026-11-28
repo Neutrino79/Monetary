@@ -7,12 +7,15 @@ import { Avatar, ProgressBar } from "@/components/ui/primitives";
 import { AccountChip, CategoryChip, IncomeSourceChip, TxnBadge, TxnAmount, TxnIconChip } from "./chips";
 import { useAccounts, useCategories, useFriendBalances, useFriends, useIncomeSources, useTransaction, useTransactions } from "@/hooks/queries";
 import { ApiError } from "@/lib/api/errors";
-import { useDeleteTransaction } from "@/hooks/mutations";
+import { useDeleteTransaction, useEditPaymentNote } from "@/hooks/mutations";
 import { useAuthStore } from "@/store/authStore";
 import { useToast } from "@/components/ui/Toast";
 import { formatCurrency, formatDate } from "@/lib/utils/format";
 import { TransactionForm } from "./TransactionForm";
 import { SettleForm } from "./SettleForm";
+import { MatchWizard } from "./MatchWizard";
+import { LinkPaymentsDialog } from "./LinkPaymentsDialog";
+import { Textarea } from "@/components/ui/form";
 import { ArrowLeft, ChevronRight, Trash2 } from "lucide-react";
 import { RefundEditForm, RefundForm } from "./RefundForms";
 import { summariseRefunds } from "@/lib/utils/refunds";
@@ -86,6 +89,8 @@ export function TxnDetailDrawer({ txn: base, open, onOpenChange }: { txn: Transa
   const refundOf = useTransaction(txn?.refundOfId);
   const correctionOf = useTransaction(txn?.correctionOf);
   const replacedBy = useTransaction(txn?.replacedBy);
+  const paysBill = useTransaction(txn?.settlesEntryId);
+  const editNote = useEditPaymentNote();
   const ledgerMode = useAuthStore((s) => s.user?.ledgerMode ?? "DIRECT");
   const deleteTxn = useDeleteTransaction();
   const toast = useToast();
@@ -95,9 +100,16 @@ export function TxnDetailDrawer({ txn: base, open, onOpenChange }: { txn: Transa
   const [refundOpen, setRefundOpen] = useState(false);
   const [refundEditOpen, setRefundEditOpen] = useState(false);
   const [refundsBlockDelete, setRefundsBlockDelete] = useState(false);
-  const [payBackOpen, setPayBackOpen] = useState(false);
-  /** Deleting a split friends have settled against needs an explicit OK. */
-  const [forceDelete, setForceDelete] = useState<string | null>(null);
+  const [settleOpen, setSettleOpen] = useState(false);
+  const [matchOpen, setMatchOpen] = useState(false);
+  const [linkOpen, setLinkOpen] = useState(false);
+  /** A payment's note is the only thing about it that can change. */
+  const [noteDraft, setNoteDraft] = useState<string | null>(null);
+  /** Changing or deleting a bill that payments / matches rest on needs an explicit OK: they are deleted with it. */
+  const [dependency, setDependency] = useState<string | null>(null);
+  const [reenter, setReenter] = useState(false);
+  const [confirmReenter, setConfirmReenter] = useState(false);
+  const [settleFriendId, setSettleFriendId] = useState<number | null>(null);
 
   if (!txn) return null;
 
@@ -105,6 +117,7 @@ export function TxnDetailDrawer({ txn: base, open, onOpenChange }: { txn: Transa
   const toAccount = accounts.find((a) => a.id === txn.toAccountId);
   const category = [...categories, ...incomeSources].find((c) => c.id === txn.categoryId);
   const friend = friends.find((f) => f.id === txn.friendId);
+  const settleFriend = friends.find((f) => f.id === (settleFriendId ?? txn.bill?.[0]?.friendId ?? txn.friendId));
   // Linked transactions, fetched by id / by link rather than filtered out of a full in-browser list.
   const refunds = refundsQuery.data?.items ?? [];
   const purchase = txn.type === "expense" ? txn : refundOf.data;
@@ -126,15 +139,19 @@ export function TxnDetailDrawer({ txn: base, open, onOpenChange }: { txn: Transa
   // settlements are delete-only: undoing one makes the friend owe (or you owe) that amount again
   const deletable = editable || isRefund || (txn.type === "settlement" && txn.status === "posted");
 
-  async function handleDelete(force = false) {
+  async function handleDelete(removeLinked = false, thenReenter = false) {
     if (!txn) return;
     try {
-      await deleteTxn.mutateAsync({ id: txn.id, opts: force ? { force: true } : undefined });
+      await deleteTxn.mutateAsync({ id: txn.id, opts: removeLinked ? { removeLinked: true } : undefined });
       toast.show("Transaction deleted.", { variant: "success" });
+      if (thenReenter) {
+        setReenter(true);
+        return;
+      }
       onOpenChange(false);
     } catch (e) {
-      if (ApiError.isApiError(e) && e.status === 409 && txn.type === "split" && /settlement/i.test(e.message)) {
-        setForceDelete(e.message);
+      if (ApiError.isApiError(e) && e.isBillDependency) {
+        setDependency(e.message);
       } else {
         toast.show(e instanceof Error ? e.message : "Something went wrong.", { variant: "error" });
       }
@@ -294,14 +311,41 @@ export function TxnDetailDrawer({ txn: base, open, onOpenChange }: { txn: Transa
                 );
               })}
             </div>
-            <p className="mt-2 text-[11.5px] text-ink-faint">Balances are each friend's overall running balance with you — settlements apply across all shared expenses, not to a single bill.</p>
+            <p className="mt-2 text-[11.5px] text-ink-faint">Balances are each friend's overall running balance with you across every bill.</p>
           </DetailSection>
         )}
 
-        {txn.type === "fronted" && txn.unpaid != null && txn.unpaid > 0 && friend && (
-          <Button className="mb-5" variant="secondary" onClick={() => setPayBackOpen(true)}>
-            Pay back {friend.name}
-          </Button>
+        {(txn.type === "split" || txn.type === "fronted") && txn.bill && txn.bill.length > 0 && (
+          <DetailSection title={txn.type === "split" ? "Settlement status" : "Paying back"}>
+            <div className="rounded-[10px] border border-line bg-paper-sunken px-4">
+              {txn.bill.map((b) => {
+                const f = friends.find((x) => x.id === b.friendId);
+                return (
+                  <div key={b.friendId} className="border-b border-line py-3 last:border-b-0">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[13.3px] font-semibold">{f?.name ?? "Friend"}</span>
+                      <span className={`rounded-full px-2.5 py-0.5 text-[11.5px] font-semibold ${b.status === "paid" ? "bg-accent-soft text-accent" : b.status === "partial" ? "bg-info-soft text-info" : "bg-danger-soft text-danger"}`}>
+                        {b.status === "paid" ? "Settled" : b.status === "partial" ? "Partly settled" : "Unpaid"}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-[12px] text-ink-faint">
+                      {formatCurrency(b.amount, true)} · paid {formatCurrency(b.paid, true)} · matched {formatCurrency(b.matched, true)} · <b>{formatCurrency(b.remaining, true)} left</b>
+                    </div>
+                    {b.remaining > 0 && f && (
+                      <div className="mt-2 flex gap-2">
+                        <Button size="sm" variant="secondary" onClick={() => { setSettleFriendId(f.id); setSettleOpen(true); }}>
+                          {txn.type === "split" ? "Record payment" : `Pay back ${f.name}`}
+                        </Button>
+                        <Button size="sm" variant="ghost" onClick={() => { setSettleFriendId(f.id); setMatchOpen(true); }}>
+                          Match
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </DetailSection>
         )}
 
         {txn.type === "settlement" && friend && (
@@ -313,6 +357,61 @@ export function TxnDetailDrawer({ txn: base, open, onOpenChange }: { txn: Transa
                 <div className="text-[12px] text-ink-faint">{txn.direction === "receive" ? "Paid you back" : "You paid them back"}</div>
               </div>
             </div>
+            {txn.settlesEntryId == null ? (
+              <div className="mt-3 rounded-[10px] border border-warn/40 bg-warn/10 p-3 text-[12.5px]">
+                This payment was recorded before bills were settled one by one, so it is not tied to a bill.
+                <div className="mt-2">
+                  <Button size="sm" variant="secondary" onClick={() => setLinkOpen(true)}>
+                    Link to bills
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              paysBill.data && (
+                <div className="mt-3">
+                  <div className="mb-1 text-[11.5px] text-ink-faint">Pays</div>
+                  <LinkedTxnRow t={paysBill.data} onOpen={openLinked} />
+                </div>
+              )
+            )}
+            {txn.status === "posted" && (
+              <div className="mt-3">
+                {noteDraft === null ? (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="ghost" onClick={() => setNoteDraft(txn.memo ?? "")}>
+                      Edit note
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setConfirmReenter(true)}>
+                      Delete and re-enter
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2">
+                    <Textarea rows={2} value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)} aria-label="Note" />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            await editNote.mutateAsync({ id: txn.id, note: noteDraft.trim() || null });
+                            setNoteDraft(null);
+                            onOpenChange(false);
+                          } catch (e) {
+                            toast.show(e instanceof Error ? e.message : "Something went wrong.", { variant: "error" });
+                          }
+                        }}
+                      >
+                        Save note
+                      </Button>
+                      <Button size="sm" variant="ghost" onClick={() => setNoteDraft(null)}>
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <p className="mt-2 text-[11.5px] text-ink-faint">A payment's amount and bills can't be edited. Delete it and record it again to change them.</p>
+              </div>
+            )}
           </DetailSection>
         )}
 
@@ -401,20 +500,40 @@ export function TxnDetailDrawer({ txn: base, open, onOpenChange }: { txn: Transa
         onConfirm={() => handleDelete()}
       />
       <ConfirmDialog
-        open={forceDelete !== null}
-        onOpenChange={(o) => !o && setForceDelete(null)}
-        title="Friends have settled against this split"
-        message={`${forceDelete ?? ""} Deleting it anyway keeps their settlements on record and recalculates what each friend owes.`}
-        confirmLabel="Delete anyway"
+        open={confirmReenter}
+        onOpenChange={setConfirmReenter}
+        variant="primary"
+        title="Delete and re-enter this payment?"
+        message="The payment is deleted so the bill shows its amount as unpaid again, then the payment form opens so you can record it correctly."
+        confirmLabel="Delete and re-enter"
+        onConfirm={() => handleDelete(false, true)}
+      />
+      <ConfirmDialog
+        open={dependency !== null}
+        onOpenChange={(o) => !o && setDependency(null)}
+        title="Payments rest on this bill"
+        message={`${dependency ?? ""} Delete them together with this bill?`}
+        confirmLabel="Delete payments and bill"
         onConfirm={() => {
-          setForceDelete(null);
+          setDependency(null);
           handleDelete(true);
         }}
       />
 
       {editable && <TransactionForm open={editOpen} onOpenChange={setEditOpen} editingTxn={txn} onSaved={() => onOpenChange(false)} />}
 
-      {txn.type === "fronted" && friend && <SettleForm friend={friend} open={payBackOpen} onOpenChange={setPayBackOpen} defaultAmount={txn.unpaid} />}
+      {(txn.type === "split" || txn.type === "fronted") && friends.length > 0 && (
+        <>
+          <SettleForm friend={settleFriend ?? null} open={settleOpen} onOpenChange={setSettleOpen} billId={txn.id} />
+          <MatchWizard friend={settleFriend ?? null} open={matchOpen} onOpenChange={setMatchOpen} billId={txn.id} />
+        </>
+      )}
+      {txn.type === "settlement" && friend && (
+        <>
+          <LinkPaymentsDialog friend={friend} open={linkOpen} onOpenChange={setLinkOpen} />
+          <SettleForm friend={friend} open={reenter} onOpenChange={setReenter} billId={txn.settlesEntryId} />
+        </>
+      )}
       <ConfirmDialog
         open={refundsBlockDelete}
         onOpenChange={setRefundsBlockDelete}

@@ -206,18 +206,16 @@ def edit_transaction(
 ):
     """Edit any transaction. In STRICT mode the result is a *new* entry (the
     original is reversed); `correctionOf` links them."""
-    fields = payload.model_dump(include=payload.model_fields_set - {"force", "remove_settlements"})
-    entry = flat.update(conn, owner, entry_id, fields, force=payload.force,
-                        remove_settlements=payload.remove_settlements)
+    fields = payload.model_dump(include=payload.model_fields_set - {"remove_linked"})
+    entry = flat.update(conn, owner, entry_id, fields, remove_linked=payload.remove_linked)
     return transaction_out(flat.view_of(conn, owner, entry))
 
 
 @router.delete("/{entry_id}", response_model=MessageOut)
 def delete_transaction(
     entry_id: int,
-    force: bool = Query(default=False),
-    remove_settlements: bool = Query(default=False, alias="removeSettlements"),
+    remove_linked: bool = Query(default=False, alias="removeLinked"),
     conn: sqlite3.Connection = DB, owner: dict = Depends(get_current_owner),
 ):
-    flat.delete(conn, owner, entry_id, force=force, remove_settlements=remove_settlements)
+    flat.delete(conn, owner, entry_id, remove_linked=remove_linked)
     return MessageOut(detail=f"Transaction {entry_id} deleted (mode={owner['ledger_mode']}).")

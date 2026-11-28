@@ -104,6 +104,11 @@ export interface TransactionDto {
   unpaid: MoneyDto | null;
   /** Present only when listed with `groupBy`. */
   groupKey: string | null;
+  /** Split / friend-paid only: per friend, what is paid, matched and left. */
+  bill?: { friendId: Id; amount: MoneyDto; paid: MoneyDto; matched: MoneyDto; remaining: MoneyDto; status: "unpaid" | "partial" | "paid" }[] | null;
+  /** Settlement only: the bill this payment is for, and the group of entries that make up one payment. */
+  settlesEntryId?: Id | null;
+  paymentGroup?: string | null;
 }
 
 export type TransactionGroupBy = "date" | "month" | "category" | "account" | "type" | "tag";
@@ -228,20 +233,32 @@ export interface NewTransactionInput {
 export type TransactionPatch = Partial<Omit<NewTransactionInput, "type">>;
 
 export interface TransactionWriteOptions {
-  /** Split edit/delete when friends have already settled against it. */
-  force?: boolean;
-  removeSettlements?: boolean;
+  /** Also delete the payments and matches that rest on the bill being changed or deleted. */
+  removeLinked?: boolean;
 }
 
+/** Pay specific bills; the amounts are what each bill receives. */
 export interface SettlementInput {
   friendId: Id;
   accountId: Id;
-  amount: number;
-  /** Shown to the user; the server derives and verifies the real direction. */
-  direction?: SettlementDirection;
-  memo?: string | null;
+  allocations: { billId: Id; amount: number }[];
+  note?: string | null;
   date?: string;
 }
+
+export interface BillDto {
+  entryId: Id; friendId: Id; type: "split" | "fronted"; direction: "they_owe_you" | "you_owe_them";
+  description: string; date: string; currency: string; categoryId: Id | null;
+  amount: MoneyDto; paid: MoneyDto; matched: MoneyDto; remaining: MoneyDto; status: "unpaid" | "partial" | "paid";
+}
+
+export interface MatchBillDto { entryId: Id; description: string; date: string }
+export interface MatchDto {
+  id: Id; friendId: Id; amount: MoneyDto; owedToMe: MatchBillDto; owedByMe: MatchBillDto; locked: boolean;
+  createdAt: string; updatedAt: string;
+}
+
+export interface PaymentDto { paymentGroup: string | null; transactions: TransactionDto[] }
 
 export interface PasswordResetQuestion {
   email: string;

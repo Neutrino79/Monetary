@@ -6,9 +6,9 @@
  * remains the authority for every calculation.
  */
 import type {
-  Account, BudgetStatus, CashflowPoint, SpendingPace, Category, CategoryTotal, Dashboard, Friend, FriendBalance, Page, StatementRow, Transaction, TransactionGroup, User,
+  Account, BudgetStatus, CashflowPoint, SpendingPace, Category, CategoryTotal, Dashboard, Bill, BillMatch, BillStatus, Friend, FriendBalance, Page, StatementRow, Transaction, TransactionGroup, User,
 } from "@/types";
-import type { AccountDto, CategoryDto, FriendDto, MoneyDto, OwnerDto, PageDto, TransactionDto, TransactionGroupDto } from "@/types/api";
+import type { AccountDto, BillDto, CategoryDto, MatchDto, FriendDto, MoneyDto, OwnerDto, PageDto, TransactionDto, TransactionGroupDto } from "@/types/api";
 import { colorForId } from "@/lib/utils/entityVisuals";
 import { initialsOf } from "@/lib/utils/format";
 
@@ -58,8 +58,25 @@ export function toTransaction(t: TransactionDto): Transaction {
     unpaid: t.unpaid ? fromMoney(t.unpaid) : undefined,
     tags: t.tags ?? [],
     groupKey: undef(t.groupKey),
+    bill: t.bill?.map(toBillStatus),
+    settlesEntryId: undef(t.settlesEntryId), paymentGroup: undef(t.paymentGroup),
   };
 }
+
+type BillStatusDto = NonNullable<TransactionDto["bill"]>[number];
+const toBillStatus = (b: BillStatusDto): BillStatus => ({
+  friendId: b.friendId, amount: fromMoney(b.amount), paid: fromMoney(b.paid), matched: fromMoney(b.matched),
+  remaining: fromMoney(b.remaining), status: b.status,
+});
+
+export const toBill = (b: BillDto): Bill => ({
+  ...toBillStatus(b), entryId: b.entryId, type: b.type, direction: b.direction, description: b.description,
+  date: b.date, currency: b.currency,
+});
+
+export const toMatch = (m: MatchDto): BillMatch => ({
+  id: m.id, friendId: m.friendId, amount: fromMoney(m.amount), owedToMe: m.owedToMe, owedByMe: m.owedByMe, locked: m.locked,
+});
 
 export function toTransactionGroup(g: TransactionGroupDto): TransactionGroup {
   return {
@@ -97,6 +114,7 @@ export const toCategoryTotal = (c: CategoryTotalDto): CategoryTotal => ({
 
 export interface StatementRowDto {
   entryId: number; description: string; entryType: string; date: string; status: string; delta: MoneyDto; runningBalance: MoneyDto;
+  settlesEntryId?: number | null; paymentGroup?: string | null;
 }
 
 /** Reversed originals and their reversal entries cancel out, so they are dropped from what the person reads. */
@@ -106,6 +124,7 @@ export const toStatementRows = (rows: StatementRowDto[]): StatementRow[] =>
     .map((r) => ({
       entryId: r.entryId, description: r.description, entryType: r.entryType, date: r.date,
       delta: fromMoney(r.delta), runningBalance: fromMoney(r.runningBalance),
+      settlesEntryId: undef(r.settlesEntryId), paymentGroup: undef(r.paymentGroup),
     }));
 
 export const toFriendBalance = (f: FriendBalanceDto): FriendBalance => ({

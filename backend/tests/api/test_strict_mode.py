@@ -80,11 +80,32 @@ def test_strict_transfer_and_settlement_edit_delete(strict):
     strict.split()
     st = strict.settle(amount="100.00")
     tr = strict.transfer(amount="50.00")
-    new_st = strict.api.patch(f"/settlements/{st['id']}", json={"amount": "150.00"}).json()   # STRICT edit => new id
+    new_st = strict.api.patch(f"/settlements/{st['id']}", json={"note": "by cash"}).json()   # STRICT edit => new id
+    assert new_st["id"] != st["id"] and new_st["settlesEntryId"] == st["settlesEntryId"]       # the link follows
+    assert new_st["paymentGroup"] == st["paymentGroup"]
     assert strict.api.patch(f"/transfers/{tr['id']}", json={"amount": "75.00"}).status_code == 200
-    assert strict.friend_balance("rahul") == 20_000 and strict.balance("wallet") == 7_500
+    assert strict.friend_balance("rahul") == 25_000 and strict.balance("wallet") == 7_500
+    assert strict.bills()[0]["paid"]["points"] == 10_000                                       # still counted once
     assert strict.api.delete(f"/settlements/{new_st['id']}").status_code == 200
-    assert strict.friend_balance("rahul") == 35_000
+    assert strict.friend_balance("rahul") == 35_000 and strict.bills()[0]["paid"]["points"] == 0
+
+
+def test_strict_correcting_a_bill_moves_its_payments_and_matches_to_the_new_entry(strict):
+    sid = strict.split(shares=(("rahul", "350.00"),))["entry"]["id"]
+    fid = strict.fronted(amount="50.00", title="Rickshaw")["entry"]["id"]
+    m = strict.api.post("/matches", json={"friend_id": strict.friend["rahul"], "owed_to_me_id": sid,
+                                          "owed_by_me_id": fid, "amount": "50.00"})
+    assert m.status_code == 201, m.text
+    strict.settle(amount="100.00")                       # Rahul pays 100 of the 300 left on the split
+    r = strict.api.patch(f"/splits/{sid}", json={"friend_shares": [{"friend_id": strict.friend["rahul"], "amount": "400.00"}]})
+    assert r.status_code == 200, r.text
+    bills = {b["entryId"]: b for b in strict.bills(open_only=False)}
+    new_id = next(i for i, b in bills.items() if b["type"] == "split")
+    assert new_id != sid
+    assert sid not in bills
+    assert (bills[new_id]["paid"]["points"], bills[new_id]["matched"]["points"], bills[new_id]["remaining"]["points"]) \
+        == (10_000, 5_000, 25_000)
+    assert strict.api.get(f"/friends/{strict.friend['rahul']}/matches").json()[0]["owedToMe"]["entryId"] == new_id
 
 
 def test_default_list_hides_both_halves_of_a_reversed_pair(strict):

@@ -94,23 +94,19 @@ def test_create_refund_links_to_original(world):
     assert post(world, **base(world, "refund", amount="100.00", refundOfId=e["id"])).status_code == 409  # > remainder
 
 
-def test_settlement_direction_is_derived_and_verified(world):
-    world.split()                                               # Rahul now owes 350
-    s = ok(post(world, **base(world, "settlement", amount="100.00", friendId=world.friend["rahul"],
-                              accountId=world.acct["bank"], direction="receive")))
-    assert s["type"] == "settlement" and s["direction"] == "receive" and s["friendId"] == world.friend["rahul"]
-    assert world.friend_balance("rahul") == 25_000
-    wrong = post(world, **base(world, "settlement", amount="10.00", friendId=world.friend["rahul"],
-                               accountId=world.acct["bank"], direction="pay"))
-    assert wrong.status_code == 422 and "not one you pay" in wrong.json()["detail"]
-    assert world.friend_balance("rahul") == 25_000              # the mismatch posted nothing
+def test_settlements_are_not_created_through_the_flat_endpoint(world):
+    world.split()
+    r = post(world, **base(world, "settlement", amount="100.00", friendId=world.friend["rahul"],
+                           accountId=world.acct["bank"]))
+    assert r.status_code == 422 and "POST /settlements" in r.json()["detail"]
+    assert world.friend_balance("rahul") == 35_000              # nothing was posted
 
 
-def test_settlement_pay_direction_when_you_owe(world):
-    world.fronted(friend="rahul", amount="50.00")
-    s = ok(post(world, **base(world, "settlement", amount="50.00", friendId=world.friend["rahul"],
-                              accountId=world.acct["bank"])))
-    assert s["direction"] == "pay" and world.friend_balance("rahul") == 0
+def test_a_payment_to_a_friend_is_a_pay_settlement(world):
+    f = world.fronted(friend="rahul", amount="50.00")["entry"]
+    s = world.settle(amount="50.00")
+    assert s["type"] == "settlement" and s["direction"] == "pay" and world.friend_balance("rahul") == 0
+    assert world.api.get(f"/transactions/{f['id']}").json()["unpaid"]["points"] == 0
 
 
 @pytest.mark.parametrize("account,direction,delta", [("bank", "increase", 5_000), ("bank", "decrease", -5_000),
@@ -127,7 +123,6 @@ def test_adjustment_direction_moves_displayed_balance(world, account, direction,
     ({"type": "expense", "categoryId": 1}, "accountId"),
     ({"type": "expense", "accountId": 1}, "categoryId"),
     ({"type": "transfer", "accountId": 1}, "toAccountId"),
-    ({"type": "settlement", "friendId": 1}, "accountId"),
     ({"type": "refund"}, "refundOfId"),
     ({"type": "adjustment", "accountId": 1}, "direction"),
     ({"type": "fronted", "categoryId": 1}, "friendId"),
@@ -381,8 +376,7 @@ def fronted(world, amount, date, friend="rahul", cat="food"):
 
 
 def pay_back(world, amount, friend="rahul"):
-    return ok(post(world, **base(world, "settlement", amount=amount, friendId=world.friend[friend],
-                                 accountId=world.acct["bank"])))
+    return world.settle(friend=friend, amount=amount, direction="you_owe_them")
 
 
 def unpaid(world, entry):
@@ -401,7 +395,7 @@ def test_fronted_is_unpaid_until_paid_back(world):
 def test_repayments_clear_the_oldest_fronted_first(world):
     old = fronted(world, "100.00", "2026-03-01")
     new = fronted(world, "60.00", "2026-03-20")
-    pay_back(world, "120.00")                                    # clears the old one and part of the new one
+    pay_back(world, "120.00")                                    # oldest first: the old one and part of the new one
     assert unpaid(world, old)["points"] == 0 and unpaid(world, new)["points"] == 4_000
     listed = {i["id"]: i["unpaid"] for i in world.api.get("/transactions", params={"type": "fronted"}).json()["items"]}
     assert listed[old["id"]]["points"] == 0 and listed[new["id"]]["points"] == 4_000
@@ -414,7 +408,8 @@ def test_only_fronted_rows_have_unpaid_and_balances_are_per_friend(world):
     assert all(i["unpaid"] is None for i in world.api.get("/transactions", params={"type": "split"}).json()["items"])
     bal = {b["friendId"]: b for b in world.api.get("/friends/balances").json()}
     rahul, priya = bal[world.friend["rahul"]], bal[world.friend["priya"]]
-    assert rahul["balance"]["points"] == 25_000 and rahul["frontedUnpaid"]["points"] == 0   # net: he owes you
+    # net: he owes you 250, but nothing is matched, so the 100 he fronted is still an unpaid bill
+    assert rahul["balance"]["points"] == 25_000 and rahul["frontedUnpaid"]["points"] == 10_000
     assert priya["balance"]["points"] == -4_000 and priya["frontedUnpaid"]["points"] == 4_000
 
 
@@ -478,19 +473,25 @@ def test_patch_fronted_and_settlement_and_adjustment(world):
     flip = world.api.patch(f"/transactions/{a['id']}", json={"direction": "decrease"})
     assert flip.status_code == 422 and "direction" in flip.json()["detail"]
     world.split()
-    s = ok(post(world, **base(world, "settlement", amount="100.00", friendId=world.friend["rahul"],
-                              accountId=world.acct["bank"])))
-    up = world.api.patch(f"/transactions/{s['id']}", json={"amount": "150.00"}).json()
-    assert up["type"] == "settlement" and up["amount"]["points"] == 15_000
+    s = world.settle(amount="100.00")
+    up = world.api.patch(f"/transactions/{s['id']}", json={"amount": "150.00"})
+    assert up.status_code == 422                                 # a payment's amount is fixed: delete and re-enter
+    note = world.api.patch(f"/transactions/{s['id']}", json={"memo": "cash"}).json()
+    assert note["type"] == "settlement" and note["memo"] == "cash" and note["amount"]["points"] == 10_000
 
 
-def test_edit_split_with_settlements_needs_force(world):
+def test_edit_split_with_payments_needs_remove_linked(world):
     s = world.split()["entry"]
-    ok(post(world, **base(world, "settlement", amount="100.00", friendId=world.friend["rahul"],
-                          accountId=world.acct["bank"])))
-    r = world.api.patch(f"/transactions/{s['id']}", json={"description": "Renamed"})
-    assert r.status_code == 409
-    assert world.api.patch(f"/transactions/{s['id']}", json={"description": "Renamed", "force": True}).status_code == 200
+    world.settle(amount="100.00")
+    # a rename touches no money, so it is allowed; lowering what Rahul owes below what he paid is not
+    assert world.api.patch(f"/transactions/{s['id']}", json={"description": "Renamed"}).status_code == 200
+    low = world.api.patch(f"/transactions/{s['id']}", json={
+        "amount": "300.00", "yourShare": "250.00", "splits": [{"friendId": world.friend["rahul"], "share": "50.00"}]})
+    assert low.status_code == 409
+    again = world.api.patch(f"/transactions/{s['id']}", json={
+        "amount": "300.00", "yourShare": "250.00", "splits": [{"friendId": world.friend["rahul"], "share": "50.00"}],
+        "removeLinked": True})
+    assert again.status_code == 200
 
 
 # ------------------------------------------------------------------- delete ---
@@ -513,11 +514,17 @@ def test_delete_every_kind_restores_balances(world, kind):
 
 def test_delete_settlement_and_guarded_split_delete(world):
     s = world.split()["entry"]
-    st = ok(post(world, **base(world, "settlement", amount="100.00", friendId=world.friend["rahul"],
-                               accountId=world.acct["bank"])))
+    st = world.settle(amount="100.00")
     assert world.api.delete(f"/transactions/{s['id']}").status_code == 409
-    assert world.api.delete(f"/transactions/{s['id']}", params={"force": True}).status_code == 200
+    assert world.api.delete(f"/transactions/{s['id']}", params={"removeLinked": True}).status_code == 200
+    assert world.api.get(f"/transactions/{st['id']}").status_code == 404      # its payments went with it
+
+
+def test_delete_a_settlement(world):
+    world.split()
+    st = world.settle(amount="100.00")
     assert world.api.delete(f"/transactions/{st['id']}").status_code == 200
+    assert world.friend_balance("rahul") == 35_000
 
 
 # ------------------------------------------------------------------- STRICT ---
